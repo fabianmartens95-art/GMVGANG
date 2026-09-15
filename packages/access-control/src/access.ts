@@ -30,7 +30,10 @@ export type Permission =
   | "outreach.write"
   | "economics.read"
   | "profile.read"
-  | "profile.write";
+  | "profile.write"
+  | "referrals.read"
+  | "referrals.share"
+  | "referrals.manage";
 
 export type PlatformMembership = {
   principalId: string;
@@ -69,6 +72,9 @@ const ALL_PERMISSIONS: Permission[] = [
   "economics.read",
   "profile.read",
   "profile.write",
+  "referrals.read",
+  "referrals.share",
+  "referrals.manage",
 ];
 
 const ROLE_PERMISSIONS: Record<PlatformRole, ReadonlySet<Permission>> = {
@@ -90,6 +96,7 @@ const ROLE_PERMISSIONS: Record<PlatformRole, ReadonlySet<Permission>> = {
     "economics.read",
     "profile.read",
     "profile.write",
+    "referrals.read",
   ]),
   closer: new Set<Permission>([
     "brands.read",
@@ -115,6 +122,8 @@ const ROLE_PERMISSIONS: Record<PlatformRole, ReadonlySet<Permission>> = {
     "outreach.write",
     "profile.read",
     "profile.write",
+    "referrals.read",
+    "referrals.manage",
   ]),
   brand_manager: new Set<Permission>([
     "brands.read",
@@ -163,6 +172,8 @@ const ROLE_PERMISSIONS: Record<PlatformRole, ReadonlySet<Permission>> = {
     "reports.read",
     "profile.read",
     "profile.write",
+    "referrals.read",
+    "referrals.share",
   ]),
 };
 
