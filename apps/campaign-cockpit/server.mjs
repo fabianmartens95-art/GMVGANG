@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
+import { notionResults } from "./notion-payload.mjs";
 
 const root = fileURLToPath(new URL("./dist", import.meta.url));
 const port = Number(process.env.PORT ?? 4173);
@@ -115,14 +116,6 @@ async function readBody(req) {
     try { return JSON.parse(parsed.body); } catch { /* keep wrapper */ }
   }
   return parsed;
-}
-
-function notionResults(raw) {
-  if (!raw) return [];
-  if (Array.isArray(raw.results)) return raw.results;
-  if (raw.body && Array.isArray(raw.body.results)) return raw.body.results;
-  if (raw.data && Array.isArray(raw.data.results)) return raw.data.results;
-  return [];
 }
 
 function sanitizeCreatorPayload(raw) {
