@@ -95,14 +95,16 @@ function mustQuery<T extends Element>(selector: string): T {
 }
 
 function buildInput(): CreatorRegistrationInput {
-  return {
+  const input: CreatorRegistrationInput = {
     displayName: mustQuery<HTMLInputElement>("#display-name").value,
     tiktokHandle: mustQuery<HTMLInputElement>("#tiktok-handle").value,
     email: mustQuery<HTMLInputElement>("#email").value,
     ageConfirmed: mustQuery<HTMLInputElement>("#age-confirmed").checked,
     privacyAccepted: mustQuery<HTMLInputElement>("#privacy-accepted").checked,
-    referralCode: mustQuery<HTMLInputElement>("#referral-code").value || undefined
   };
+  const referralCode = mustQuery<HTMLInputElement>("#referral-code").value;
+  if (referralCode) input.referralCode = referralCode;
+  return input;
 }
 
 const errorLabels: Record<string, string> = {
