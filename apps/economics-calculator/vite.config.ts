@@ -3,6 +3,7 @@ import { defineConfig } from "vite";
 export default defineConfig({
   base: "./",
   preview: {
-    allowedHosts: ["economics-calculator-production.up.railway.app"]
+    // Public, stateless calculator: Railway health checks use an internal Host header.
+    allowedHosts: true
   }
 });
