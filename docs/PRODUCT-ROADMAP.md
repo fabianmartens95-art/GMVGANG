@@ -68,11 +68,15 @@ AI Decision Layer
 - [x] Outreach campaign model
 - [x] Sample request pipeline
 - [ ] Basic affiliate performance dashboard
-- [x] Notion synchronization contract
+- [x] Notion Creator synchronization contract
+- [x] Company OS Campaign / Assignment SSOT
+- [x] Hosted internal Campaign Cockpit foundation
+- [x] PII-minimized Company OS -> Cockpit sync
 - [x] Audit log
 
 ### Phase 3 - Automation Layer
 
+- [x] Scheduled read-only Company OS -> Cockpit sync
 - [ ] Workflow engine: trigger -> condition -> action
 - [ ] Follow-up automation
 - [ ] Auto-replies
@@ -96,7 +100,8 @@ AI Decision Layer
 
 ### Phase 5 - Growth Cockpit + Interfaces
 
-- [ ] Growth Cockpit
+- [x] Internal Campaign Cockpit foundation
+- [ ] Full Growth Cockpit
 - [ ] Affiliate funnel reporting
 - [ ] Sample funnel reporting
 - [ ] Campaign profitability / contribution margin
@@ -124,10 +129,12 @@ AI Decision Layer
 
 ## Current gate
 
-Phase 1 Revenue Core is implemented. Phase 2 now includes the creator graph, performance scoring, deterministic product-to-creator matching, reusable creator segmentation / materialized lists, the PII-minimized Notion Creator synchronization contract and the Campaign Execution Core.
+Phase 1 Revenue Core is implemented. Phase 2 now includes the creator graph, performance scoring, deterministic product-to-creator matching, reusable creator segmentation / materialized lists, the PII-minimized Notion Creator synchronization contract, Company OS campaign execution sources and the Campaign Execution Core.
 
-The Campaign Execution Core covers shortlist -> approved campaign -> outreach state -> follow-up due state -> sample workflow -> content post -> GMV/orders/commission snapshot with append-only audit logging. External effects remain approval-gated and are not executed automatically by the core.
+The internal Campaign Cockpit is hosted on Railway behind HTTP Basic authentication. A Make scenario reads the Company OS every 15 minutes and sends read-only snapshots through a separate machine-secret boundary. Creator reads are restricted to the explicit operational whitelist `TikTok Handle`, `Status`, `Legal Hold`, `Creator nicht aufnehmen`, `Raus`, `Compliance-Risiko` and `TikTok Verstöße 90 Tage`; the runtime applies the same whitelist again before storing the snapshot.
 
-The next build target is integration and visibility around the execution core: multi-brand isolation, Company OS campaign synchronization, approved outreach/sample adapters and a lightweight internal campaign cockpit. The first end-to-end milestone remains a real client campaign that can move from product -> creator shortlist -> outreach -> sample -> post -> GMV with less manual work than the current process.
+The Creator pool is live from Company OS. `GMVGANG – Campaigns` and `GMVGANG – Campaign Creator Assignments` are established as the campaign SSOT but currently contain no live synced campaign rows, so campaign cards remain explicitly on state-machine-generated demo data until the first real campaign is enabled with `Cockpit Sync`.
+
+The next gate is the first real end-to-end campaign through product -> creator shortlist -> outreach -> sample -> content -> GMV. After that: verified affiliate-performance ingestion, multi-brand isolation, a persistent runtime store and approval-gated outbound adapters. External messages, sample fulfillment and Notion writes remain outside the Cockpit runtime until explicitly approved and implemented.
 
 Any dashboard, portal or automation must either remove a measured operational blocker, improve revenue decisions, improve delivery quality or generate defensible data.
