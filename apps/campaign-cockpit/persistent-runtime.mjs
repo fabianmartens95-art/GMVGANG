@@ -1,5 +1,6 @@
 import { createServer, request as httpRequest } from "node:http";
 import { FileSnapshotStore } from "./snapshot-store.mjs";
+import { notionResults } from "./notion-payload.mjs";
 
 const externalPort = Number(process.env.PORT ?? 4173);
 const internalPort = Number(process.env.COCKPIT_INTERNAL_PORT ?? 4174);
@@ -19,14 +20,6 @@ const creatorPropertyWhitelist = new Set([
   "Compliance Check bestanden",
   "Vertrag unterschrieben am"
 ]);
-
-function notionResults(raw) {
-  if (!raw) return [];
-  if (Array.isArray(raw.results)) return raw.results;
-  if (raw.body && Array.isArray(raw.body.results)) return raw.body.results;
-  if (raw.data && Array.isArray(raw.data.results)) return raw.data.results;
-  return [];
-}
 
 function parsePayload(buffer) {
   if (!buffer.length) return null;
