@@ -78,6 +78,9 @@ AI Decision Layer
 ### Phase 3 - Automation Layer
 
 - [x] Scheduled read-only Company OS -> Cockpit sync
+- [x] Approval-gated initial outreach adapter foundation with idempotency contract
+- [ ] Persistent production idempotency store
+- [ ] Authorized outreach transport (Gmail / TikTok / Make)
 - [ ] Workflow engine: trigger -> condition -> action
 - [ ] Follow-up automation
 - [ ] Auto-replies
@@ -134,10 +137,12 @@ Phase 1 Revenue Core is implemented. Phase 2 now includes the creator graph, per
 
 The internal Campaign Cockpit is hosted on Railway behind HTTP Basic authentication. A Make scenario reads the Company OS every 15 minutes and sends read-only snapshots through a separate machine-secret boundary. Creator reads are restricted to the explicit operational whitelist `TikTok Handle`, `Status`, `Legal Hold`, `Creator nicht aufnehmen`, `Raus`, `Compliance-Risiko`, `TikTok Verstöße 90 Tage`, `Compliance Check bestanden` and `Vertrag unterschrieben am`; the runtime applies the same whitelist again before storing the snapshot. No contact details, addresses, tax data or contract contents enter the Cockpit store.
 
-The Company OS Campaign SSOT now contains the campaign-specific `Client Approved` gate. Creator contract, compliance and eligibility facts remain in the central Creator SSOT and are derived into a read-only campaign readiness snapshot instead of being duplicated on assignments. `approveCampaign`, `launchCampaign`, `resumeCampaign`, active execution functions and `getCampaignActionQueue` all fail closed when readiness is not green.
+The Company OS Campaign SSOT contains the campaign-specific `Client Approved` gate. Creator contract, compliance and eligibility facts remain in the central Creator SSOT and are derived into a read-only campaign readiness snapshot instead of being duplicated on assignments. `approveCampaign`, `launchCampaign`, `resumeCampaign`, active execution functions and `getCampaignActionQueue` all fail closed when readiness is not green.
+
+The first outbound integration boundary is now implemented as `@gmvgang/campaign-outbound`. It accepts only an active, readiness-green `send-outreach` action plus explicit human approval, claims a deterministic campaign+creator idempotency key before any transport call, detects message-template conflicts, reconciles verified provider receipts back into the Campaign Execution Core, and locks ambiguous provider failures as `uncertain` rather than retrying automatically. Dispatch requests carry creator/campaign references but no raw contact PII. No production persistence or real transport is connected yet, so this increment cannot send an external message.
 
 The first Company OS campaign remains `kaëll – PUNKTLANDUNG – Pre-Launch Validation`: an internal Draft with three real Screening creator assignments. kaëll is not yet a won client, `Client Approved` remains off, and the assigned creators have not cleared all contract / execution-eligibility gates. The Cockpit therefore shows readiness blockers and produces no outreach, sample or content action queue.
 
-The next gate is real client approval plus creator contract / compliance / eligibility clearance, followed by the first end-to-end execution through outreach -> sample -> content -> GMV. After that: verified affiliate-performance ingestion, multi-brand isolation, a persistent runtime store and approval-gated outbound adapters. External messages, sample fulfillment and Notion writes remain outside the Cockpit runtime until explicitly approved and implemented.
+The next technical gate is a persistent production idempotency store, followed by one authorized outreach transport behind the same approval boundary. Only after that and a real client/creator readiness clearance should the first end-to-end execution proceed through outreach -> sample -> content -> GMV. Verified affiliate-performance ingestion, multi-brand isolation and a persistent broader runtime store follow after the first controlled execution.
 
 Any dashboard, portal or automation must either remove a measured operational blocker, improve revenue decisions, improve delivery quality or generate defensible data.
