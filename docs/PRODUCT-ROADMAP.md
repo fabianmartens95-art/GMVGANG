@@ -63,11 +63,11 @@ AI Decision Layer
 - [x] Creator data model / creator graph
 - [x] Creator Matching Engine core
 - [x] Creator Performance Score
-- [ ] Creator lists / segments
+- [x] Creator lists / segments
 - [ ] Outreach campaign model
 - [ ] Sample request pipeline
 - [ ] Basic affiliate performance dashboard
-- [ ] Notion synchronization contracts
+- [x] Notion synchronization contract
 - [ ] Audit log
 
 ### Phase 3 - Automation Layer
@@ -123,8 +123,8 @@ AI Decision Layer
 
 ## Current gate
 
-Phase 1 Revenue Core is implemented. The first three intelligence primitives in Phase 2 are now implemented as reusable TypeScript core logic: creator graph, creator performance scoring and deterministic product-to-creator matching.
+Phase 1 Revenue Core is implemented. Phase 2 now has the creator graph, performance scoring, deterministic product-to-creator matching, reusable creator segmentation / materialized lists and a PII-minimized Notion Creator synchronization contract.
 
-The next build target is the operational layer around that core: creator lists / segments plus the Notion synchronization contract needed to feed real GMVGANG creator data into the engine. The first end-to-end milestone remains a real client campaign that can move from product -> creator shortlist -> outreach -> sample -> post -> GMV with less manual work than the current process.
+The next build target is the campaign execution layer around this intelligence core: outreach campaign model, sample request pipeline and audit logging. The first end-to-end milestone remains a real client campaign that can move from product -> creator shortlist -> outreach -> sample -> post -> GMV with less manual work than the current process.
 
 Any dashboard, portal or automation must either remove a measured operational blocker, improve revenue decisions, improve delivery quality or generate defensible data.
