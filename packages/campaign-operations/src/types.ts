@@ -4,6 +4,21 @@ export type OutreachReply = "accepted" | "declined" | "question" | null;
 export type SampleStatus = "not_requested" | "requested" | "approved" | "rejected" | "ordered" | "shipped" | "delivered" | "content_due" | "posted" | "closed";
 export type ContentStatus = "not_started" | "briefed" | "in_progress" | "posted" | "cancelled";
 
+export type CreatorCampaignReadiness = {
+  contractReady: boolean;
+  complianceReady: boolean;
+  eligible: boolean;
+  ready: boolean;
+  blockers: string[];
+};
+
+export type CampaignReadiness = {
+  clientApproved: boolean;
+  ready: boolean;
+  evaluatedAt: string | null;
+  blockers: string[];
+};
+
 export type CreatorOutreachState = {
   status: OutreachStatus;
   reply: OutreachReply;
@@ -39,6 +54,7 @@ export type CreatorCampaignPerformance = {
 
 export type CampaignCreatorAssignment = {
   creatorId: string;
+  readiness: CreatorCampaignReadiness;
   outreach: CreatorOutreachState;
   sample: CreatorSampleState;
   content: CreatorContentState;
@@ -52,6 +68,7 @@ export type CampaignExecution = {
   productId: string;
   creatorListId: string;
   status: CampaignStatus;
+  readiness: CampaignReadiness;
   createdAt: string;
   approvedAt: string | null;
   launchedAt: string | null;

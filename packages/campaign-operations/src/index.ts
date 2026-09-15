@@ -1,5 +1,7 @@
 export * from "./types";
 export { appendAuditEvent, validateAuditTrail } from "./audit";
+export { evaluateCampaignReadiness } from "./readiness";
+export type { CampaignReadinessEvidence, CreatorReadinessEvidence } from "./readiness";
 export {
   createCampaignDraft,
   approveCampaign,

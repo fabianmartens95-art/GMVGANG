@@ -5,6 +5,7 @@ import {
   briefCreator,
   completeCampaign,
   createCampaignDraft,
+  evaluateCampaignReadiness,
   getCampaignActionQueue,
   launchCampaign,
   markFollowUpSent,
@@ -16,7 +17,8 @@ import {
   scheduleFollowUp,
   summarizeCampaign,
   transitionSample,
-  validateAuditTrail
+  validateAuditTrail,
+  type CampaignLedger
 } from "./index";
 
 const actor = { kind: "human" as const, id: "founder" };
@@ -42,11 +44,29 @@ function draft() {
   });
 }
 
+function ready(ledger: CampaignLedger, at = "2026-09-15T10:07:00.000Z"): CampaignLedger {
+  return evaluateCampaignReadiness(
+    ledger,
+    {
+      clientApproved: true,
+      creators: ledger.campaign.assignments.map((assignment) => ({
+        creatorId: assignment.creatorId,
+        contractReady: true,
+        complianceReady: true,
+        eligible: true
+      }))
+    },
+    actor,
+    at
+  );
+}
+
 describe("campaign execution core", () => {
-  it("creates a draft from a materialized creator list with an audit event", () => {
+  it("creates a draft from a materialized creator list with an unevaluated readiness gate", () => {
     const ledger = draft();
 
     expect(ledger.campaign.status).toBe("draft");
+    expect(ledger.campaign.readiness.ready).toBe(false);
     expect(ledger.campaign.assignments.map((assignment) => assignment.creatorId)).toEqual([
       "creator-1",
       "creator-2"
@@ -56,13 +76,44 @@ describe("campaign execution core", () => {
     validateAuditTrail(ledger);
   });
 
-  it("requires explicit approval before launch and exposes outreach as an approval-gated action", () => {
+  it("blocks approval until client and every creator readiness gate are green", () => {
+    const created = draft();
+    expect(() => approveCampaign(created, actor, "2026-09-15T10:08:00.000Z")).toThrow(
+      "campaign readiness blocked"
+    );
+
+    const evaluated = evaluateCampaignReadiness(
+      created,
+      {
+        clientApproved: false,
+        creators: [
+          { creatorId: "creator-1", contractReady: true, complianceReady: true, eligible: true },
+          { creatorId: "creator-2", contractReady: false, complianceReady: true, eligible: false }
+        ]
+      },
+      actor,
+      "2026-09-15T10:07:00.000Z"
+    );
+
+    expect(evaluated.campaign.readiness.ready).toBe(false);
+    expect(evaluated.campaign.readiness.blockers).toContain("Client approval missing");
+    expect(evaluated.campaign.assignments[1]?.readiness.blockers).toEqual([
+      "Creator contract not ready",
+      "Creator not eligible for campaign execution"
+    ]);
+    expect(() => approveCampaign(evaluated, actor, "2026-09-15T10:08:00.000Z")).toThrow(
+      "campaign readiness blocked"
+    );
+    expect(evaluated.auditTrail.at(-1)?.action).toBe("campaign.readiness_evaluated");
+  });
+
+  it("requires explicit readiness and approval before launch and exposes outreach as an approval-gated action", () => {
     const created = draft();
     expect(() => launchCampaign(created, actor, "2026-09-15T10:10:00.000Z")).toThrow(
       "campaign must be approved before launch"
     );
 
-    const approved = approveCampaign(created, actor, "2026-09-15T10:08:00.000Z");
+    const approved = approveCampaign(ready(created), actor, "2026-09-15T10:08:00.000Z");
     const launched = launchCampaign(approved, actor, "2026-09-15T10:10:00.000Z");
     const actions = getCampaignActionQueue(launched, "2026-09-15T10:11:00.000Z");
 
@@ -72,9 +123,35 @@ describe("campaign execution core", () => {
     expect(actions.every((action) => action.requiresApproval)).toBe(true);
   });
 
+  it("returns no external action queue when readiness is blocked even if an upstream status is active", () => {
+    const blocked = evaluateCampaignReadiness(
+      draft(),
+      {
+        clientApproved: false,
+        creators: creatorList.creatorIds.map((creatorId) => ({
+          creatorId,
+          contractReady: false,
+          complianceReady: true,
+          eligible: false
+        }))
+      },
+      actor,
+      "2026-09-15T10:07:00.000Z"
+    );
+    const forgedActive: CampaignLedger = {
+      ...blocked,
+      campaign: { ...blocked.campaign, status: "active", launchedAt: "2026-09-15T10:10:00.000Z" }
+    };
+
+    expect(getCampaignActionQueue(forgedActive, "2026-09-15T10:11:00.000Z")).toEqual([]);
+    expect(() => markOutreachSent(forgedActive, "creator-1", actor, "2026-09-15T10:12:00.000Z")).toThrow(
+      "campaign readiness blocked"
+    );
+  });
+
   it("tracks outreach, follow-ups, replies and sample approval without sending anything automatically", () => {
     let ledger = launchCampaign(
-      approveCampaign(draft(), actor, "2026-09-15T10:08:00.000Z"),
+      approveCampaign(ready(draft()), actor, "2026-09-15T10:08:00.000Z"),
       actor,
       "2026-09-15T10:10:00.000Z"
     );
@@ -104,7 +181,7 @@ describe("campaign execution core", () => {
 
   it("enforces sample transitions and closes the loop through content and performance", () => {
     let ledger = launchCampaign(
-      approveCampaign(draft(), actor, "2026-09-15T10:08:00.000Z"),
+      approveCampaign(ready(draft()), actor, "2026-09-15T10:08:00.000Z"),
       actor,
       "2026-09-15T10:10:00.000Z"
     );
@@ -147,7 +224,7 @@ describe("campaign execution core", () => {
 
   it("can complete an active campaign while preserving a valid audit trail", () => {
     const ledger = launchCampaign(
-      approveCampaign(draft(), actor, "2026-09-15T10:08:00.000Z"),
+      approveCampaign(ready(draft()), actor, "2026-09-15T10:08:00.000Z"),
       actor,
       "2026-09-15T10:10:00.000Z"
     );

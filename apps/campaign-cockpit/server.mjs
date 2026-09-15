@@ -16,7 +16,9 @@ const CREATOR_PROPERTY_WHITELIST = new Set([
   "Creator nicht aufnehmen",
   "Raus",
   "Compliance-Risiko",
-  "TikTok Verstöße 90 Tage"
+  "TikTok Verstöße 90 Tage",
+  "Compliance Check bestanden",
+  "Vertrag unterschrieben am"
 ]);
 
 const rawStore = {
@@ -191,7 +193,38 @@ function creatorNamesByPageId() {
   return result;
 }
 
-function assignmentFromPage(row, creatorNames) {
+function creatorReadinessByPageId() {
+  const result = new Map();
+  for (const row of notionResults(rawStore.creators)) {
+    if (!row?.id) continue;
+    const status = selected(row, "Status");
+    const legalHold = checked(row, "Legal Hold");
+    const manualExclusion = checked(row, "Creator nicht aufnehmen") || checked(row, "Raus");
+    const complianceRisk = selected(row, "Compliance-Risiko") === "Blocker";
+    const activeViolation = selected(row, "TikTok Verstöße 90 Tage") === "Ja – aktuell aktiv";
+    const contractReady = Boolean(date(row, "Vertrag unterschrieben am"));
+    const complianceReady = checked(row, "Compliance Check bestanden") && !legalHold && !complianceRisk && !activeViolation;
+    const eligible = ["Onboarding", "Aktiv"].includes(status) && !legalHold && !manualExclusion && !activeViolation;
+    const blockers = [];
+    if (!contractReady) blockers.push("Creator contract not ready");
+    if (!checked(row, "Compliance Check bestanden")) blockers.push("Creator compliance check not passed");
+    if (legalHold) blockers.push("Creator legal hold");
+    if (complianceRisk) blockers.push("Creator compliance risk blocker");
+    if (activeViolation) blockers.push("Creator has active TikTok violation");
+    if (manualExclusion) blockers.push("Creator manually excluded");
+    if (!["Onboarding", "Aktiv"].includes(status)) blockers.push(`Creator status ${status ?? "unset"} is not execution-eligible`);
+    result.set(row.id, {
+      contractReady,
+      complianceReady,
+      eligible,
+      ready: contractReady && complianceReady && eligible,
+      blockers
+    });
+  }
+  return result;
+}
+
+function assignmentFromPage(row, creatorNames, creatorReadiness) {
   const creatorPageId = relationId(row, "Creator");
   const creatorKey = rich(row, "Creator Key").trim();
   const creatorId = creatorKey || creatorNames.get(creatorPageId) || creatorPageId || row.id;
@@ -199,8 +232,16 @@ function assignmentFromPage(row, creatorNames) {
   const reply = replyMap[selected(row, "Outreach Reply")] ?? null;
   const sample = sampleMap[selected(row, "Sample Status")] ?? "not_requested";
   const content = contentMap[selected(row, "Content Status")] ?? "not_started";
+  const readiness = creatorReadiness.get(creatorPageId) ?? {
+    contractReady: false,
+    complianceReady: false,
+    eligible: false,
+    ready: false,
+    blockers: ["Creator readiness source missing"]
+  };
   return {
     creatorId,
+    readiness,
     outreach: {
       status: outreach,
       reply,
@@ -237,30 +278,45 @@ function liveLedgers() {
   const campaigns = notionResults(rawStore.campaigns).filter((row) => checked(row, "Cockpit Sync"));
   const assignments = notionResults(rawStore.assignments).filter((row) => checked(row, "Cockpit Sync"));
   const creatorNames = creatorNamesByPageId();
+  const creatorReadiness = creatorReadinessByPageId();
   const byCampaignPageId = new Map();
   for (const row of assignments) {
     const campaignPageId = relationId(row, "Campaign");
     if (!campaignPageId) continue;
     const list = byCampaignPageId.get(campaignPageId) ?? [];
-    list.push(assignmentFromPage(row, creatorNames));
+    list.push(assignmentFromPage(row, creatorNames, creatorReadiness));
     byCampaignPageId.set(campaignPageId, list);
   }
-  return campaigns.map((row) => ({
-    campaign: {
-      id: rich(row, "Campaign Key").trim() || row.id,
-      name: title(row, "Campaign") || "Untitled Campaign",
-      brandId: rich(row, "Brand Key").trim() || "brand-unset",
-      productId: rich(row, "Product Key").trim() || "product-unset",
-      creatorListId: rich(row, "Creator List Key").trim() || "notion-live",
-      status: statusMap[selected(row, "Status")] ?? "draft",
-      createdAt: date(row, "Created At") ?? row.created_time ?? new Date().toISOString(),
-      approvedAt: date(row, "Approved At"),
-      launchedAt: date(row, "Launched At"),
-      completedAt: date(row, "Completed At"),
-      assignments: byCampaignPageId.get(row.id) ?? []
-    },
-    auditTrail: []
-  }));
+  return campaigns.map((row) => {
+    const campaignAssignments = byCampaignPageId.get(row.id) ?? [];
+    const clientApproved = checked(row, "Client Approved");
+    const blockers = [];
+    if (!clientApproved) blockers.push("Client approval missing");
+    if (campaignAssignments.length === 0) blockers.push("No creator assignments");
+    const ready = blockers.length === 0 && campaignAssignments.every((assignment) => assignment.readiness.ready);
+    return {
+      campaign: {
+        id: rich(row, "Campaign Key").trim() || row.id,
+        name: title(row, "Campaign") || "Untitled Campaign",
+        brandId: rich(row, "Brand Key").trim() || "brand-unset",
+        productId: rich(row, "Product Key").trim() || "product-unset",
+        creatorListId: rich(row, "Creator List Key").trim() || "notion-live",
+        status: statusMap[selected(row, "Status")] ?? "draft",
+        readiness: {
+          clientApproved,
+          ready,
+          evaluatedAt: rawStore.syncedAt.assignments ?? rawStore.syncedAt.creators ?? rawStore.syncedAt.campaigns,
+          blockers
+        },
+        createdAt: date(row, "Created At") ?? row.created_time ?? new Date().toISOString(),
+        approvedAt: date(row, "Approved At"),
+        launchedAt: date(row, "Launched At"),
+        completedAt: date(row, "Completed At"),
+        assignments: campaignAssignments
+      },
+      auditTrail: []
+    };
+  });
 }
 
 function snapshot() {
