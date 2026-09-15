@@ -20,6 +20,7 @@ GMVGANG Data + Integration Layer
         +--> Brand Qualification
         +--> Creator Matching
         +--> Creator Operations
+        +--> Campaign Execution
         +--> Workflow Automation
         +--> Content Intelligence
         +--> Compliance
@@ -64,11 +65,11 @@ AI Decision Layer
 - [x] Creator Matching Engine core
 - [x] Creator Performance Score
 - [x] Creator lists / segments
-- [ ] Outreach campaign model
-- [ ] Sample request pipeline
+- [x] Outreach campaign model
+- [x] Sample request pipeline
 - [ ] Basic affiliate performance dashboard
 - [x] Notion synchronization contract
-- [ ] Audit log
+- [x] Audit log
 
 ### Phase 3 - Automation Layer
 
@@ -123,8 +124,10 @@ AI Decision Layer
 
 ## Current gate
 
-Phase 1 Revenue Core is implemented. Phase 2 now has the creator graph, performance scoring, deterministic product-to-creator matching, reusable creator segmentation / materialized lists and a PII-minimized Notion Creator synchronization contract.
+Phase 1 Revenue Core is implemented. Phase 2 now includes the creator graph, performance scoring, deterministic product-to-creator matching, reusable creator segmentation / materialized lists, the PII-minimized Notion Creator synchronization contract and the Campaign Execution Core.
 
-The next build target is the campaign execution layer around this intelligence core: outreach campaign model, sample request pipeline and audit logging. The first end-to-end milestone remains a real client campaign that can move from product -> creator shortlist -> outreach -> sample -> post -> GMV with less manual work than the current process.
+The Campaign Execution Core covers shortlist -> approved campaign -> outreach state -> follow-up due state -> sample workflow -> content post -> GMV/orders/commission snapshot with append-only audit logging. External effects remain approval-gated and are not executed automatically by the core.
+
+The next build target is integration and visibility around the execution core: multi-brand isolation, Company OS campaign synchronization, approved outreach/sample adapters and a lightweight internal campaign cockpit. The first end-to-end milestone remains a real client campaign that can move from product -> creator shortlist -> outreach -> sample -> post -> GMV with less manual work than the current process.
 
 Any dashboard, portal or automation must either remove a measured operational blocker, improve revenue decisions, improve delivery quality or generate defensible data.
