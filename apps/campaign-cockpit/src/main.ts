@@ -1,24 +1,36 @@
 import "./styles.css";
+import "./runtime.css";
 import { demoLedgers, demoNow } from "./demo";
 import { buildPortfolioCockpitView } from "./model";
 import { renderCockpit, type CreatorFilter } from "./render";
+import { loadRuntimeSnapshot, type CockpitRuntimeSnapshot } from "./runtime";
 
 const root = document.querySelector<HTMLDivElement>("#app");
 if (!root) throw new Error("#app not found");
 const mount: HTMLDivElement = root;
 
-const portfolio = buildPortfolioCockpitView(demoLedgers, demoNow);
-let selectedCampaignId = portfolio.campaigns[0]?.id ?? "";
+let runtime: CockpitRuntimeSnapshot | null = null;
+let selectedCampaignId = "";
 let creatorFilter: CreatorFilter = "all";
 
+function selectedLedgers() {
+  if (runtime?.campaignSource === "company-os" && runtime.ledgers.length > 0) return runtime.ledgers;
+  return demoLedgers;
+}
+
 function render(): void {
+  const ledgers = selectedLedgers();
+  const now = runtime?.generatedAt ?? demoNow;
+  const portfolio = buildPortfolioCockpitView(ledgers, now);
+  if (!selectedCampaignId) selectedCampaignId = portfolio.campaigns[0]?.id ?? "";
   const campaign = portfolio.campaigns.find((item) => item.id === selectedCampaignId) ?? portfolio.campaigns[0];
+
   if (!campaign) {
     mount.innerHTML = `<main class="empty">Noch keine Kampagnen vorhanden.</main>`;
     return;
   }
 
-  mount.innerHTML = renderCockpit(portfolio, campaign, creatorFilter);
+  mount.innerHTML = renderCockpit(portfolio, campaign, creatorFilter, runtime);
 
   mount.querySelectorAll<HTMLButtonElement>("[data-campaign-id]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -39,4 +51,10 @@ function render(): void {
   });
 }
 
-render();
+async function bootstrap(): Promise<void> {
+  mount.innerHTML = `<main class="empty">Campaign Cockpit wird geladen…</main>`;
+  runtime = await loadRuntimeSnapshot();
+  render();
+}
+
+void bootstrap();

@@ -1,4 +1,5 @@
 import type { CampaignCockpitView, CreatorCockpitRow, PortfolioCockpitView } from "./model";
+import type { CockpitRuntimeSnapshot } from "./runtime";
 import { escapeHtml, euro, integer, label, percentage, pill } from "./format";
 
 export type CreatorFilter = "all" | "action" | "sample" | "content";
@@ -51,21 +52,44 @@ function filters(current: CreatorFilter): string {
   return values.map((value) => `<button class="filter${current === value ? " is-active" : ""}" data-filter="${value}">${label(value)}</button>`).join("");
 }
 
-export function renderCockpit(portfolio: PortfolioCockpitView, campaign: CampaignCockpitView, filter: CreatorFilter): string {
+function sourceBadge(runtime: CockpitRuntimeSnapshot | null): string {
+  if (!runtime) return `<span class="sync sync--warn">● Runtime fallback</span>`;
+  const live = runtime.creatorSource === "company-os";
+  return `<span class="sync${live ? "" : " sync--warn"}">● ${live ? "Company OS synced" : "Company OS pending"}</span>`;
+}
+
+function sourcePanel(runtime: CockpitRuntimeSnapshot | null): string {
+  if (!runtime?.creatorPool) {
+    return `<section class="source-panel source-panel--pending"><div><span class="source-dot"></span><div><strong>Company OS Creator Sync</strong><small>Noch kein sanitizierter Runtime-Snapshot empfangen.</small></div></div><span>Pending</span></section>`;
+  }
+  const pool = runtime.creatorPool;
+  const campaignLabel = runtime.campaignSource === "company-os" ? "Live Campaigns" : "Campaign Demo bis erste Live-Campaign synchronisiert ist";
+  return `<section class="source-panel"><div><span class="source-dot"></span><div><strong>Company OS Live</strong><small>${escapeHtml(campaignLabel)}</small></div></div><div class="source-metrics"><span><strong>${pool.total}</strong> Creator</span><span><strong>${pool.active}</strong> aktiv</span><span><strong>${pool.onboarding}</strong> Onboarding</span><span><strong>${pool.screening}</strong> Screening</span><span class="${pool.blockers > 0 ? "danger-text" : ""}"><strong>${pool.blockers}</strong> Blocker</span></div></section>`;
+}
+
+export function renderCockpit(
+  portfolio: PortfolioCockpitView,
+  campaign: CampaignCockpitView,
+  filter: CreatorFilter,
+  runtime: CockpitRuntimeSnapshot | null = null
+): string {
+  const campaignSourceLabel = runtime?.campaignSource === "company-os" ? "Company OS Campaigns" : "Core-backed Campaign Demo";
   return `<div class="layout">
     <aside class="sidebar">
       <div class="brand"><span class="brand__mark">G</span><div><strong>GMVGANG</strong><small>OPERATIONS OS</small></div></div>
       <nav><button class="nav is-active">◫ Campaign Cockpit</button><button class="nav">◎ Creator Intelligence</button><button class="nav">↗ Economics</button><button class="nav">◌ Automation</button></nav>
-      <div class="mode"><span></span><div><strong>Core-backed Demo</strong><small>Keine externen Aktionen.</small></div></div>
+      <div class="mode"><span></span><div><strong>${escapeHtml(campaignSourceLabel)}</strong><small>Externe Aktionen approval-gated.</small></div></div>
     </aside>
 
     <main class="main">
-      <header class="topbar"><div><p class="eyebrow">INTERNAL OPERATIONS</p><h1>Campaign Cockpit</h1></div><div class="topbar__actions"><span class="sync">● Core synced</span><button class="button button--ghost">Export</button><button class="button" disabled>Neue Campaign</button></div></header>
+      <header class="topbar"><div><p class="eyebrow">INTERNAL OPERATIONS</p><h1>Campaign Cockpit</h1></div><div class="topbar__actions">${sourceBadge(runtime)}<button class="button button--ghost">Export</button><button class="button" disabled>Neue Campaign</button></div></header>
+
+      ${sourcePanel(runtime)}
 
       <section class="stats">
         ${stat("Portfolio GMV", euro.format(portfolio.gmV), `${integer.format(portfolio.orders)} Orders`, true)}
         ${stat("Aktive Campaigns", `${portfolio.activeCampaigns}`, `${portfolio.totalCampaigns} insgesamt`)}
-        ${stat("Creator", `${portfolio.totalCreators}`, `${portfolio.creatorsPosted} Content live`)}
+        ${stat("Campaign Creator", `${portfolio.totalCreators}`, `${portfolio.creatorsPosted} Content live`)}
         ${stat("Pending Actions", `${portfolio.pendingActions}`, `${portfolio.approvalActions} Freigaben`)}
         ${stat("Samples delivered", `${portfolio.samplesDelivered}`, `${portfolio.campaignsNeedingAttention} brauchen Attention`)}
       </section>
