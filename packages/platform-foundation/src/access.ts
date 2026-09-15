@@ -3,6 +3,9 @@ import type { PlatformUserRole } from "./types.js";
 export type PlatformCapability =
   | "platform.manage"
   | "users.manage"
+  | "team.workspace.read"
+  | "creator.portal.access"
+  | "brand.portal.access"
   | "brands.read_all"
   | "brands.manage"
   | "creators.read_all"
@@ -24,6 +27,7 @@ const ROLE_CAPABILITIES: Record<PlatformUserRole, readonly PlatformCapability[]>
   founder: [
     "platform.manage",
     "users.manage",
+    "team.workspace.read",
     "brands.read_all",
     "brands.manage",
     "creators.read_all",
@@ -43,6 +47,7 @@ const ROLE_CAPABILITIES: Record<PlatformUserRole, readonly PlatformCapability[]>
   ],
   admin: [
     "users.manage",
+    "team.workspace.read",
     "brands.read_all",
     "brands.manage",
     "creators.read_all",
@@ -51,11 +56,25 @@ const ROLE_CAPABILITIES: Record<PlatformUserRole, readonly PlatformCapability[]>
     "campaigns.manage",
     "approvals.manage",
   ],
-  creator_manager: ["creators.read_all", "creators.manage", "campaigns.read_all", "campaigns.manage"],
-  brand_manager: ["brands.read_all", "brands.manage", "campaigns.read_all", "campaigns.manage", "approvals.manage"],
-  closer: ["brands.read_all", "campaigns.read_all"],
-  creator: ["creator.self.read", "creator.self.update", "creator.referrals.read", "creator.referrals.share"],
+  creator_manager: ["team.workspace.read", "creators.read_all", "creators.manage", "campaigns.read_all", "campaigns.manage"],
+  brand_manager: [
+    "team.workspace.read",
+    "brands.read_all",
+    "brands.manage",
+    "campaigns.read_all",
+    "campaigns.manage",
+    "approvals.manage",
+  ],
+  closer: ["team.workspace.read", "brands.read_all", "campaigns.read_all"],
+  creator: [
+    "creator.portal.access",
+    "creator.self.read",
+    "creator.self.update",
+    "creator.referrals.read",
+    "creator.referrals.share",
+  ],
   brand_member: [
+    "brand.portal.access",
     "brand.self.read",
     "brand.self.update",
     "brand.shop_connections.manage",
