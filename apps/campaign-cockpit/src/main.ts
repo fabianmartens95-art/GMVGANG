@@ -5,6 +5,7 @@ import { renderCockpit, type CreatorFilter } from "./render";
 
 const root = document.querySelector<HTMLDivElement>("#app");
 if (!root) throw new Error("#app not found");
+const mount: HTMLDivElement = root;
 
 const portfolio = buildPortfolioCockpitView(demoLedgers, demoNow);
 let selectedCampaignId = portfolio.campaigns[0]?.id ?? "";
@@ -13,13 +14,13 @@ let creatorFilter: CreatorFilter = "all";
 function render(): void {
   const campaign = portfolio.campaigns.find((item) => item.id === selectedCampaignId) ?? portfolio.campaigns[0];
   if (!campaign) {
-    root.innerHTML = `<main class="empty">Noch keine Kampagnen vorhanden.</main>`;
+    mount.innerHTML = `<main class="empty">Noch keine Kampagnen vorhanden.</main>`;
     return;
   }
 
-  root.innerHTML = renderCockpit(portfolio, campaign, creatorFilter);
+  mount.innerHTML = renderCockpit(portfolio, campaign, creatorFilter);
 
-  root.querySelectorAll<HTMLButtonElement>("[data-campaign-id]").forEach((button) => {
+  mount.querySelectorAll<HTMLButtonElement>("[data-campaign-id]").forEach((button) => {
     button.addEventListener("click", () => {
       selectedCampaignId = button.dataset.campaignId ?? selectedCampaignId;
       creatorFilter = "all";
@@ -27,7 +28,7 @@ function render(): void {
     });
   });
 
-  root.querySelectorAll<HTMLButtonElement>("[data-filter]").forEach((button) => {
+  mount.querySelectorAll<HTMLButtonElement>("[data-filter]").forEach((button) => {
     button.addEventListener("click", () => {
       const next = button.dataset.filter;
       if (next === "all" || next === "action" || next === "sample" || next === "content") {
