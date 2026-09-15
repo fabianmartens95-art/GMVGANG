@@ -23,6 +23,22 @@ Campaign Execution view model
 
 The runtime accepts only campaign-operational fields required by the cockpit. E-mail addresses, phone numbers, addresses, tax data, contracts and other creator PII are not part of the sync contract.
 
+## Live sync status
+
+The production sync is handled by the Make scenario `GMVGANG – Company OS → Campaign Cockpit Sync v2` every 15 minutes.
+
+Creator reads are restricted at the Notion API boundary to the operational whitelist used by the cockpit:
+
+- TikTok Handle
+- Status
+- Legal Hold
+- Creator nicht aufnehmen
+- Raus
+- Compliance-Risiko
+- TikTok Verstöße 90 Tage
+
+The runtime applies the same Creator-property whitelist again before storing the snapshot in memory. Campaigns and Campaign Creator Assignments use dedicated non-PII Company OS data sources.
+
 ## Data modes
 
 - Creator pool: switches to `Company OS Live` as soon as a sanitized creator snapshot is received.
