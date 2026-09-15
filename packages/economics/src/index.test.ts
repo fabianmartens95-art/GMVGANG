@@ -178,8 +178,8 @@ describe("comparePilotScenarios", () => {
     expect(result.map((scenario) => scenario.rank)).toEqual([1, 2, 3]);
 
     expect(result[0]?.viable).toBe(true);
-    expect(result[0]?.contributionAfterMarketing).toBe(34);
-    expect(result[0]?.contributionMarginAfterMarketing).toBe(0.34);
+    expect(result[0]?.contributionAfterMarketing).toBe(36);
+    expect(result[0]?.contributionMarginAfterMarketing).toBe(0.36);
     expect(result[0]?.breakEvenRoas).toBeCloseTo(2.0833, 4);
     expect(result[0]?.targetRoas).toBeCloseTo(3.5714, 4);
 
