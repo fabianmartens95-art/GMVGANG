@@ -9,6 +9,16 @@ const basicUser = process.env.COCKPIT_BASIC_USER ?? "gmvgang";
 const basicPassword = process.env.COCKPIT_BASIC_PASSWORD ?? "";
 const syncSecret = process.env.COCKPIT_SYNC_SECRET ?? "";
 
+const CREATOR_PROPERTY_WHITELIST = new Set([
+  "TikTok Handle",
+  "Status",
+  "Legal Hold",
+  "Creator nicht aufnehmen",
+  "Raus",
+  "Compliance-Risiko",
+  "TikTok Verstöße 90 Tage"
+]);
+
 const rawStore = {
   creators: null,
   campaigns: null,
@@ -111,6 +121,22 @@ function notionResults(raw) {
   if (raw.body && Array.isArray(raw.body.results)) return raw.body.results;
   if (raw.data && Array.isArray(raw.data.results)) return raw.data.results;
   return [];
+}
+
+function sanitizeCreatorPayload(raw) {
+  const results = notionResults(raw).map((row) => {
+    const safeProperties = {};
+    for (const [name, value] of Object.entries(row?.properties ?? {})) {
+      if (CREATOR_PROPERTY_WHITELIST.has(name)) safeProperties[name] = value;
+    }
+    return {
+      id: row?.id ?? null,
+      created_time: row?.created_time ?? null,
+      last_edited_time: row?.last_edited_time ?? null,
+      properties: safeProperties
+    };
+  });
+  return { object: "list", results };
 }
 
 function prop(page, name) {
@@ -294,9 +320,16 @@ const server = createServer(async (req, res) => {
     if (!["creators", "campaigns", "assignments"].includes(source)) return sendJson(res, 404, { error: "unknown_source" });
     try {
       const payload = await readBody(req);
-      rawStore[source] = payload;
+      const storedPayload = source === "creators" ? sanitizeCreatorPayload(payload) : payload;
+      rawStore[source] = storedPayload;
       rawStore.syncedAt[source] = new Date().toISOString();
-      return sendJson(res, 200, { ok: true, source, rows: notionResults(payload).length, syncedAt: rawStore.syncedAt[source] });
+      return sendJson(res, 200, {
+        ok: true,
+        source,
+        rows: notionResults(storedPayload).length,
+        creatorPropertiesStored: source === "creators" ? [...CREATOR_PROPERTY_WHITELIST] : undefined,
+        syncedAt: rawStore.syncedAt[source]
+      });
     } catch (error) {
       return sendJson(res, 400, { error: "invalid_payload", message: error instanceof Error ? error.message : "unknown" });
     }
