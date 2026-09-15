@@ -1,4 +1,4 @@
-import type { PlatformUserRole } from "@gmvgang/platform-foundation";
+import { anyRoleHasCapability, type PlatformCapability } from "@gmvgang/platform-foundation";
 import type { PortalSession } from "./session.js";
 
 export type PortalArea = "public" | "creator" | "brand" | "team";
@@ -16,7 +16,11 @@ export const PORTAL_ROUTES: readonly PortalRoute[] = [
   { path: "/team", area: "team", label: "Team Workspace" },
 ];
 
-const INTERNAL_ROLES: readonly PlatformUserRole[] = ["founder", "admin", "creator_manager", "brand_manager", "closer"];
+const AREA_CAPABILITY: Record<Exclude<PortalArea, "public">, PlatformCapability> = {
+  creator: "creator.portal.access",
+  brand: "brand.portal.access",
+  team: "team.workspace.read",
+};
 
 export function resolvePortalRoute(pathname: string): PortalRoute {
   const normalized = pathname !== "/" ? pathname.replace(/\/+$/, "") : pathname;
@@ -26,16 +30,13 @@ export function resolvePortalRoute(pathname: string): PortalRoute {
 export function canAccessArea(session: PortalSession, area: PortalArea): boolean {
   if (area === "public") return true;
   if (session.status !== "authenticated") return false;
-
-  if (area === "creator") return session.roles.includes("creator");
-  if (area === "brand") return session.roles.includes("brand_member");
-  return session.roles.some((role) => INTERNAL_ROLES.includes(role));
+  return anyRoleHasCapability(session.roles, AREA_CAPABILITY[area]);
 }
 
 export function defaultAreaForSession(session: PortalSession): PortalArea {
   if (session.status !== "authenticated") return "public";
-  if (session.roles.some((role) => INTERNAL_ROLES.includes(role))) return "team";
-  if (session.roles.includes("brand_member")) return "brand";
-  if (session.roles.includes("creator")) return "creator";
+  if (canAccessArea(session, "team")) return "team";
+  if (canAccessArea(session, "brand")) return "brand";
+  if (canAccessArea(session, "creator")) return "creator";
   return "public";
 }
