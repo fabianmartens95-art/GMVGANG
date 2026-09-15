@@ -2,27 +2,66 @@
 
 Internal operational cockpit for campaign execution. The UI projects data from `@gmvgang/campaign-operations` instead of duplicating campaign business logic.
 
-## MVP scope
+## Runtime architecture
 
-- portfolio GMV / order / commission rollup
-- campaign status and health overview
-- creator-level outreach, sample and content state
-- approval-gated action queue
-- blocker surfacing
-- sample-to-post and acceptance funnel metrics
-- audit-trail event count
-- responsive desktop/mobile layout
+```text
+Notion Company OS (SSOT)
+  ├─ Creator master data
+  ├─ Campaigns
+  └─ Campaign Creator Assignments
+          |
+          | sanitized read-only sync
+          v
+Campaign Cockpit runtime
+  ├─ Basic-auth protected web UI
+  ├─ /api/snapshot
+  └─ /api/sync/raw/{creators|campaigns|assignments}
+          |
+          v
+Campaign Execution view model
+```
 
-## Current data mode
+The runtime accepts only campaign-operational fields required by the cockpit. E-mail addresses, phone numbers, addresses, tax data, contracts and other creator PII are not part of the sync contract.
 
-The first UI increment ships with synthetic demo ledgers generated through the real campaign state machine. No creator PII is present. The view model is ready to accept real `CampaignLedger` snapshots once the Company OS / campaign sync adapter is connected.
+## Data modes
 
-## Safety
+- Creator pool: switches to `Company OS Live` as soon as a sanitized creator snapshot is received.
+- Campaigns: use live Company OS Campaigns + Assignments when at least one synced campaign exists.
+- Until the first real campaign is synced, campaign cards continue to use the state-machine-generated demo data and are explicitly labeled as demo.
 
-This cockpit is read-only. It does not send creator messages, approve or order samples, mutate Notion records, or execute external platform actions. Those effects remain behind explicit approval and adapter boundaries.
+This hybrid fallback keeps the UI usable without pretending that demo campaign metrics are live.
+
+## Security
+
+- Browser access is protected with HTTP Basic auth when `COCKPIT_BASIC_PASSWORD` is set.
+- Sync endpoints require `X-Cockpit-Sync-Secret` and do not accept browser Basic auth as a substitute.
+- `/health` is intentionally unauthenticated for hosting health checks.
+- Sync payloads are capped at 5 MB.
+- The cockpit remains read-only: it cannot send messages, approve samples, order products or mutate Notion.
+- External actions remain behind explicit approval and adapter boundaries.
+
+## Company OS data sources
+
+The Company OS now contains dedicated campaign execution sources:
+
+- `GMVGANG – Campaigns`
+- `GMVGANG – Campaign Creator Assignments`
+
+Assignments reference the existing central Creator database instead of duplicating Creator master data.
+
+Only rows with `Cockpit Sync = checked` are projected into live campaign execution.
 
 ## Development
 
 ```bash
 pnpm --filter @gmvgang/campaign-cockpit dev
 ```
+
+Production build + runtime:
+
+```bash
+pnpm --filter @gmvgang/campaign-cockpit build
+pnpm --filter @gmvgang/campaign-cockpit start
+```
+
+See `.env.example` for the runtime configuration contract.
