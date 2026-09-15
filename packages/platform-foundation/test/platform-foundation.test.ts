@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { describe, expect, it } from "vitest";
 
 import {
   advanceReferralStatus,
@@ -20,51 +19,51 @@ import {
 
 const NOW = "2026-09-16T00:30:00.000Z";
 
-test("creator role cannot read all creators", () => {
-  assert.equal(roleHasCapability("creator", "creators.read_all"), false);
-  assert.equal(roleHasCapability("creator_manager", "creators.read_all"), true);
-});
+describe("platform foundation", () => {
+  it("keeps internal creator access away from creator accounts", () => {
+    expect(roleHasCapability("creator", "creators.read_all")).toBe(false);
+    expect(roleHasCapability("creator_manager", "creators.read_all")).toBe(true);
+  });
 
-test("brand members can manage only brand-facing capabilities", () => {
-  assert.equal(roleHasCapability("brand_member", "brand.shop_connections.manage"), true);
-  assert.equal(roleHasCapability("brand_member", "platform.manage"), false);
-});
+  it("limits brand members to brand-facing capabilities", () => {
+    expect(roleHasCapability("brand_member", "brand.shop_connections.manage")).toBe(true);
+    expect(roleHasCapability("brand_member", "platform.manage")).toBe(false);
+  });
 
-test("profile completion requires all five profile groups", () => {
-  assert.equal(
-    creatorProfileCompletionPercent({
-      tiktokHandle: "@creator",
-      displayName: "Creator",
-      market: "DE",
-      language: "de",
-      niche: ["beauty"],
-    }),
-    100,
-  );
-  assert.equal(creatorProfileCompletionPercent({ tiktokHandle: "@creator" }), 20);
-});
+  it("calculates profile completion from required profile groups", () => {
+    expect(
+      creatorProfileCompletionPercent({
+        tiktokHandle: "@creator",
+        displayName: "Creator",
+        market: "DE",
+        language: "de",
+        niche: ["beauty"],
+      }),
+    ).toBe(100);
+    expect(creatorProfileCompletionPercent({ tiktokHandle: "@creator" })).toBe(20);
+  });
 
-test("tiktok handles are normalized", () => {
-  assert.equal(normalizeTikTokHandle(" @Creator.Name "), "creator.name");
-});
+  it("normalizes TikTok handles", () => {
+    expect(normalizeTikTokHandle(" @Creator.Name ")).toBe("creator.name");
+  });
 
-test("profile cannot become profile_complete before completion is 100 percent", () => {
-  const profile: CreatorProfile = {
-    id: "cp_1",
-    userId: "user_1",
-    tiktokHandle: "creator",
-    networkStatus: "registered",
-    profileCompletionPercent: 80,
-    referralCode: "ABC123",
-    createdAt: NOW,
-    updatedAt: NOW,
-  };
-  assert.throws(() => transitionCreatorStatus(profile, "profile_complete", NOW), /CREATOR_PROFILE_INCOMPLETE/);
-});
+  it("blocks profile_complete before completion reaches 100 percent", () => {
+    const profile: CreatorProfile = {
+      id: "cp_1",
+      userId: "user_1",
+      tiktokHandle: "creator",
+      networkStatus: "registered",
+      profileCompletionPercent: 80,
+      referralCode: "ABC123",
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
 
-test("self referral is rejected and attribution cannot be overwritten", () => {
-  assert.throws(
-    () =>
+    expect(() => transitionCreatorStatus(profile, "profile_complete", NOW)).toThrow("CREATOR_PROFILE_INCOMPLETE");
+  });
+
+  it("rejects self referrals and immutable attribution rewrites", () => {
+    expect(() =>
       createReferralAttribution({
         id: "ref_1",
         referrerCreatorProfileId: "cp_1",
@@ -72,53 +71,57 @@ test("self referral is rejected and attribution cannot be overwritten", () => {
         referralCode: "ABC",
         now: NOW,
       }),
-    /SELF_REFERRAL_NOT_ALLOWED/,
-  );
+    ).toThrow("SELF_REFERRAL_NOT_ALLOWED");
 
-  const attribution = createReferralAttribution({
-    id: "ref_2",
-    referrerCreatorProfileId: "cp_1",
-    referredCreatorProfileId: "cp_2",
-    referralCode: "ABC",
-    now: NOW,
+    const attribution = createReferralAttribution({
+      id: "ref_2",
+      referrerCreatorProfileId: "cp_1",
+      referredCreatorProfileId: "cp_2",
+      referralCode: "ABC",
+      now: NOW,
+    });
+
+    expect(() => assertImmutableReferralAttribution(attribution, "cp_9", "XYZ")).toThrow(
+      "REFERRAL_ATTRIBUTION_IMMUTABLE",
+    );
   });
-  assert.throws(() => assertImmutableReferralAttribution(attribution, "cp_9", "XYZ"), /REFERRAL_ATTRIBUTION_IMMUTABLE/);
-});
 
-test("referral lifecycle advances one qualified step at a time", () => {
-  let attribution = createReferralAttribution({
-    id: "ref_3",
-    referrerCreatorProfileId: "cp_1",
-    referredCreatorProfileId: "cp_2",
-    referralCode: "ABC",
-    now: NOW,
+  it("advances referral lifecycle one qualified step at a time", () => {
+    let attribution = createReferralAttribution({
+      id: "ref_3",
+      referrerCreatorProfileId: "cp_1",
+      referredCreatorProfileId: "cp_2",
+      referralCode: "ABC",
+      now: NOW,
+    });
+
+    attribution = advanceReferralStatus(attribution, "profile_complete", NOW);
+    attribution = advanceReferralStatus(attribution, "qualified", NOW);
+
+    expect(attribution.status).toBe("qualified");
+    expect(attribution.qualifiedAt).toBe(NOW);
+    expect(() => advanceReferralStatus(attribution, "active", NOW)).toThrow("REFERRAL_STATUS_SKIP_NOT_ALLOWED");
   });
-  attribution = advanceReferralStatus(attribution, "profile_complete", NOW);
-  attribution = advanceReferralStatus(attribution, "qualified", NOW);
-  assert.equal(attribution.status, "qualified");
-  assert.equal(attribution.qualifiedAt, NOW);
-  assert.throws(() => advanceReferralStatus(attribution, "active", NOW), /REFERRAL_STATUS_SKIP_NOT_ALLOWED/);
-});
 
-test("fraud signals are deterministic", () => {
-  assert.deepEqual(
-    referralFraudFlags({ sameTikTokHandle: true, samePayoutFingerprint: true }),
-    ["same_tiktok_handle", "same_payout_fingerprint"],
-  );
-});
-
-test("rewards require positive integer cents and expose an idempotency key", () => {
-  const reward = createReferralReward({
-    id: "reward_1",
-    referralAttributionId: "ref_1",
-    event: "qualified",
-    amountCents: 2500,
-    now: NOW,
+  it("derives deterministic fraud flags", () => {
+    expect(referralFraudFlags({ sameTikTokHandle: true, samePayoutFingerprint: true })).toEqual([
+      "same_tiktok_handle",
+      "same_payout_fingerprint",
+    ]);
   });
-  assert.equal(reward.status, "pending");
-  assert.equal(referralRewardKey("ref_1", "qualified"), "ref_1:qualified");
-  assert.throws(
-    () =>
+
+  it("requires positive integer reward cents and exposes an idempotency key", () => {
+    const reward = createReferralReward({
+      id: "reward_1",
+      referralAttributionId: "ref_1",
+      event: "qualified",
+      amountCents: 2500,
+      now: NOW,
+    });
+
+    expect(reward.status).toBe("pending");
+    expect(referralRewardKey("ref_1", "qualified")).toBe("ref_1:qualified");
+    expect(() =>
       createReferralReward({
         id: "reward_2",
         referralAttributionId: "ref_1",
@@ -126,24 +129,25 @@ test("rewards require positive integer cents and expose an idempotency key", () 
         amountCents: 0,
         now: NOW,
       }),
-    /INVALID_REWARD_AMOUNT/,
-  );
-});
+    ).toThrow("INVALID_REWARD_AMOUNT");
+  });
 
-test("seller connections belong to organizations and never expose raw tokens", () => {
-  const connection: ExternalConnection = {
-    id: "conn_1",
-    ownerType: "organization",
-    ownerId: "org_1",
-    provider: "tiktok_shop_seller",
-    status: "connected",
-    grantedScopes: ["orders.read"],
-    accessTokenSecretRef: "secret://seller/access",
-    refreshTokenSecretRef: "secret://seller/refresh",
-    tokenExpiresAt: "2026-09-16T01:30:00.000Z",
-    createdAt: NOW,
-    updatedAt: NOW,
-  };
-  assert.doesNotThrow(() => assertConnectionOwnership(connection));
-  assert.equal(canSyncConnection(connection, NOW), true);
+  it("models seller connections as organization-owned syncable connections", () => {
+    const connection: ExternalConnection = {
+      id: "conn_1",
+      ownerType: "organization",
+      ownerId: "org_1",
+      provider: "tiktok_shop_seller",
+      status: "connected",
+      grantedScopes: ["orders.read"],
+      accessTokenSecretRef: "secret://seller/access",
+      refreshTokenSecretRef: "secret://seller/refresh",
+      tokenExpiresAt: "2026-09-16T01:30:00.000Z",
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+
+    expect(() => assertConnectionOwnership(connection)).not.toThrow();
+    expect(canSyncConnection(connection, NOW)).toBe(true);
+  });
 });
