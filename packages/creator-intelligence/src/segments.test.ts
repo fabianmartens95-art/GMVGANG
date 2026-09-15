@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { graph } from "./fixtures.test-helper";
 import type { CreatorOperationsSnapshot } from "./operations";
+import type { CreatorSegmentDefinition } from "./segments";
 import { materializeCreatorList, segmentCreators } from "./segments";
 
 const operations: CreatorOperationsSnapshot[] = [
@@ -50,13 +51,13 @@ const operations: CreatorOperationsSnapshot[] = [
   }
 ];
 
-const beautySegment = {
+const beautySegment: CreatorSegmentDefinition = {
   id: "active-beauty-de",
   name: "Active Beauty DE",
   eligibleOnly: true,
   marketsAny: ["DE"],
   categoriesAny: ["beauty"],
-  channelsAny: ["video"] as const,
+  channelsAny: ["video"],
   lifecycleStatusesAny: ["Aktiv"],
   minFollowers: 10000
 };
