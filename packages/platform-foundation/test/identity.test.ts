@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { describe, expect, it } from "vitest";
 
 import { activeRolesForUser, assertOrganizationAccess, type Membership, type Organization } from "../src/index.js";
 
@@ -34,12 +33,14 @@ const memberships: Membership[] = [
   },
 ];
 
-test("only active memberships grant organization roles", () => {
-  assert.deepEqual(activeRolesForUser("user_1", organization.id, memberships), ["brand_member"]);
-  assert.deepEqual(activeRolesForUser("user_2", organization.id, memberships), []);
-});
+describe("organization membership access", () => {
+  it("grants roles only from active memberships", () => {
+    expect(activeRolesForUser("user_1", organization.id, memberships)).toEqual(["brand_member"]);
+    expect(activeRolesForUser("user_2", organization.id, memberships)).toEqual([]);
+  });
 
-test("organization access is denied without an active membership", () => {
-  assert.doesNotThrow(() => assertOrganizationAccess("user_1", organization, memberships));
-  assert.throws(() => assertOrganizationAccess("user_2", organization, memberships), /ORGANIZATION_ACCESS_DENIED/);
+  it("denies organization access without an active membership", () => {
+    expect(() => assertOrganizationAccess("user_1", organization, memberships)).not.toThrow();
+    expect(() => assertOrganizationAccess("user_2", organization, memberships)).toThrow("ORGANIZATION_ACCESS_DENIED");
+  });
 });
