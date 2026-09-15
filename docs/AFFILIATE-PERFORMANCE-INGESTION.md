@@ -52,10 +52,16 @@ Non-additive ratios are derived from raw totals rather than summed from provider
 8. Commission is never inferred from GMV unless a separately approved business rule/source explicitly supplies it.
 9. Seller Analytics rows are not attributed to a GMVGANG campaign until a deterministic product/creator/content mapping exists.
 
+## Controlled CSV / fixture adapter
+
+The controlled import path accepts comma- or semicolon-delimited CSV with a fixed allowlisted schema. It supports quoted fields and routes every parsed row through the canonical validation, deduplication and coverage-conflict guards before the record can be used downstream.
+
+CSV metric values use machine-readable decimal syntax with a dot as decimal separator, for example `100.50`. German decimal-comma values such as `100,50` are intentionally not interpreted implicitly; exports must be normalized before ingestion. Synthetic repository fixtures contain no customer or creator PII.
+
 ## Initial ingestion sequence
 
-1. Canonical performance contract + validation + aggregation. **Implemented in this increment.**
-2. Add a fixture/CSV adapter for controlled end-to-end validation without TikTok credentials.
+1. Canonical performance contract + validation + aggregation. **Implemented.**
+2. Controlled fixture/CSV adapter for end-to-end validation without TikTok credentials. **Implemented via PR #38.**
 3. Reuse the platform Seller Connection contract for an authorized seller OAuth adapter; keep tokens/signing secrets outside GitHub and UI payloads.
 4. Implement page-token fetching for the 202605 Product and Video Analytics endpoints.
 5. Map provider creator/product/content identifiers to protected internal references.
