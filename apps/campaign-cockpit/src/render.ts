@@ -1,5 +1,5 @@
 import type { CampaignCockpitView, CreatorCockpitRow, PortfolioCockpitView } from "./model";
-import type { CockpitRuntimeSnapshot } from "./runtime";
+import { evaluateSnapshotFreshness, type CockpitRuntimeSnapshot } from "./runtime";
 import { escapeHtml, euro, integer, label, percentage, pill } from "./format";
 
 export type CreatorFilter = "all" | "action" | "sample" | "content";
@@ -55,7 +55,12 @@ function filters(current: CreatorFilter): string {
 function sourceBadge(runtime: CockpitRuntimeSnapshot | null): string {
   if (!runtime) return `<span class="sync sync--warn">● Runtime fallback</span>`;
   const live = runtime.creatorSource === "company-os";
-  return `<span class="sync${live ? "" : " sync--warn"}">● ${live ? "Company OS synced" : "Company OS pending"}</span>`;
+  const freshness = evaluateSnapshotFreshness(runtime);
+  if (!live) return `<span class="sync sync--warn">● Company OS pending</span>`;
+  if (!freshness.fresh) {
+    return `<span class="sync sync--warn">● Company OS stale · ${escapeHtml(freshness.staleSources.join(", "))}</span>`;
+  }
+  return `<span class="sync">● Company OS synced</span>`;
 }
 
 function sourcePanel(runtime: CockpitRuntimeSnapshot | null): string {
@@ -63,8 +68,13 @@ function sourcePanel(runtime: CockpitRuntimeSnapshot | null): string {
     return `<section class="source-panel source-panel--pending"><div><span class="source-dot"></span><div><strong>Company OS Creator Sync</strong><small>Noch kein sanitizierter Runtime-Snapshot empfangen.</small></div></div><span>Pending</span></section>`;
   }
   const pool = runtime.creatorPool;
+  const freshness = evaluateSnapshotFreshness(runtime);
   const campaignLabel = runtime.campaignSource === "company-os" ? "Live Campaigns" : "Campaign Demo bis erste Live-Campaign synchronisiert ist";
-  return `<section class="source-panel"><div><span class="source-dot"></span><div><strong>Company OS Live</strong><small>${escapeHtml(campaignLabel)}</small></div></div><div class="source-metrics"><span><strong>${pool.total}</strong> Creator</span><span><strong>${pool.active}</strong> aktiv</span><span><strong>${pool.onboarding}</strong> Onboarding</span><span><strong>${pool.screening}</strong> Screening</span><span class="${pool.blockers > 0 ? "danger-text" : ""}"><strong>${pool.blockers}</strong> Blocker</span></div></section>`;
+  const ageLabel = freshness.oldestAgeMinutes === null ? "Sync-Zeit unbekannt" : `Ältester Snapshot ${Math.round(freshness.oldestAgeMinutes)} Min.`;
+  const freshnessLabel = freshness.fresh
+    ? ageLabel
+    : `STALE: ${freshness.staleSources.join(", ")} · ${ageLabel} · Schwelle ${freshness.thresholdMinutes} Min.`;
+  return `<section class="source-panel${freshness.fresh ? "" : " source-panel--pending"}"><div><span class="source-dot"></span><div><strong>${freshness.fresh ? "Company OS Live" : "Company OS Daten veraltet"}</strong><small>${escapeHtml(campaignLabel)} · ${escapeHtml(freshnessLabel)}</small></div></div><div class="source-metrics"><span><strong>${pool.total}</strong> Creator</span><span><strong>${pool.active}</strong> aktiv</span><span><strong>${pool.onboarding}</strong> Onboarding</span><span><strong>${pool.screening}</strong> Screening</span><span class="${pool.blockers > 0 ? "danger-text" : ""}"><strong>${pool.blockers}</strong> Blocker</span></div></section>`;
 }
 
 export function renderCockpit(
