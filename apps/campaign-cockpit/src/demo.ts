@@ -3,6 +3,7 @@ import {
   approveCampaign,
   briefCreator,
   createCampaignDraft,
+  evaluateCampaignReadiness,
   launchCampaign,
   markOutreachSent,
   recordContentPosted,
@@ -27,6 +28,23 @@ function list(id: string, name: string, creatorIds: string[]): CreatorList {
   };
 }
 
+function ready(ledger: CampaignLedger, at: string): CampaignLedger {
+  return evaluateCampaignReadiness(
+    ledger,
+    {
+      clientApproved: true,
+      creators: ledger.campaign.assignments.map((assignment) => ({
+        creatorId: assignment.creatorId,
+        contractReady: true,
+        complianceReady: true,
+        eligible: true
+      }))
+    },
+    founder,
+    at
+  );
+}
+
 function buildBeautyLaunch(): CampaignLedger {
   let ledger = createCampaignDraft({
     id: "campaign-beauty-01",
@@ -38,6 +56,7 @@ function buildBeautyLaunch(): CampaignLedger {
     actor: founder
   });
 
+  ledger = ready(ledger, "2026-09-10T09:10:00.000Z");
   ledger = approveCampaign(ledger, founder, "2026-09-10T09:15:00.000Z");
   ledger = launchCampaign(ledger, founder, "2026-09-10T09:30:00.000Z");
 
