@@ -8,13 +8,15 @@ function due(timestamp: string | null, now: number): boolean {
 }
 
 export function getCampaignActionQueue(ledger: CampaignLedger, nowIso: string): CampaignAction[] {
-  if (ledger.campaign.status !== "active") return [];
+  if (ledger.campaign.status !== "active" || !ledger.campaign.readiness.ready) return [];
   const now = Date.parse(nowIso);
   if (!Number.isFinite(now)) throw new Error(`invalid current timestamp: ${nowIso}`);
 
   const actions: CampaignAction[] = [];
 
   for (const assignment of ledger.campaign.assignments) {
+    if (!assignment.readiness.ready) continue;
+
     if (assignment.outreach.status === "ready") {
       actions.push({
         kind: "send-outreach",
