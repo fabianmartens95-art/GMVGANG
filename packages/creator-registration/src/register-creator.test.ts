@@ -51,6 +51,7 @@ function createPorts(options: {
 }
 
 const context = {
+  workspaceId: "gmvgang",
   principalId: "principal-1",
   identityKey: "identity-new",
   deviceKey: "device-new",
@@ -91,7 +92,11 @@ describe("creator registration command", () => {
       referral: { status: "attributed", reviewRequired: false },
     });
     expect(saved).toHaveLength(1);
-    expect(saved[0]).toMatchObject({
+    const attribution = saved[0];
+    expect(attribution).toBeDefined();
+    if (!attribution) throw new Error("expected saved attribution");
+    expect(attribution).toMatchObject({
+      workspaceId: "gmvgang",
       referralCode: "ABC123",
       referrerCreatorId: "creator-referrer",
       referredCreatorId: "creator-new",
@@ -110,8 +115,11 @@ describe("creator registration command", () => {
       ok: true,
       referral: { status: "attributed", reviewRequired: true },
     });
-    expect(saved[0].reviewRequired).toBe(true);
-    expect(saved[0].riskFlags).toContain("shared_device");
+    const attribution = saved[0];
+    expect(attribution).toBeDefined();
+    if (!attribution) throw new Error("expected reviewed attribution");
+    expect(attribution.reviewRequired).toBe(true);
+    expect(attribution.riskFlags).toContain("shared_device");
   });
 
   it("blocks self-referral without blocking the creator account", async () => {
