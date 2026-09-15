@@ -109,12 +109,13 @@ export function validateCreatorRegistration(
     errors.push("invalid_referral_code");
   }
 
-  return {
+  const result: RegistrationValidation = {
     ok: errors.length === 0,
-    normalizedHandle: normalizedHandle ?? undefined,
-    normalizedEmail: EMAIL_PATTERN.test(normalizedEmail) ? normalizedEmail : undefined,
     errors,
   };
+  if (normalizedHandle) result.normalizedHandle = normalizedHandle;
+  if (EMAIL_PATTERN.test(normalizedEmail)) result.normalizedEmail = normalizedEmail;
+  return result;
 }
 
 export function calculateProfileCompleteness(
