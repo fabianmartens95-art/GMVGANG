@@ -3,8 +3,7 @@ import "./styles.css";
 import { canAccessArea, defaultAreaForSession, PORTAL_ROUTES, resolvePortalRoute, type PortalArea } from "./routing.js";
 import { EnvironmentSessionAdapter, type PortalSession } from "./session.js";
 
-const app = document.querySelector<HTMLDivElement>("#app");
-if (!app) throw new Error("APP_ROOT_NOT_FOUND");
+const app = document.querySelector<HTMLDivElement>("#app") ?? (() => { throw new Error("APP_ROOT_NOT_FOUND"); })();
 
 const sessionPort = new EnvironmentSessionAdapter();
 let session: PortalSession = { status: "anonymous", roles: [] };
