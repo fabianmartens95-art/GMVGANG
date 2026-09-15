@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { calculateProductEconomics } from "./index";
+import {
+  calculateProductEconomics,
+  comparePilotScenarios
+} from "./index";
 
 describe("calculateProductEconomics", () => {
   it("calculates a viable pilot economics case", () => {
@@ -114,5 +117,139 @@ describe("calculateProductEconomics", () => {
         targetContributionMargin: 1
       })
     ).toThrow();
+  });
+});
+
+describe("comparePilotScenarios", () => {
+  it("ranks viable scenarios ahead of economically weaker scenarios", () => {
+    const result = comparePilotScenarios([
+      {
+        id: "balanced",
+        label: "Balanced",
+        economics: {
+          sellingPriceGross: 119,
+          vatRate: 0.19,
+          cogs: 30,
+          fulfillmentCost: 6,
+          paymentCost: 2,
+          returnsReserve: 4,
+          affiliateCommissionRate: 0.15,
+          paidMediaCostPerOrder: 20,
+          targetContributionMargin: 0.2
+        }
+      },
+      {
+        id: "efficient",
+        label: "Efficient",
+        economics: {
+          sellingPriceGross: 119,
+          vatRate: 0.19,
+          cogs: 30,
+          fulfillmentCost: 6,
+          paymentCost: 2,
+          returnsReserve: 4,
+          affiliateCommissionRate: 0.1,
+          paidMediaCostPerOrder: 12,
+          targetContributionMargin: 0.2
+        }
+      },
+      {
+        id: "aggressive",
+        label: "Aggressive",
+        economics: {
+          sellingPriceGross: 119,
+          vatRate: 0.19,
+          cogs: 30,
+          fulfillmentCost: 6,
+          paymentCost: 2,
+          returnsReserve: 4,
+          affiliateCommissionRate: 0.3,
+          paidMediaCostPerOrder: 35,
+          targetContributionMargin: 0.2
+        }
+      }
+    ]);
+
+    expect(result.map((scenario) => scenario.id)).toEqual([
+      "efficient",
+      "balanced",
+      "aggressive"
+    ]);
+    expect(result.map((scenario) => scenario.rank)).toEqual([1, 2, 3]);
+
+    expect(result[0]?.viable).toBe(true);
+    expect(result[0]?.contributionAfterMarketing).toBe(34);
+    expect(result[0]?.contributionMarginAfterMarketing).toBe(0.34);
+    expect(result[0]?.breakEvenRoas).toBeCloseTo(2.0833, 4);
+    expect(result[0]?.targetRoas).toBeCloseTo(3.5714, 4);
+
+    expect(result[1]?.viable).toBe(true);
+    expect(result[1]?.contributionAfterMarketing).toBe(23);
+    expect(result[1]?.contributionMarginAfterMarketing).toBe(0.23);
+
+    expect(result[2]?.viable).toBe(false);
+    expect(result[2]?.meetsTargetContributionMargin).toBe(false);
+    expect(result[2]?.contributionAfterMarketing).toBe(-7);
+  });
+
+  it("uses scenario id as a deterministic tie-breaker", () => {
+    const result = comparePilotScenarios([
+      {
+        id: "b",
+        economics: {
+          sellingPriceGross: 119,
+          vatRate: 0.19,
+          cogs: 30,
+          paidMediaCostPerOrder: 10
+        }
+      },
+      {
+        id: "a",
+        economics: {
+          sellingPriceGross: 119,
+          vatRate: 0.19,
+          cogs: 30,
+          paidMediaCostPerOrder: 10
+        }
+      }
+    ]);
+
+    expect(result.map((scenario) => scenario.id)).toEqual(["a", "b"]);
+  });
+
+  it("rejects invalid comparison inputs", () => {
+    expect(() =>
+      comparePilotScenarios([
+        {
+          id: "only-one",
+          economics: {
+            sellingPriceGross: 119,
+            vatRate: 0.19,
+            cogs: 30
+          }
+        }
+      ])
+    ).toThrow("at least two scenarios");
+
+    expect(() =>
+      comparePilotScenarios([
+        {
+          id: "duplicate",
+          economics: {
+            sellingPriceGross: 119,
+            vatRate: 0.19,
+            cogs: 30
+          }
+        },
+        {
+          id: "duplicate",
+          economics: {
+            sellingPriceGross: 99,
+            vatRate: 0.19,
+            cogs: 20
+          }
+        }
+      ])
+    ).toThrow("duplicate scenario id");
   });
 });
