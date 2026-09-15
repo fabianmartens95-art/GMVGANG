@@ -1,0 +1,22 @@
+export type CreatorOperationsSnapshot = {
+  creatorId: string;
+  source: "notion" | "manual" | "api";
+  sourceRecordId: string | null;
+  lifecycleStatus: string | null;
+  intakeStage: string | null;
+  tier: string | null;
+  profileUrl: string | null;
+  accountRegion: string | null;
+  audienceRegion: string | null;
+  shopExperience: string | null;
+  liveExperience: string | null;
+  shopGmvBand30d: string | null;
+  averageViewsLast10: number | null;
+  screeningScore: number | null;
+  videoCapacity: string | null;
+  liveAvailability: string | null;
+  complianceRisk: string | null;
+  legalHold: boolean;
+  eligibleForMatching: boolean;
+  exclusionReasons: string[];
+};
