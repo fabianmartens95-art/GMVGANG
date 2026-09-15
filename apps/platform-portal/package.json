@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@gmvgang/brand-intelligence": "workspace:*",
     "@gmvgang/platform-foundation": "workspace:*"
   },
   "devDependencies": {
