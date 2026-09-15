@@ -7,6 +7,8 @@ describe("campaign cockpit view model", () => {
     const view = buildCampaignCockpitView(demoLedgers[0]!, demoNow);
 
     expect(view.status).toBe("active");
+    expect(view.readinessReady).toBe(true);
+    expect(view.clientApproved).toBe(true);
     expect(view.summary.totalCreators).toBe(4);
     expect(view.summary.outreachSent).toBe(4);
     expect(view.summary.accepted).toBe(3);
@@ -20,6 +22,17 @@ describe("campaign cockpit view model", () => {
     ]);
     expect(view.blockers).toEqual(["creator-mia: Content pending after delivery"]);
     expect(view.health).toBe("attention");
+  });
+
+  it("renders an unevaluated draft as blocked with no external actions", () => {
+    const view = buildCampaignCockpitView(demoLedgers[1]!, demoNow);
+
+    expect(view.status).toBe("draft");
+    expect(view.readinessReady).toBe(false);
+    expect(view.health).toBe("blocked");
+    expect(view.actions).toEqual([]);
+    expect(view.blockers[0]).toBe("Campaign: Readiness not evaluated");
+    expect(view.creators.every((creator) => creator.blocker?.startsWith("Readiness:"))).toBe(true);
   });
 
   it("aggregates portfolio KPIs without duplicating campaign state", () => {
