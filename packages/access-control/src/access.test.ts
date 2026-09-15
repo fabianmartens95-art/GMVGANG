@@ -102,6 +102,23 @@ describe("access control", () => {
     ).toBe(false);
   });
 
+  it("lets creators read and share only their own referral hub", () => {
+    const actor = membership({ role: "creator", brandIds: [], creatorId: "creator-1" });
+
+    expect(canAccess(actor, "referrals.read", { workspaceId, creatorId: "creator-1" })).toBe(true);
+    expect(canAccess(actor, "referrals.share", { workspaceId, creatorId: "creator-1" })).toBe(true);
+    expect(canAccess(actor, "referrals.read", { workspaceId, creatorId: "creator-2" })).toBe(false);
+    expect(canAccess(actor, "referrals.manage", { workspaceId, creatorId: "creator-1" })).toBe(false);
+  });
+
+  it("lets creator managers manage referrals without granting the same capability to closers", () => {
+    const creatorManager = membership({ role: "creator_manager", brandIds: ["brand-a"] });
+    const closer = membership({ role: "closer", brandIds: ["brand-a"] });
+
+    expect(canAccess(creatorManager, "referrals.manage", { workspaceId, brandId: "brand-a" })).toBe(true);
+    expect(canAccess(closer, "referrals.manage", { workspaceId, brandId: "brand-a" })).toBe(false);
+  });
+
   it("does not grant creators agency permissions", () => {
     const actor = membership({ role: "creator", brandIds: [], creatorId: "creator-1" });
 
