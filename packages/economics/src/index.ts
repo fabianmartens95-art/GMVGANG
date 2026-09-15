@@ -7,6 +7,7 @@ export type ProductEconomicsInput = {
   returnsReserve?: number;
   affiliateCommissionRate?: number;
   paidMediaCostPerOrder?: number;
+  targetContributionMargin?: number;
 };
 
 export type ProductEconomicsResult = {
@@ -18,6 +19,11 @@ export type ProductEconomicsResult = {
   paidMediaCostPerOrder: number;
   contributionAfterMarketing: number;
   contributionMarginAfterMarketing: number;
+  targetContributionMargin: number | null;
+  targetContributionAmount: number | null;
+  maximumMarketingCostAtTargetMargin: number | null;
+  targetRoas: number | null;
+  targetMarginFeasibleBeforeMarketing: boolean | null;
 };
 
 function assertFiniteNonNegative(value: number, field: string): void {
@@ -52,12 +58,17 @@ export function calculateProductEconomics(
   const returnsReserve = input.returnsReserve ?? 0;
   const affiliateCommissionRate = input.affiliateCommissionRate ?? 0;
   const paidMediaCostPerOrder = input.paidMediaCostPerOrder ?? 0;
+  const targetContributionMargin = input.targetContributionMargin ?? null;
 
   assertFiniteNonNegative(fulfillmentCost, "fulfillmentCost");
   assertFiniteNonNegative(paymentCost, "paymentCost");
   assertFiniteNonNegative(returnsReserve, "returnsReserve");
   assertRate(affiliateCommissionRate, "affiliateCommissionRate");
   assertFiniteNonNegative(paidMediaCostPerOrder, "paidMediaCostPerOrder");
+
+  if (targetContributionMargin !== null) {
+    assertRate(targetContributionMargin, "targetContributionMargin");
+  }
 
   const netRevenue = input.sellingPriceGross / (1 + input.vatRate);
   const affiliateCommissionCost = netRevenue * affiliateCommissionRate;
@@ -86,6 +97,27 @@ export function calculateProductEconomics(
   const contributionMarginAfterMarketing =
     netRevenue > 0 ? contributionAfterMarketing / netRevenue : 0;
 
+  const targetContributionAmount =
+    targetContributionMargin === null
+      ? null
+      : netRevenue * targetContributionMargin;
+
+  const targetMarginFeasibleBeforeMarketing =
+    targetContributionAmount === null
+      ? null
+      : contributionBeforeMarketing >= targetContributionAmount;
+
+  const maximumMarketingCostAtTargetMargin =
+    targetContributionAmount === null
+      ? null
+      : Math.max(contributionBeforeMarketing - targetContributionAmount, 0);
+
+  const targetRoas =
+    maximumMarketingCostAtTargetMargin !== null &&
+    maximumMarketingCostAtTargetMargin > 0
+      ? netRevenue / maximumMarketingCostAtTargetMargin
+      : null;
+
   return {
     netRevenue: roundMoney(netRevenue),
     affiliateCommissionCost: roundMoney(affiliateCommissionCost),
@@ -97,6 +129,20 @@ export function calculateProductEconomics(
     contributionAfterMarketing: roundMoney(contributionAfterMarketing),
     contributionMarginAfterMarketing: roundRatio(
       contributionMarginAfterMarketing
-    )
+    ),
+    targetContributionMargin:
+      targetContributionMargin === null
+        ? null
+        : roundRatio(targetContributionMargin),
+    targetContributionAmount:
+      targetContributionAmount === null
+        ? null
+        : roundMoney(targetContributionAmount),
+    maximumMarketingCostAtTargetMargin:
+      maximumMarketingCostAtTargetMargin === null
+        ? null
+        : roundMoney(maximumMarketingCostAtTargetMargin),
+    targetRoas: targetRoas === null ? null : roundRatio(targetRoas),
+    targetMarginFeasibleBeforeMarketing
   };
 }
