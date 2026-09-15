@@ -11,6 +11,8 @@ export type CockpitHealth = "healthy" | "attention" | "blocked" | "complete";
 
 export type CreatorCockpitRow = {
   creatorId: string;
+  readinessReady: boolean;
+  readinessBlockers: string[];
   outreachStatus: string;
   sampleStatus: string;
   contentStatus: string;
@@ -28,6 +30,9 @@ export type CampaignCockpitView = {
   productId: string;
   status: CampaignStatus;
   health: CockpitHealth;
+  readinessReady: boolean;
+  clientApproved: boolean;
+  readinessEvaluatedAt: string | null;
   summary: CampaignSummary;
   actions: CampaignAction[];
   approvalActions: number;
@@ -56,6 +61,7 @@ function creatorBlocker(
   campaignStatus: CampaignStatus,
   assignment: CampaignLedger["campaign"]["assignments"][number]
 ): string | null {
+  if (!assignment.readiness.ready) return `Readiness: ${assignment.readiness.blockers.join(" · ")}`;
   if (campaignStatus === "paused") return "Campaign paused";
   if (assignment.outreach.status === "accepted" && assignment.sample.status === "not_requested") {
     return "Sample request pending";
@@ -70,9 +76,14 @@ function creatorBlocker(
   return null;
 }
 
-function campaignHealth(status: CampaignStatus, blockerCount: number, actionCount: number): CockpitHealth {
+function campaignHealth(
+  status: CampaignStatus,
+  readinessReady: boolean,
+  blockerCount: number,
+  actionCount: number
+): CockpitHealth {
   if (status === "completed") return "complete";
-  if (status === "paused" || status === "cancelled") return "blocked";
+  if (status === "paused" || status === "cancelled" || !readinessReady) return "blocked";
   if (blockerCount > 0 || actionCount > 0 || status === "draft" || status === "approved") return "attention";
   return "healthy";
 }
@@ -88,6 +99,8 @@ export function buildCampaignCockpitView(ledger: CampaignLedger, now: string): C
 
   const creators = ledger.campaign.assignments.map((assignment): CreatorCockpitRow => ({
     creatorId: assignment.creatorId,
+    readinessReady: assignment.readiness.ready,
+    readinessBlockers: assignment.readiness.blockers,
     outreachStatus: assignment.outreach.status,
     sampleStatus: assignment.sample.status,
     contentStatus: assignment.content.status,
@@ -98,9 +111,11 @@ export function buildCampaignCockpitView(ledger: CampaignLedger, now: string): C
     blocker: creatorBlocker(ledger.campaign.status, assignment)
   }));
 
-  const blockers = creators
+  const creatorBlockers = creators
     .filter((creator) => creator.blocker !== null)
     .map((creator) => `${creator.creatorId}: ${creator.blocker as string}`);
+  const campaignBlockers = ledger.campaign.readiness.blockers.map((blocker) => `Campaign: ${blocker}`);
+  const blockers = [...campaignBlockers, ...creatorBlockers];
 
   return {
     id: ledger.campaign.id,
@@ -108,7 +123,10 @@ export function buildCampaignCockpitView(ledger: CampaignLedger, now: string): C
     brandId: ledger.campaign.brandId,
     productId: ledger.campaign.productId,
     status: ledger.campaign.status,
-    health: campaignHealth(ledger.campaign.status, blockers.length, actions.length),
+    health: campaignHealth(ledger.campaign.status, ledger.campaign.readiness.ready, blockers.length, actions.length),
+    readinessReady: ledger.campaign.readiness.ready,
+    clientApproved: ledger.campaign.readiness.clientApproved,
+    readinessEvaluatedAt: ledger.campaign.readiness.evaluatedAt,
     summary,
     actions,
     approvalActions: actions.filter((action) => action.requiresApproval).length,
