@@ -26,6 +26,25 @@ export type ProductEconomicsResult = {
   targetMarginFeasibleBeforeMarketing: boolean | null;
 };
 
+export type PilotScenarioInput = {
+  id: string;
+  label?: string;
+  economics: ProductEconomicsInput;
+};
+
+export type PilotScenarioComparison = {
+  id: string;
+  label: string | null;
+  rank: number;
+  viable: boolean;
+  meetsTargetContributionMargin: boolean | null;
+  contributionAfterMarketing: number;
+  contributionMarginAfterMarketing: number;
+  breakEvenRoas: number | null;
+  targetRoas: number | null;
+  economics: ProductEconomicsResult;
+};
+
 function assertFiniteNonNegative(value: number, field: string): void {
   if (!Number.isFinite(value) || value < 0) {
     throw new Error(`${field} must be a finite, non-negative number`);
@@ -35,6 +54,12 @@ function assertFiniteNonNegative(value: number, field: string): void {
 function assertRate(value: number, field: string): void {
   if (!Number.isFinite(value) || value < 0 || value >= 1) {
     throw new Error(`${field} must be >= 0 and < 1`);
+  }
+}
+
+function assertScenarioId(value: string): void {
+  if (value.trim().length === 0) {
+    throw new Error("scenario id must not be empty");
   }
 }
 
@@ -145,4 +170,76 @@ export function calculateProductEconomics(
     targetRoas: targetRoas === null ? null : roundRatio(targetRoas),
     targetMarginFeasibleBeforeMarketing
   };
+}
+
+export function comparePilotScenarios(
+  scenarios: PilotScenarioInput[]
+): PilotScenarioComparison[] {
+  if (scenarios.length < 2) {
+    throw new Error("at least two scenarios are required for comparison");
+  }
+
+  const ids = new Set<string>();
+
+  const comparisons = scenarios.map((scenario) => {
+    assertScenarioId(scenario.id);
+
+    if (ids.has(scenario.id)) {
+      throw new Error(`duplicate scenario id: ${scenario.id}`);
+    }
+
+    ids.add(scenario.id);
+
+    const economics = calculateProductEconomics(scenario.economics);
+    const meetsTargetContributionMargin =
+      economics.targetContributionMargin === null
+        ? null
+        : economics.contributionMarginAfterMarketing >=
+          economics.targetContributionMargin;
+
+    const viable =
+      economics.contributionAfterMarketing >= 0 &&
+      (meetsTargetContributionMargin ?? true);
+
+    return {
+      id: scenario.id,
+      label: scenario.label ?? null,
+      rank: 0,
+      viable,
+      meetsTargetContributionMargin,
+      contributionAfterMarketing: economics.contributionAfterMarketing,
+      contributionMarginAfterMarketing:
+        economics.contributionMarginAfterMarketing,
+      breakEvenRoas: economics.breakEvenRoas,
+      targetRoas: economics.targetRoas,
+      economics
+    };
+  });
+
+  comparisons.sort((a, b) => {
+    if (a.viable !== b.viable) {
+      return a.viable ? -1 : 1;
+    }
+
+    if (a.contributionAfterMarketing !== b.contributionAfterMarketing) {
+      return b.contributionAfterMarketing - a.contributionAfterMarketing;
+    }
+
+    if (
+      a.contributionMarginAfterMarketing !==
+      b.contributionMarginAfterMarketing
+    ) {
+      return (
+        b.contributionMarginAfterMarketing -
+        a.contributionMarginAfterMarketing
+      );
+    }
+
+    return a.id.localeCompare(b.id);
+  });
+
+  return comparisons.map((comparison, index) => ({
+    ...comparison,
+    rank: index + 1
+  }));
 }
