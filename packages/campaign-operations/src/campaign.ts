@@ -22,6 +22,13 @@ function nonNegative(value: number, field: string): number {
 function initialAssignment(creatorId: string): CampaignCreatorAssignment {
   return {
     creatorId,
+    readiness: {
+      contractReady: false,
+      complianceReady: false,
+      eligible: false,
+      ready: false,
+      blockers: ["Readiness not evaluated"]
+    },
     outreach: {
       status: "queued",
       reply: null,
@@ -76,10 +83,25 @@ function updateAssignment(
   };
 }
 
+function readinessBlockers(ledger: CampaignLedger): string[] {
+  const blockers = [...ledger.campaign.readiness.blockers];
+  for (const assignment of ledger.campaign.assignments) {
+    for (const blocker of assignment.readiness.blockers) blockers.push(`${assignment.creatorId}: ${blocker}`);
+  }
+  return blockers;
+}
+
+function requireCampaignReady(ledger: CampaignLedger): void {
+  if (ledger.campaign.readiness.ready) return;
+  const blockers = readinessBlockers(ledger);
+  throw new Error(`campaign readiness blocked${blockers.length > 0 ? `: ${blockers.join("; ")}` : ""}`);
+}
+
 function requireCampaignActive(ledger: CampaignLedger): void {
   if (ledger.campaign.status !== "active") {
     throw new Error(`campaign must be active, current status: ${ledger.campaign.status}`);
   }
+  requireCampaignReady(ledger);
 }
 
 export type CreateCampaignDraftInput = {
@@ -112,6 +134,12 @@ export function createCampaignDraft(input: CreateCampaignDraftInput): CampaignLe
       productId,
       creatorListId: input.creatorList.id,
       status: "draft",
+      readiness: {
+        clientApproved: false,
+        ready: false,
+        evaluatedAt: null,
+        blockers: ["Readiness not evaluated"]
+      },
       createdAt,
       approvedAt: null,
       launchedAt: null,
@@ -133,6 +161,7 @@ export function createCampaignDraft(input: CreateCampaignDraftInput): CampaignLe
 
 export function approveCampaign(ledger: CampaignLedger, actor: AuditActor, at: string): CampaignLedger {
   if (ledger.campaign.status !== "draft") throw new Error("only draft campaigns can be approved");
+  requireCampaignReady(ledger);
   const next: CampaignLedger = {
     campaign: { ...ledger.campaign, status: "approved", approvedAt: required(at, "approvedAt") },
     auditTrail: ledger.auditTrail
@@ -142,12 +171,14 @@ export function approveCampaign(ledger: CampaignLedger, actor: AuditActor, at: s
     entityId: ledger.campaign.id,
     action: "campaign.approved",
     at,
-    actor
+    actor,
+    details: { readinessEvaluatedAt: ledger.campaign.readiness.evaluatedAt }
   });
 }
 
 export function launchCampaign(ledger: CampaignLedger, actor: AuditActor, at: string): CampaignLedger {
   if (ledger.campaign.status !== "approved") throw new Error("campaign must be approved before launch");
+  requireCampaignReady(ledger);
   const launchedAt = required(at, "launchedAt");
   const assignments = ledger.campaign.assignments.map((assignment) => ({
     ...assignment,
@@ -184,6 +215,7 @@ export function pauseCampaign(ledger: CampaignLedger, actor: AuditActor, at: str
 
 export function resumeCampaign(ledger: CampaignLedger, actor: AuditActor, at: string): CampaignLedger {
   if (ledger.campaign.status !== "paused") throw new Error("only paused campaigns can be resumed");
+  requireCampaignReady(ledger);
   const next: CampaignLedger = {
     campaign: { ...ledger.campaign, status: "active" },
     auditTrail: ledger.auditTrail
