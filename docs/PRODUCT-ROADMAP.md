@@ -43,7 +43,7 @@ AI Decision Layer
 - [x] Target Contribution Margin Guardrail
 - [x] Pilot Scenario Comparison
 - [x] Brand Qualification Engine
-- [ ] Pilot Generator
+- [x] Pilot Generator
 
 ### Phase 2 - Proprietary Intelligence
 
@@ -73,8 +73,8 @@ AI Decision Layer
 
 ## Additional long-term capabilities
 
-The platform may also evolve into a campaign operating system, a pilot generator, anonymized benchmark database and shared decision layer for GMVGANG-owned workflows.
+The platform may also evolve into a campaign operating system, an anonymized benchmark database and shared decision layer for GMVGANG-owned workflows.
 
 ## Current gate
 
-The Brand Qualification Engine is implemented. The next active Phase 1 candidate is the Pilot Generator because it can combine existing economics, scenario comparison and qualification logic into a repeatable sales/pilot planning output. Broad dashboards and portals remain deferred until they solve a measured operational blocker or the current revenue-validation gate ends.
+Phase 1 Revenue Core is implemented. The next candidate is a lightweight Creator Matching Engine, but it should only advance when a real brand/product-to-creator matching workflow can validate its signals. Broad dashboards and portals remain deferred until they solve a measured operational blocker or the current revenue-validation gate ends.
