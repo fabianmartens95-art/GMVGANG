@@ -4,7 +4,7 @@
 
 Provide the deterministic execution layer between creator intelligence and external campaign actions.
 
-The core owns campaign state, creator assignment state, follow-up due state, sample workflow state, content/performance attribution and an append-only audit trail. It does not directly send creator messages, order samples, mutate TikTok Shop or commit external actions.
+The core owns campaign state, creator assignment state, readiness gates, follow-up due state, sample workflow state, content/performance attribution and an append-only audit trail. It does not directly send creator messages, order samples, mutate TikTok Shop or commit external actions.
 
 ## Flow
 
@@ -17,7 +17,16 @@ Materialized Creator List
     v
 Campaign Draft
     |
-    | human approval
+    +--> Readiness evaluation
+    |      +--> Client approved?
+    |      +--> Creator contract ready?
+    |      +--> Creator compliance ready?
+    |      +--> Creator execution eligible?
+    |
+    | all green + human approval
+    v
+Campaign Approved
+    |
     v
 Campaign Active
     |
@@ -47,6 +56,50 @@ Campaign Active
 
 Every material state transition also appends an audit event.
 
+## Readiness gate
+
+A draft is fail-closed by default. `evaluateCampaignReadiness` must establish an explicit readiness snapshot before approval.
+
+Campaign-level evidence:
+
+- client approval
+
+Creator-level evidence for every assigned creator:
+
+- contract ready
+- compliance ready
+- execution eligible
+
+A campaign is ready only when the client gate and every assigned creator gate are green. Missing evidence is a blocker.
+
+`approveCampaign` refuses a blocked draft. `launchCampaign` and `resumeCampaign` re-check readiness. Active execution helpers also require readiness, and `getCampaignActionQueue` returns no actions when readiness is false. This prevents a manually changed upstream status from bypassing the execution gate.
+
+The readiness evaluation is recorded as `campaign.readiness_evaluated` in the audit trail with non-sensitive counts and boolean state.
+
+## Company OS readiness sources
+
+Notion / GMVGANG Company OS remains the operational Single Source of Truth.
+
+Campaign-specific source:
+
+- `GMVGANG – Campaigns`.`Client Approved`
+
+Creator readiness remains derived from the central Creator SSOT rather than duplicated into campaign assignment records. The Cockpit runtime only receives the operational fields required for the gate:
+
+- `TikTok Handle`
+- `Status`
+- `Legal Hold`
+- `Creator nicht aufnehmen`
+- `Raus`
+- `Compliance-Risiko`
+- `TikTok Verstöße 90 Tage`
+- `Compliance Check bestanden`
+- `Vertrag unterschrieben am`
+
+No creator email, phone number, address, tax data, contract contents or signature payload is stored in the Cockpit runtime.
+
+For the live read model, creator execution eligibility currently requires an `Onboarding` or `Aktiv` status plus no legal hold, manual exclusion or active TikTok violation. Compliance readiness requires the documented compliance check plus no legal/compliance blocker. Contract readiness requires a recorded signed-contract date.
+
 ## Safety model
 
 External effects are deliberately separated from internal state transitions.
@@ -72,7 +125,7 @@ Campaign statuses:
 - `completed`
 - `cancelled` (reserved for a later cancellation command)
 
-A campaign cannot launch directly from draft. `approveCampaign` must occur first.
+A campaign cannot launch directly from draft. Readiness must be green, then `approveCampaign` must occur before `launchCampaign`.
 
 ## Outreach state
 
@@ -157,20 +210,20 @@ Each event records:
 - orders
 - commission
 
-These are core metrics, not yet a dashboard.
+The internal Campaign Cockpit renders these metrics together with readiness blockers and approval-gated actions.
 
 ## Current boundary with Notion
 
-Notion / GMVGANG Company OS remains the operational Single Source of Truth for creator records and business operations.
+The Company OS contains the canonical Campaign and Campaign Creator Assignment sources. The Cockpit consumes read-only snapshots through Make and does not write operational status back to Notion.
 
-The creator-intelligence package already provides the PII-minimized creator projection and materialized creator lists. The campaign-operations package consumes those lists as inputs.
+Creator readiness facts remain in the existing Creator database. Campaign assignments reference creators but do not duplicate contract or compliance truth. Only the campaign-specific client approval flag lives on the Campaign record.
 
-This increment deliberately does not create a second manual CRM or write campaign status back to Notion. A later integration contract can synchronize approved campaign state into the existing Company OS structure once the canonical Campaign data model is defined there.
+External messages, sample fulfillment and writebacks remain outside the Cockpit runtime until an authorized adapter and explicit approval path are implemented.
 
 ## Next integration increments
 
-1. Campaign / product / brand synchronization contract with Company OS.
-2. Approved outreach adapter.
+1. First client-approved campaign with creators that have cleared contract/compliance/eligibility gates.
+2. Approved outreach adapter with idempotency protection.
 3. Sample fulfillment adapter.
 4. TikTok Shop / authorized performance ingestion.
-5. Internal campaign cockpit built from the deterministic core.
+5. Persistent runtime store and multi-brand isolation.
