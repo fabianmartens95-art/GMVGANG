@@ -8,7 +8,7 @@
     "build": "vite build",
     "start": "node persistent-runtime.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run && node --test snapshot-store.node.mjs && node --check server.mjs && node --check snapshot-store.mjs && node --check persistent-runtime.mjs"
+    "test": "vitest run && node --test snapshot-store.node.mjs && node --test notion-payload.node.mjs && node --check server.mjs && node --check notion-payload.mjs && node --check snapshot-store.mjs && node --check persistent-runtime.mjs"
   },
   "dependencies": {
     "@gmvgang/campaign-operations": "workspace:*",
