@@ -14,9 +14,9 @@ describe("campaign cockpit view model", () => {
     expect(view.summary.creatorsPosted).toBe(1);
     expect(view.summary.gmV).toBe(1860);
     expect(view.actions.map((action) => action.kind)).toEqual([
-      "send-follow-up",
       "approve-sample",
-      "content-reminder"
+      "content-reminder",
+      "send-follow-up"
     ]);
     expect(view.blockers).toEqual(["creator-mia: Content pending after delivery"]);
     expect(view.health).toBe("attention");
