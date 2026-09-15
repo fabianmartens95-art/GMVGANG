@@ -73,6 +73,7 @@ AI Decision Layer
 - [x] Company OS Campaign / Assignment SSOT
 - [x] Hosted internal Campaign Cockpit foundation
 - [x] PII-minimized Company OS -> Cockpit sync
+- [x] Cursor-paginated Company OS sync beyond 100 rows
 - [x] Persistent Railway runtime snapshot store with restart restore
 - [x] 30-minute stale-sync warning in Campaign Cockpit
 - [x] Audit log
@@ -137,9 +138,11 @@ AI Decision Layer
 
 Phase 1 Revenue Core is implemented. Phase 2 now includes the creator graph, performance scoring, deterministic product-to-creator matching, reusable creator segmentation / materialized lists, the PII-minimized Notion Creator synchronization contract, Company OS campaign execution sources, the Campaign Execution Core and a fail-closed Campaign Readiness Gate.
 
-The internal Campaign Cockpit is hosted on Railway behind HTTP Basic authentication. A Make scenario reads the Company OS every 15 minutes and sends read-only snapshots through a separate machine-secret boundary. Creator reads are restricted to the explicit operational whitelist `TikTok Handle`, `Status`, `Legal Hold`, `Creator nicht aufnehmen`, `Raus`, `Compliance-Risiko`, `TikTok Verstöße 90 Tage`, `Compliance Check bestanden` and `Vertrag unterschrieben am`; the runtime applies the same whitelist again before storing the snapshot. No contact details, addresses, tax data or contract contents enter the Cockpit store.
+The internal Campaign Cockpit is hosted on Railway behind HTTP Basic authentication. A Make scenario reads the Company OS every 15 minutes and sends read-only snapshots through a separate machine-secret boundary. Creator reads are restricted to the explicit operational whitelist `TikTok Handle`, `Status`, `Legal Hold`, `Creator nicht aufnehmen`, `Raus`, `Compliance-Risiko`, `TikTok Verstöße 90 Tage`, `Compliance Check bestanden` and `Vertrag unterschrieben am`; the runtime applies the same whitelist again before storing the snapshot. No additional creator contact details, addresses, tax data or contract contents enter the Cockpit store.
 
-The Cockpit runtime is now backed by a Railway volume mounted at `/data`. Sanitized creator, campaign and assignment snapshots are written atomically and replayed into the runtime after restart. Production recovery was verified by synchronizing all three sources, disabling Make, redeploying the service, and observing `creators,campaigns,assignments` restore from disk before any new HTTP sync. The UI also evaluates source freshness and warns when a required Company OS snapshot is older than 30 minutes or has no valid sync timestamp.
+The Company OS sync is now cursor-paginated instead of stopping at the first 100 Notion rows. A Make-internal Notion read adapter keeps Notion authorization inside Make and preserves the creator `filter_properties` whitelist. The production sync uses Make's native token pagination, removes Make pagination metadata, aggregates every returned item into one snapshot and posts that array to the existing Cockpit ingestion endpoints. Cockpit ingestion accepts both the previous Notion list envelope and the paginated array format. A forced 10-row page-size test fetched the current 40-row Creator source through four separate cursor requests and reassembled the complete snapshot successfully. The live 15-minute production scenario then synchronized 40 Creator rows, one Campaign and three Assignments with HTTP 200 on all three Cockpit writes. The current Make paginator has an explicit operational ceiling of 10,000 items per source; this is documented rather than treated as unlimited pagination.
+
+The Cockpit runtime is backed by a Railway volume mounted at `/data`. Sanitized creator, campaign and assignment snapshots are written atomically and replayed into the runtime after restart. Production recovery was verified by synchronizing all three sources, disabling Make, redeploying the service, and observing `creators,campaigns,assignments` restore from disk before any new HTTP sync. The UI also evaluates source freshness and warns when a required Company OS snapshot is older than 30 minutes or has no valid sync timestamp.
 
 The Company OS Campaign SSOT contains the campaign-specific `Client Approved` gate. Creator contract, compliance and eligibility facts remain in the central Creator SSOT and are derived into a read-only campaign readiness snapshot instead of being duplicated on assignments. `approveCampaign`, `launchCampaign`, `resumeCampaign`, active execution functions and `getCampaignActionQueue` all fail closed when readiness is not green.
 
@@ -147,6 +150,6 @@ The first outbound integration boundary is implemented as `@gmvgang/campaign-out
 
 The first Company OS campaign remains `kaëll – PUNKTLANDUNG – Pre-Launch Validation`: an internal Draft with three real Screening creator assignments. kaëll is not yet a won client, `Client Approved` remains off, and the assigned creators have not cleared all contract / execution-eligibility gates. The Cockpit therefore shows readiness blockers and produces no outreach, sample or content action queue.
 
-The next reliability gate is complete Notion pagination beyond 100 rows so Company OS snapshots cannot silently truncate as the Creator pool grows. After that: verified affiliate-performance ingestion and the first basic affiliate performance dashboard. The persistent production idempotency store and any authorized outbound transport remain separate, approval-gated future increments.
+The next product-data gate is verified affiliate-performance ingestion followed by the first basic affiliate performance dashboard. The persistent production idempotency store and any authorized outbound transport remain separate, approval-gated future increments.
 
 Any dashboard, portal or automation must either remove a measured operational blocker, improve revenue decisions, improve delivery quality or generate defensible data.
