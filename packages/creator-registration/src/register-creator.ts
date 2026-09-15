@@ -5,10 +5,12 @@ import {
   validateCreatorRegistration,
   type CreatorRegistrationInput,
   type ReferralAttribution,
-  type ReferralRiskDecision
+  type ReferralRiskDecision,
+  type ReferralRiskInput
 } from "@gmvgang/creator-growth";
 
 export type TrustedRegistrationContext = {
+  workspaceId: string;
   principalId: string;
   identityKey: string;
   deviceKey?: string;
@@ -33,6 +35,7 @@ export type StoredReferralAttribution = ReferralAttribution & {
 
 export interface CreatorRegistrationRepository {
   upsertRegistration(input: {
+    workspaceId: string;
     principalId: string;
     identityKey: string;
     displayName: string;
@@ -51,6 +54,7 @@ export interface ReferralRegistrationRepository {
 export interface RegistrationAuditSink {
   record(event: {
     event: "creator.registration.accepted" | "creator.referral.attributed" | "creator.referral.rejected";
+    workspaceId: string;
     creatorId: string;
     principalId: string;
     occurredAt: string;
@@ -87,6 +91,7 @@ export async function registerCreator(
   }
 
   const creator = await ports.creators.upsertRegistration({
+    workspaceId: context.workspaceId,
     principalId: context.principalId,
     identityKey: context.identityKey,
     displayName: input.displayName.trim(),
@@ -97,6 +102,7 @@ export async function registerCreator(
 
   await ports.audit.record({
     event: "creator.registration.accepted",
+    workspaceId: context.workspaceId,
     creatorId: creator.creatorId,
     principalId: context.principalId,
     occurredAt: context.occurredAt,
@@ -112,6 +118,7 @@ export async function registerCreator(
   if (!referrer) {
     await ports.audit.record({
       event: "creator.referral.rejected",
+      workspaceId: context.workspaceId,
       creatorId: creator.creatorId,
       principalId: context.principalId,
       occurredAt: context.occurredAt,
@@ -125,29 +132,34 @@ export async function registerCreator(
     };
   }
 
-  const risk = evaluateReferralRisk({
+  const riskInput: ReferralRiskInput = {
     referrerCreatorId: referrer.creatorId,
     referredCreatorId: creator.creatorId,
-    referrerIdentityKey: referrer.identityKey,
     referredIdentityKey: context.identityKey,
-    referrerDeviceKey: referrer.deviceKey,
-    referredDeviceKey: context.deviceKey,
-  });
+  };
+  if (referrer.identityKey) riskInput.referrerIdentityKey = referrer.identityKey;
+  if (referrer.deviceKey) riskInput.referrerDeviceKey = referrer.deviceKey;
+  if (context.deviceKey) riskInput.referredDeviceKey = context.deviceKey;
+
+  const risk = evaluateReferralRisk(riskInput);
   const existingAttribution = await ports.referrals.getAttributionForReferredCreator(creator.creatorId);
-  const decision = attributeReferral({
-    workspaceId: "gmvgang",
+  const attributionInput = {
+    workspaceId: context.workspaceId,
     referralCode,
     referrerCreatorId: referrer.creatorId,
     referredCreatorId: creator.creatorId,
     attributedAt: context.occurredAt,
-    existingAttribution: existingAttribution ?? undefined,
     risk,
-  });
+  };
+  const decision = existingAttribution
+    ? attributeReferral({ ...attributionInput, existingAttribution })
+    : attributeReferral(attributionInput);
 
   if (!decision.ok || risk.decision === "block") {
     const reason = !decision.ok ? decision.reason : risk.flags[0] ?? "fraud_gate";
     await ports.audit.record({
       event: "creator.referral.rejected",
+      workspaceId: context.workspaceId,
       creatorId: creator.creatorId,
       principalId: context.principalId,
       occurredAt: context.occurredAt,
@@ -171,6 +183,7 @@ export async function registerCreator(
 
   await ports.audit.record({
     event: "creator.referral.attributed",
+    workspaceId: context.workspaceId,
     creatorId: creator.creatorId,
     principalId: context.principalId,
     occurredAt: context.occurredAt,
