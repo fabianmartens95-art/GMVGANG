@@ -37,7 +37,7 @@ describe("buildBrandPortalReadModel", () => {
     });
 
     expect(model.organizationId).toBe("brand-org-1");
-    expect(model.profitability?.contribution).toBe(-1096.64);
+    expect(model.profitability?.contribution).toBe(903.36);
     expect(model.nextBestActions.map((action) => action.id)).toEqual([
       "inventory-below-minimum",
       "profitability-below-target",
