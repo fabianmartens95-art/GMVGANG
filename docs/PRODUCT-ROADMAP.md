@@ -42,7 +42,7 @@ AI Decision Layer
 - [x] Product Economics Core
 - [x] Target Contribution Margin Guardrail
 - [x] Pilot Scenario Comparison
-- [ ] Brand Qualification Engine
+- [x] Brand Qualification Engine
 - [ ] Pilot Generator
 
 ### Phase 2 - Proprietary Intelligence
@@ -77,4 +77,4 @@ The platform may also evolve into a campaign operating system, a pilot generator
 
 ## Current gate
 
-The next active component is the Brand Qualification Engine because it can directly support lead prioritization, sales qualification and pilot suitability. Broad dashboards and portals remain deferred until they solve a measured operational blocker or the current revenue-validation gate ends.
+The Brand Qualification Engine is implemented. The next active Phase 1 candidate is the Pilot Generator because it can combine existing economics, scenario comparison and qualification logic into a repeatable sales/pilot planning output. Broad dashboards and portals remain deferred until they solve a measured operational blocker or the current revenue-validation gate ends.
