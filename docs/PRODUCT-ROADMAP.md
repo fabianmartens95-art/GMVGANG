@@ -67,6 +67,7 @@ AI Decision Layer
 - [x] Creator lists / segments
 - [x] Outreach campaign model
 - [x] Sample request pipeline
+- [x] Campaign readiness gate: client approval + creator contract/compliance/eligibility
 - [ ] Basic affiliate performance dashboard
 - [x] Notion Creator synchronization contract
 - [x] Company OS Campaign / Assignment SSOT
@@ -129,12 +130,14 @@ AI Decision Layer
 
 ## Current gate
 
-Phase 1 Revenue Core is implemented. Phase 2 now includes the creator graph, performance scoring, deterministic product-to-creator matching, reusable creator segmentation / materialized lists, the PII-minimized Notion Creator synchronization contract, Company OS campaign execution sources and the Campaign Execution Core.
+Phase 1 Revenue Core is implemented. Phase 2 now includes the creator graph, performance scoring, deterministic product-to-creator matching, reusable creator segmentation / materialized lists, the PII-minimized Notion Creator synchronization contract, Company OS campaign execution sources, the Campaign Execution Core and a fail-closed Campaign Readiness Gate.
 
-The internal Campaign Cockpit is hosted on Railway behind HTTP Basic authentication. A Make scenario reads the Company OS every 15 minutes and sends read-only snapshots through a separate machine-secret boundary. Creator reads are restricted to the explicit operational whitelist `TikTok Handle`, `Status`, `Legal Hold`, `Creator nicht aufnehmen`, `Raus`, `Compliance-Risiko` and `TikTok Verstöße 90 Tage`; the runtime applies the same whitelist again before storing the snapshot.
+The internal Campaign Cockpit is hosted on Railway behind HTTP Basic authentication. A Make scenario reads the Company OS every 15 minutes and sends read-only snapshots through a separate machine-secret boundary. Creator reads are restricted to the explicit operational whitelist `TikTok Handle`, `Status`, `Legal Hold`, `Creator nicht aufnehmen`, `Raus`, `Compliance-Risiko`, `TikTok Verstöße 90 Tage`, `Compliance Check bestanden` and `Vertrag unterschrieben am`; the runtime applies the same whitelist again before storing the snapshot. No contact details, addresses, tax data or contract contents enter the Cockpit store.
 
-The Creator pool is live from Company OS. The first Company OS campaign is now synchronized through the production path: `kaëll – PUNKTLANDUNG – Pre-Launch Validation` is an explicitly internal Draft with three real Screening creator assignments. The verified Make run sent 1 campaign and 3 assignments to the Railway runtime with HTTP 200. Because kaëll is not yet a won client and the assigned creators have not all cleared activation / contract gates, outreach remains `Queued`, samples remain `Not Requested`, content remains `Not Started`, and the Draft produces no external action queue.
+The Company OS Campaign SSOT now contains the campaign-specific `Client Approved` gate. Creator contract, compliance and eligibility facts remain in the central Creator SSOT and are derived into a read-only campaign readiness snapshot instead of being duplicated on assignments. `approveCampaign`, `launchCampaign`, `resumeCampaign`, active execution functions and `getCampaignActionQueue` all fail closed when readiness is not green.
 
-The next gate is client approval plus creator eligibility / contract gates, followed by the first real end-to-end execution through outreach -> sample -> content -> GMV. After that: verified affiliate-performance ingestion, multi-brand isolation, a persistent runtime store and approval-gated outbound adapters. External messages, sample fulfillment and Notion writes remain outside the Cockpit runtime until explicitly approved and implemented.
+The first Company OS campaign remains `kaëll – PUNKTLANDUNG – Pre-Launch Validation`: an internal Draft with three real Screening creator assignments. kaëll is not yet a won client, `Client Approved` remains off, and the assigned creators have not cleared all contract / execution-eligibility gates. The Cockpit therefore shows readiness blockers and produces no outreach, sample or content action queue.
+
+The next gate is real client approval plus creator contract / compliance / eligibility clearance, followed by the first end-to-end execution through outreach -> sample -> content -> GMV. After that: verified affiliate-performance ingestion, multi-brand isolation, a persistent runtime store and approval-gated outbound adapters. External messages, sample fulfillment and Notion writes remain outside the Cockpit runtime until explicitly approved and implemented.
 
 Any dashboard, portal or automation must either remove a measured operational blocker, improve revenue decisions, improve delivery quality or generate defensible data.
