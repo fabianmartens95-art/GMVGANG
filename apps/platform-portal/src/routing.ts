@@ -12,6 +12,7 @@ export interface PortalRoute {
 export const PORTAL_ROUTES: readonly PortalRoute[] = [
   { path: "/", area: "public", label: "Start" },
   { path: "/join", area: "public", label: "Creator Join" },
+  { path: "/login", area: "public", label: "Login" },
   { path: "/creator", area: "creator", label: "Creator Portal" },
   { path: "/brand", area: "brand", label: "Brand Portal" },
   { path: "/team", area: "team", label: "Team Workspace" },
