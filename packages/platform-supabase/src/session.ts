@@ -1,11 +1,15 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import {
-  resolvePlatformSession,
+  loadPlatformSessionContext,
   type Membership,
   type Organization,
+  type PlatformIdentityPort,
   type PlatformSession,
+  type PlatformSessionContext,
+  type PlatformSessionPersistencePort,
   type PlatformUser,
   type PlatformUserRole,
+  type VerifiedPlatformIdentity,
 } from "@gmvgang/platform-foundation";
 
 export type SupabaseSessionInput = {
@@ -102,79 +106,82 @@ function claimsExpiry(claims: Record<string, unknown>): string {
   return new Date(claims.exp * 1000).toISOString();
 }
 
-async function fetchSessionRows(client: SupabaseClient, userId: string): Promise<{
-  user: PlatformUser;
-  memberships: Membership[];
-  organizations: Organization[];
-}> {
-  const [userResult, membershipResult] = await Promise.all([
-    client.from("platform_users").select("id,email,status,created_at,updated_at").eq("id", userId).maybeSingle(),
-    client
-      .from("memberships")
-      .select("id,user_id,organization_id,role,status,created_at,updated_at")
-      .eq("user_id", userId),
-  ]);
-
-  if (userResult.error) throw new Error(`PLATFORM_USER_QUERY_FAILED:${userResult.error.code ?? "unknown"}`);
-  if (!userResult.data) throw new Error("PLATFORM_USER_NOT_PROVISIONED");
-  if (membershipResult.error) throw new Error(`MEMBERSHIP_QUERY_FAILED:${membershipResult.error.code ?? "unknown"}`);
-
-  const memberships = (membershipResult.data ?? []).map((row) => membershipFromRow(row as Record<string, unknown>));
-  const organizationIds = [...new Set(memberships.map((membership) => membership.organizationId))];
-
-  let organizations: Organization[] = [];
-  if (organizationIds.length > 0) {
-    const organizationResult = await client
-      .from("organizations")
-      .select("id,type,name,status,created_at,updated_at")
-      .in("id", organizationIds);
-    if (organizationResult.error) throw new Error(`ORGANIZATION_QUERY_FAILED:${organizationResult.error.code ?? "unknown"}`);
-    organizations = (organizationResult.data ?? []).map((row) => organizationFromRow(row as Record<string, unknown>));
-  }
-
+function createSupabaseIdentityPort(client: SupabaseClient, accessToken: string): PlatformIdentityPort {
   return {
-    user: platformUserFromRow(userResult.data as Record<string, unknown>),
-    memberships,
-    organizations,
+    async verifyIdentity(): Promise<VerifiedPlatformIdentity | null> {
+      const [userResult, claimsResult] = await Promise.all([
+        client.auth.getUser(accessToken),
+        client.auth.getClaims(accessToken),
+      ]);
+
+      if (userResult.error || !userResult.data.user) return null;
+      if (claimsResult.error || !claimsResult.data?.claims) return null;
+
+      const user = userResult.data.user;
+      const claims = claimsResult.data.claims as Record<string, unknown>;
+      if (claims.sub !== user.id) throw new Error("SUPABASE_IDENTITY_MISMATCH");
+
+      return {
+        userId: user.id,
+        emailVerified: emailVerified(user),
+        expiresAt: claimsExpiry(claims),
+      };
+    },
   };
+}
+
+function createSupabaseSessionPersistence(client: SupabaseClient): PlatformSessionPersistencePort {
+  return {
+    async findUserById(userId) {
+      const result = await client
+        .from("platform_users")
+        .select("id,email,status,created_at,updated_at")
+        .eq("id", userId)
+        .maybeSingle();
+      if (result.error) throw new Error(`PLATFORM_USER_QUERY_FAILED:${result.error.code ?? "unknown"}`);
+      return result.data ? platformUserFromRow(result.data as Record<string, unknown>) : null;
+    },
+
+    async listMembershipsForUser(userId) {
+      const result = await client
+        .from("memberships")
+        .select("id,user_id,organization_id,role,status,created_at,updated_at")
+        .eq("user_id", userId);
+      if (result.error) throw new Error(`MEMBERSHIP_QUERY_FAILED:${result.error.code ?? "unknown"}`);
+      return (result.data ?? []).map((row) => membershipFromRow(row as Record<string, unknown>));
+    },
+
+    async listOrganizationsByIds(organizationIds) {
+      if (organizationIds.length === 0) return [];
+      const result = await client
+        .from("organizations")
+        .select("id,type,name,status,created_at,updated_at")
+        .in("id", [...organizationIds]);
+      if (result.error) throw new Error(`ORGANIZATION_QUERY_FAILED:${result.error.code ?? "unknown"}`);
+      return (result.data ?? []).map((row) => organizationFromRow(row as Record<string, unknown>));
+    },
+  };
+}
+
+export async function resolveSupabasePlatformSessionContext(
+  client: SupabaseClient,
+  input: SupabaseSessionInput,
+): Promise<PlatformSessionContext> {
+  const accessToken = required(input.accessToken, "SUPABASE_ACCESS_TOKEN_REQUIRED");
+  const now = assertTimestamp(input.now, "SESSION_NOW_INVALID");
+  const requestedOrganizationId = input.requestedOrganizationId?.trim();
+
+  return loadPlatformSessionContext({
+    identity: createSupabaseIdentityPort(client, accessToken),
+    persistence: createSupabaseSessionPersistence(client),
+    ...(requestedOrganizationId ? { requestedOrganizationId } : {}),
+    now,
+  });
 }
 
 export async function resolveSupabasePlatformSession(
   client: SupabaseClient,
   input: SupabaseSessionInput,
 ): Promise<PlatformSession> {
-  const accessToken = required(input.accessToken, "SUPABASE_ACCESS_TOKEN_REQUIRED");
-  const now = assertTimestamp(input.now, "SESSION_NOW_INVALID");
-
-  const [userResult, claimsResult] = await Promise.all([
-    client.auth.getUser(accessToken),
-    client.auth.getClaims(accessToken),
-  ]);
-
-  if (userResult.error || !userResult.data.user) {
-    return { status: "anonymous", roles: [] };
-  }
-  if (claimsResult.error || !claimsResult.data?.claims) {
-    return { status: "anonymous", roles: [] };
-  }
-
-  const user = userResult.data.user;
-  const claims = claimsResult.data.claims as Record<string, unknown>;
-  if (claims.sub !== user.id) {
-    throw new Error("SUPABASE_IDENTITY_MISMATCH");
-  }
-
-  const rows = await fetchSessionRows(client, user.id);
-  return resolvePlatformSession({
-    identity: {
-      userId: user.id,
-      emailVerified: emailVerified(user),
-      expiresAt: claimsExpiry(claims),
-    },
-    user: rows.user,
-    memberships: rows.memberships,
-    organizations: rows.organizations,
-    ...(input.requestedOrganizationId?.trim() ? { requestedOrganizationId: input.requestedOrganizationId.trim() } : {}),
-    now,
-  });
+  return (await resolveSupabasePlatformSessionContext(client, input)).session;
 }
