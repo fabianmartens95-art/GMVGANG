@@ -41,6 +41,7 @@ function handlerFor(options: {
         return unavailableBrandPortalReadModel(options.returnedOrganizationId ?? input.organizationId, input.now);
       },
     }),
+    async getCreatorProfile() { return null; },
     async registerCreator() { throw new Error("NOT_USED"); },
     async completeCreatorProfile() { throw new Error("NOT_USED"); },
   };
