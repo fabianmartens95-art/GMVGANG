@@ -32,10 +32,18 @@ test('potential check preserves secure intake boundary', () => {
   }
 });
 
-test('client blocks real writes on pages.dev preview', async () => {
+test('client allows real writes only on production domains', async () => {
   const source = await readFile(join(root, 'src/client.js'), 'utf8');
-  assert.match(source, /hostname\.endsWith\('\.pages\.dev'\)/);
-  assert.match(source, /Preview-Modus: Der echte Formularversand/);
+  assert.match(source, /new Set\(\['gmvgang\.de', 'www\.gmvgang\.de'\]\)/);
+  assert.match(source, /if \(!productionHost\)/);
+  assert.match(source, /Vorschau-\/Testmodus: Der echte Formularversand ist nur auf gmvgang\.de freigeschaltet/);
+  assert.doesNotMatch(source, /hostname\.endsWith\('\.pages\.dev'\)/);
+});
+
+test('mobile navigation can be closed with Escape and restores focus', async () => {
+  const source = await readFile(join(root, 'src/client.js'), 'utf8');
+  assert.match(source, /event\.key === 'Escape'/);
+  assert.match(source, /menuButton\.focus\(\)/);
 });
 
 test('client only routes to result after confirmed Make save and only transfers score/band', async () => {
