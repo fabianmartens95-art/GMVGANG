@@ -2,6 +2,7 @@ import "./styles.css";
 import "./module-navigation.css";
 import "./creator-profile.css";
 import "./creator-referrals.css";
+import "./creator-workspace.css";
 
 import type { PlatformWorkspaceAccess } from "@gmvgang/platform-foundation";
 import { renderLogin, signOut, wireLogin } from "./auth-client.js";
@@ -9,6 +10,12 @@ import { createBrandOverviewPort, loadBrandOverview, renderBrandOverview } from 
 import { HttpCreatorRegistrationAdapter, renderCreatorJoin, wireCreatorJoin } from "./creator-join.js";
 import { HttpCreatorProfileAdapter, renderCreatorProfile, wireCreatorProfile } from "./creator-profile.js";
 import { HttpCreatorReferralHubAdapter, renderCreatorReferralHub, wireCreatorReferralHub } from "./creator-referrals.js";
+import {
+  HttpCreatorWorkspaceAdapter,
+  renderCreatorCampaigns,
+  renderCreatorMatches,
+  renderCreatorPerformance,
+} from "./creator-workspace.js";
 import {
   canAccessArea,
   defaultAreaForSession,
@@ -30,7 +37,7 @@ const areaCopy: Record<Exclude<PortalArea, "public">, { eyebrow: string; title: 
   creator: {
     eyebrow: "Creator Network",
     title: "Creator Portal",
-    description: "Profil, Netzwerkstatus, Referral-Wachstum und spätere Campaign-Aktivierung in einer Oberfläche.",
+    description: "Profil, Netzwerkstatus, Referral-Wachstum, Matches und Campaign-Fortschritt in einer Oberfläche.",
   },
   brand: {
     eyebrow: "Brand Growth",
@@ -145,7 +152,7 @@ function publicView(): string {
       </section>
 
       <section class="portal-grid" aria-label="Portal Bereiche">
-        ${portalEntry("creator", "CREATOR", "Offene Registrierung, Creator-Profil, Referral Hub und später TikTok-Shop-Connect.")}
+        ${portalEntry("creator", "CREATOR", "Offene Registrierung, Creator-Profil, Referral Hub, Matches und persönlicher Campaign-Fortschritt.")}
         ${portalEntry("brand", "BRAND", "Profitability Center, Next Best Actions, Campaigns, Creator Intelligence und Reports.")}
         ${portalEntry("team", "TEAM", "Founder, Admin, Creator Manager, Brand Manager und Closer mit getrennten Rechten.")}
       </section>
@@ -267,6 +274,24 @@ async function protectedView(area: Exclude<PortalArea, "public">, route: PortalR
       <main class="workspace">
         ${intro}
         ${renderCreatorReferralHub(referralHub, window.location.origin)}
+      </main>`;
+  }
+
+  if (area === "creator" && ["matches", "campaigns", "performance"].includes(route.moduleId ?? "")) {
+    const workspace = await new HttpCreatorWorkspaceAdapter().getWorkspace();
+    const content = route.moduleId === "matches"
+      ? renderCreatorMatches(workspace)
+      : route.moduleId === "campaigns"
+        ? renderCreatorCampaigns(workspace)
+        : renderCreatorPerformance(workspace);
+    return `
+      <main class="workspace">
+        ${intro}
+        ${content}
+        <section class="boundary-note">
+          <strong>Creator-safe read boundary</strong>
+          <span>Nur dein serverseitig verknüpfter Creator-Datensatz wird gelesen. Nicht freigegebene Campaigns, interne Matching-Scores und operative Blocker werden nicht an den Browser übertragen.</span>
+        </section>
       </main>`;
   }
 

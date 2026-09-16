@@ -1,10 +1,16 @@
+import type { BrandPortalReadModel } from "@gmvgang/brand-intelligence/portal";
+import type {
+  CampaignStatus,
+  ContentStatus,
+  OutreachStatus,
+  SampleStatus,
+} from "@gmvgang/campaign-operations";
 import type {
   CreatorProfileCompletionCommand,
   CreatorRegistrationResult,
   PublicCreatorRegistrationInput,
   TrustedCreatorRegistrationContext,
 } from "@gmvgang/creator-registration";
-import type { BrandPortalReadModel } from "@gmvgang/brand-intelligence/portal";
 import type {
   CreatorProfile,
   PlatformSessionContext,
@@ -57,6 +63,89 @@ export type CreatorReferralHubReadModel = {
   recentReferrals: CreatorReferralHubItem[];
 };
 
+export type CreatorWorkspaceSourceAssignment = {
+  campaign: {
+    id: string;
+    name: string;
+    status: CampaignStatus;
+    clientApproved: boolean;
+    launchedAt: string | null;
+    completedAt: string | null;
+    updatedAt: string | null;
+  };
+  creatorReady: boolean;
+  outreachStatus: OutreachStatus;
+  sampleStatus: SampleStatus;
+  contentStatus: ContentStatus;
+  postedAt: string | null;
+  operationalPerformance: {
+    gmV: number;
+    orders: number;
+    commission: number;
+    updatedAt: string | null;
+  };
+};
+
+export type CreatorWorkspaceSourceSnapshot = {
+  assignments: CreatorWorkspaceSourceAssignment[];
+  syncedAt: string | null;
+};
+
+export interface CreatorWorkspaceSourcePort {
+  readForCreator(input: {
+    creatorMasterId: string;
+    now: string;
+  }): Promise<CreatorWorkspaceSourceSnapshot>;
+}
+
+export type CreatorWorkspaceMatch = {
+  campaignId: string;
+  campaignName: string;
+  status: "new" | "contacted" | "awaiting_response";
+};
+
+export type CreatorWorkspaceCampaign = {
+  campaignId: string;
+  campaignName: string;
+  status: CampaignStatus;
+  sampleStatus: SampleStatus;
+  contentStatus: ContentStatus;
+  launchedAt: string | null;
+  completedAt: string | null;
+  postedAt: string | null;
+};
+
+export type CreatorWorkspacePerformance = {
+  source: "company-os-operational";
+  verification: "provisional";
+  currency: null;
+  totals: {
+    gmV: number;
+    orders: number;
+    commission: number;
+    postedContent: number;
+  };
+  campaigns: Array<{
+    campaignId: string;
+    campaignName: string;
+    gmV: number;
+    orders: number;
+    commission: number;
+    updatedAt: string | null;
+  }>;
+  updatedAt: string | null;
+};
+
+export type CreatorWorkspaceReadModel = {
+  availability: "available" | "unavailable";
+  generatedAt: string;
+  syncedAt: string | null;
+  unavailableReason?: "source_not_configured" | "creator_master_id_missing";
+  matches: CreatorWorkspaceMatch[];
+  campaigns: CreatorWorkspaceCampaign[];
+  performance: CreatorWorkspacePerformance;
+};
+
 export interface PlatformApiServices {
   resolveSessionContext(input: {
     accessToken: string;
@@ -76,6 +165,10 @@ export interface PlatformApiServices {
     userId: string;
     now: string;
   }): Promise<CreatorReferralHubReadModel | null>;
+  getCreatorWorkspace?(input: {
+    userId: string;
+    now: string;
+  }): Promise<CreatorWorkspaceReadModel | null>;
   registerCreator(
     input: PublicCreatorRegistrationInput,
     context: TrustedCreatorRegistrationContext,

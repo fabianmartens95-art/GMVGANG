@@ -12,6 +12,7 @@ import {
 } from "./auth.js";
 import { loadPlatformServerConfig, type PlatformServerConfig } from "./env.js";
 import { NotionCreatorOperationsSync } from "./notion-creator-sync.js";
+import { NotionCreatorWorkspaceReadPort } from "./notion-creator-workspace.js";
 import {
   createFixedWindowRateLimiter,
   createPlatformMutationRateLimitPort,
@@ -262,6 +263,9 @@ export function createPlatformServer(config: PlatformServerConfig) {
   const creatorOperationsSync = config.notionCreatorSync
     ? new NotionCreatorOperationsSync(config.notionCreatorSync)
     : undefined;
+  const creatorWorkspace = config.notionCreatorWorkspace
+    ? new NotionCreatorWorkspaceReadPort(config.notionCreatorWorkspace)
+    : undefined;
   const services = createSupabasePlatformApiServices(
     {
       url: config.supabaseUrl,
@@ -269,6 +273,7 @@ export function createPlatformServer(config: PlatformServerConfig) {
     },
     {
       ...(creatorOperationsSync ? { creatorOperationsSync } : {}),
+      ...(creatorWorkspace ? { creatorWorkspace } : {}),
       ...(config.affiliatePerformanceRead
         ? { affiliatePerformancePolicy: config.affiliatePerformanceRead }
         : {}),
@@ -287,6 +292,7 @@ export function createPlatformServer(config: PlatformServerConfig) {
           ok: true,
           service: "gmvgang-platform",
           creatorOperationsSync: creatorOperationsSync ? "configured" : "not_configured",
+          creatorWorkspaceRead: creatorWorkspace ? "configured" : "not_configured",
           affiliatePerformanceRead: config.affiliatePerformanceRead ? "configured" : "disabled",
         }), outgoing);
         return;

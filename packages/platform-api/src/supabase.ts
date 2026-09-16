@@ -15,10 +15,20 @@ import {
   type BrandAffiliatePerformancePolicy,
 } from "./brand-performance.js";
 import { buildCreatorReferralHubReadModel } from "./creator-referrals.js";
-import type { BrandOverviewReadPort, CreatorOperationsSyncPort, PlatformApiServices } from "./types.js";
+import {
+  buildCreatorWorkspaceReadModel,
+  unavailableCreatorWorkspaceReadModel,
+} from "./creator-workspace.js";
+import type {
+  BrandOverviewReadPort,
+  CreatorOperationsSyncPort,
+  CreatorWorkspaceSourcePort,
+  PlatformApiServices,
+} from "./types.js";
 
 export type SupabasePlatformApiOptions = {
   creatorOperationsSync?: CreatorOperationsSyncPort;
+  creatorWorkspace?: CreatorWorkspaceSourcePort;
   brandOverview?: BrandOverviewReadPort;
   affiliatePerformancePolicy?: BrandAffiliatePerformancePolicy;
 };
@@ -80,6 +90,19 @@ export function createSupabasePlatformApiServices(
       if (!profile) return null;
       const attributions = await referralReadPort.listByReferrerCreatorProfileId(profile.id);
       return buildCreatorReferralHubReadModel(profile, attributions);
+    },
+    async getCreatorWorkspace(input) {
+      const profile = await registrationPorts.profiles.findByUserId(input.userId);
+      if (!profile) return null;
+      const creatorMasterId = profile.creatorMasterId?.trim();
+      if (!creatorMasterId) {
+        return unavailableCreatorWorkspaceReadModel(input.now, "creator_master_id_missing");
+      }
+      if (!options.creatorWorkspace) {
+        return unavailableCreatorWorkspaceReadModel(input.now, "source_not_configured");
+      }
+      const source = await options.creatorWorkspace.readForCreator({ creatorMasterId, now: input.now });
+      return buildCreatorWorkspaceReadModel(source, input.now);
     },
     async registerCreator(input, context) {
       const result = await registerCreator(input, context, registrationPorts);
