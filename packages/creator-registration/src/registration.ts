@@ -159,64 +159,90 @@ function validateRegistration(input: PublicCreatorRegistrationInput): {
   if (!input.ageConfirmed) errors.push("age_confirmation_required");
   if (!input.privacyAccepted) errors.push("privacy_acceptance_required");
   if (!input.privacyNoticeVersion.trim()) errors.push("privacy_notice_version_required");
+  if (input.displayName !== undefined && input.displayName.trim().length < 2) errors.push("invalid_display_name");
   if (input.referralCode?.trim() && !referralCode) errors.push("invalid_referral_code");
 
   return { errors, handle, referralCode };
 }
 
-async function allocateReferralCode(ports: CreatorRegistrationPorts): Promise<string> {
+async function generateUniqueReferralCode(ports: CreatorRegistrationPorts): Promise<string> {
   for (let attempt = 0; attempt < MAX_REFERRAL_CODE_ATTEMPTS; attempt += 1) {
-    const candidate = ports.ids.nextReferralCodeCandidate().trim().toUpperCase();
-    if (!REFERRAL_CODE_PATTERN.test(candidate)) throw new Error("INVALID_GENERATED_REFERRAL_CODE");
-    if (!await ports.profiles.findByReferralCode(candidate)) return candidate;
+    const candidate = normalizeReferralCode(ports.ids.nextReferralCodeCandidate());
+    if (!candidate) continue;
+    if (!(await ports.profiles.findByReferralCode(candidate))) return candidate;
   }
-  throw new Error("REFERRAL_CODE_ALLOCATION_FAILED");
+  throw new Error("REFERRAL_CODE_GENERATION_FAILED");
 }
 
 async function captureReferral(
-  newProfile: CreatorProfile,
-  referralCode: string | null,
+  creatorProfile: CreatorProfile,
+  requestedReferralCode: string | null,
+  allowNewAttribution: boolean,
   context: TrustedCreatorRegistrationContext,
   ports: CreatorRegistrationPorts,
 ): Promise<CreatorReferralCaptureResult> {
-  if (!referralCode) return { status: "none" };
+  if (!requestedReferralCode) return { status: "none" };
 
-  const existingAttribution = await ports.referrals.findByReferredCreatorProfileId(newProfile.id);
-  if (existingAttribution) {
-    const requestedReferrer = await ports.profiles.findByReferralCode(referralCode);
-    if (!requestedReferrer) return { status: "duplicate" };
-    assertImmutableReferralAttribution(existingAttribution, requestedReferrer.id, referralCode);
+  const existing = await ports.referrals.findByReferredCreatorProfileId(creatorProfile.id);
+  const referrer = await ports.profiles.findByReferralCode(requestedReferralCode);
+
+  if (!referrer) {
+    await ports.audit.record({
+      event: "creator.referral.rejected",
+      userId: context.userId,
+      creatorProfileId: creatorProfile.id,
+      occurredAt: context.now,
+      metadata: { reason: "referral_code_not_found", referralCode: requestedReferralCode },
+    });
+    return { status: "rejected", reason: "referral_code_not_found" };
+  }
+
+  if (existing) {
+    try {
+      assertImmutableReferralAttribution(existing, referrer.id, requestedReferralCode);
+    } catch {
+      await ports.audit.record({
+        event: "creator.referral.rejected",
+        userId: context.userId,
+        creatorProfileId: creatorProfile.id,
+        occurredAt: context.now,
+        metadata: { reason: "referral_attribution_locked" },
+      });
+      return { status: "rejected", reason: "referral_attribution_locked" };
+    }
     return { status: "duplicate" };
   }
 
-  const referrer = await ports.profiles.findByReferralCode(referralCode);
-  if (!referrer) return { status: "rejected", reason: "referral_code_not_found" };
-  if (referrer.id === newProfile.id || referrer.userId === newProfile.userId) {
+  if (!allowNewAttribution) {
+    return { status: "rejected", reason: "referral_capture_window_closed" };
+  }
+
+  if (referrer.id === creatorProfile.id) {
     return { status: "rejected", reason: "self_referral" };
   }
 
-  const flags = referralFraudFlags(context.fraudSignals ?? {});
-  const attribution = createReferralAttribution({
+  const fraudFlags = referralFraudFlags(context.fraudSignals ?? {});
+  const base = createReferralAttribution({
     id: ports.ids.nextReferralAttributionId(),
     referrerCreatorProfileId: referrer.id,
-    referredCreatorProfileId: newProfile.id,
-    referralCode,
+    referredCreatorProfileId: creatorProfile.id,
+    referralCode: requestedReferralCode,
     now: context.now,
   });
+  const attribution: ReferralAttribution = fraudFlags.length
+    ? { ...base, status: "fraud_review", fraudFlags, updatedAt: context.now }
+    : base;
 
-  const withFlags: ReferralAttribution = flags.length
-    ? { ...attribution, status: "fraud_review", fraudFlags: flags }
-    : attribution;
-  await ports.referrals.save(withFlags);
+  await ports.referrals.save(attribution);
   await ports.audit.record({
-    event: flags.length ? "creator.referral.review" : "creator.referral.attributed",
+    event: fraudFlags.length ? "creator.referral.review" : "creator.referral.attributed",
     userId: context.userId,
-    creatorProfileId: newProfile.id,
+    creatorProfileId: creatorProfile.id,
     occurredAt: context.now,
-    metadata: flags.length ? { flags } : { referralCode },
+    metadata: { referralCode: requestedReferralCode, fraudFlags },
   });
 
-  return flags.length ? { status: "review", flags } : { status: "attributed" };
+  return fraudFlags.length ? { status: "review", flags: fraudFlags } : { status: "attributed" };
 }
 
 export async function registerCreator(
@@ -226,50 +252,66 @@ export async function registerCreator(
 ): Promise<CreatorRegistrationResult> {
   assertTrustedContext(context);
   const validation = validateRegistration(input);
-  if (validation.errors.length) return { ok: false, errors: validation.errors };
-  const handle = validation.handle!;
+  if (validation.errors.length || !validation.handle) {
+    return { ok: false, errors: validation.errors };
+  }
 
   const existingByUser = await ports.profiles.findByUserId(context.userId);
+  const existingByHandle = await ports.profiles.findByTikTokHandle(validation.handle);
+
+  if (existingByHandle && existingByHandle.userId !== context.userId) {
+    return { ok: false, errors: ["tiktok_handle_already_registered"] };
+  }
+
   if (existingByUser) {
-    if (existingByUser.tiktokHandle !== handle) {
-      return { ok: false, errors: ["user_already_registered"] };
+    if (existingByUser.tiktokHandle !== validation.handle) {
+      return { ok: false, errors: ["creator_account_already_registered"] };
     }
+    await ports.consents.record({
+      userId: context.userId,
+      ageConfirmed: true,
+      privacyAccepted: true,
+      privacyNoticeVersion: input.privacyNoticeVersion.trim(),
+      acceptedAt: context.now,
+    });
+    const referral = await captureReferral(existingByUser, validation.referralCode, false, context, ports);
     await ports.audit.record({
       event: "creator.registration.duplicate",
       userId: context.userId,
       creatorProfileId: existingByUser.id,
       occurredAt: context.now,
     });
-    return { ok: true, creatorProfile: existingByUser, created: false, referral: { status: "duplicate" } };
+    return { ok: true, creatorProfile: existingByUser, created: false, referral };
   }
 
-  const existingHandle = await ports.profiles.findByTikTokHandle(handle);
-  if (existingHandle) return { ok: false, errors: ["tiktok_handle_already_registered"] };
-
-  const referralCode = await allocateReferralCode(ports);
   const displayName = cleanOptional(input.displayName);
   const market = cleanOptional(input.market);
   const language = cleanOptional(input.language);
   const niche = cleanNiche(input.niche);
-  const profileDraft = {
-    tiktokHandle: handle,
+  const completionInput = {
+    tiktokHandle: validation.handle,
     ...(displayName ? { displayName } : {}),
     ...(market ? { market } : {}),
     ...(language ? { language } : {}),
     ...(niche ? { niche } : {}),
   };
-  const profile: CreatorProfile = {
+
+  const draft: CreatorProfile = {
     id: ports.ids.nextCreatorProfileId(),
     userId: context.userId,
-    ...profileDraft,
+    tiktokHandle: validation.handle,
+    ...(displayName ? { displayName } : {}),
+    ...(market ? { market } : {}),
+    ...(language ? { language } : {}),
+    ...(niche ? { niche } : {}),
     networkStatus: "registered",
-    profileCompletionPercent: creatorProfileCompletionPercent(profileDraft),
-    referralCode,
+    profileCompletionPercent: creatorProfileCompletionPercent(completionInput),
+    referralCode: await generateUniqueReferralCode(ports),
     createdAt: context.now,
     updatedAt: context.now,
   };
 
-  await ports.profiles.createProfile(profile);
+  await ports.profiles.createProfile(draft);
   await ports.consents.record({
     userId: context.userId,
     ageConfirmed: true,
@@ -277,15 +319,17 @@ export async function registerCreator(
     privacyNoticeVersion: input.privacyNoticeVersion.trim(),
     acceptedAt: context.now,
   });
+
+  const referral = await captureReferral(draft, validation.referralCode, true, context, ports);
   await ports.audit.record({
     event: "creator.registration.created",
     userId: context.userId,
-    creatorProfileId: profile.id,
+    creatorProfileId: draft.id,
     occurredAt: context.now,
+    metadata: { profileComplete: draft.profileCompletionPercent === 100 },
   });
 
-  const referral = await captureReferral(profile, validation.referralCode, context, ports);
-  return { ok: true, creatorProfile: profile, created: true, referral };
+  return { ok: true, creatorProfile: draft, created: true, referral };
 }
 
 export async function completeCreatorProfile(
@@ -294,49 +338,48 @@ export async function completeCreatorProfile(
   ports: CreatorRegistrationPorts,
 ): Promise<CreatorProfile> {
   assertTrustedContext(context);
-  const existing = await ports.profiles.findByUserId(context.userId);
-  if (!existing) throw new Error("CREATOR_PROFILE_NOT_FOUND");
-
   const handle = normalizeInputHandle(input.tiktokHandle);
   if (!handle) throw new Error("INVALID_TIKTOK_HANDLE");
-  const conflictingHandle = await ports.profiles.findByTikTokHandle(handle);
-  if (conflictingHandle && conflictingHandle.id !== existing.id) throw new Error("TIKTOK_HANDLE_ALREADY_REGISTERED");
-
-  const displayName = cleanOptional(input.displayName);
-  const market = cleanOptional(input.market);
-  const language = cleanOptional(input.language);
+  if (input.displayName.trim().length < 2) throw new Error("DISPLAY_NAME_REQUIRED");
+  if (!input.market.trim()) throw new Error("MARKET_REQUIRED");
+  if (!input.language.trim()) throw new Error("LANGUAGE_REQUIRED");
   const niche = cleanNiche(input.niche);
-  if (!displayName) throw new Error("DISPLAY_NAME_REQUIRED");
-  if (!market) throw new Error("MARKET_REQUIRED");
-  if (!language) throw new Error("LANGUAGE_REQUIRED");
   if (!niche) throw new Error("NICHE_REQUIRED");
 
-  const updatedProfile: CreatorProfile = {
-    ...existing,
+  const current = await ports.profiles.findByUserId(context.userId);
+  if (!current) throw new Error("CREATOR_PROFILE_NOT_FOUND");
+
+  const handleOwner = await ports.profiles.findByTikTokHandle(handle);
+  if (handleOwner && handleOwner.id !== current.id) throw new Error("TIKTOK_HANDLE_ALREADY_REGISTERED");
+
+  let updated: CreatorProfile = {
+    ...current,
     tiktokHandle: handle,
-    displayName,
-    market,
-    language,
+    displayName: input.displayName.trim(),
+    market: input.market.trim(),
+    language: input.language.trim(),
     niche,
     profileCompletionPercent: 100,
-    networkStatus: existing.networkStatus === "registered"
-      ? transitionCreatorStatus(existing, "profile_complete", context.now).networkStatus
-      : existing.networkStatus,
     updatedAt: context.now,
   };
 
-  await ports.profiles.updateProfile(updatedProfile);
+  if (updated.networkStatus === "registered") {
+    updated = transitionCreatorStatus(updated, "profile_complete", context.now);
+  }
+
+  await ports.profiles.updateProfile(updated);
+
+  const attribution = await ports.referrals.findByReferredCreatorProfileId(updated.id);
+  if (attribution?.status === "attributed") {
+    await ports.referrals.update(advanceReferralStatus(attribution, "profile_complete", context.now));
+  }
+
   await ports.audit.record({
     event: "creator.profile.completed",
     userId: context.userId,
-    creatorProfileId: existing.id,
+    creatorProfileId: updated.id,
     occurredAt: context.now,
   });
 
-  const referral = await ports.referrals.findByReferredCreatorProfileId(existing.id);
-  if (referral && referral.status === "attributed") {
-    await ports.referrals.update(advanceReferralStatus(referral, "profile_complete", context.now));
-  }
-
-  return updatedProfile;
+  return updated;
 }
