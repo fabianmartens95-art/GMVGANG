@@ -29,4 +29,13 @@ BEGIN
   IF has_table_privilege('authenticated', 'public.mutation_idempotency', 'SELECT,INSERT,UPDATE,DELETE') THEN
     RAISE EXCEPTION 'authenticated must not have mutation_idempotency table privileges';
   END IF;
+
+  IF NOT (
+    has_table_privilege('service_role', 'public.mutation_idempotency', 'SELECT')
+    AND has_table_privilege('service_role', 'public.mutation_idempotency', 'INSERT')
+    AND has_table_privilege('service_role', 'public.mutation_idempotency', 'UPDATE')
+    AND has_table_privilege('service_role', 'public.mutation_idempotency', 'DELETE')
+  ) THEN
+    RAISE EXCEPTION 'service_role must have mutation_idempotency Data API privileges';
+  END IF;
 END $$;
