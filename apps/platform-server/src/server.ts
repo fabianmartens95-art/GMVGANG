@@ -39,11 +39,24 @@ function json(payload: unknown, status = 200): Response {
   });
 }
 
-function safeNext(value: unknown): string {
+export function safeNextPath(value: unknown): string {
   if (typeof value !== "string") return "/";
   const cleaned = value.trim();
-  if (!cleaned.startsWith("/") || cleaned.startsWith("//") || cleaned.length > 512) return "/";
-  return cleaned;
+  if (
+    !cleaned.startsWith("/") ||
+    cleaned.startsWith("//") ||
+    cleaned.includes("\\") ||
+    cleaned.length > 512
+  ) {
+    return "/";
+  }
+  try {
+    const parsed = new URL(cleaned, "https://gmvgang.local");
+    if (parsed.origin !== "https://gmvgang.local") return "/";
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return "/";
+  }
 }
 
 function sameOrigin(request: Request): boolean {
@@ -89,7 +102,7 @@ async function authResponse(
       : null;
     if (!record || !validEmail(record.email)) return json({ ok: false, error: "invalid_email" }, 400);
 
-    const next = safeNext(record.next);
+    const next = safeNextPath(record.next);
     const redirectUrl = new URL("/auth/callback", config.publicOrigin);
     redirectUrl.searchParams.set("next", next);
 
@@ -123,7 +136,7 @@ async function authResponse(
       flowId ? { flowId } : undefined,
     );
     if (error) return Response.redirect(new URL("/login?error=auth_callback", config.publicOrigin), 303);
-    return Response.redirect(new URL(safeNext(url.searchParams.get("next")), config.publicOrigin), 303);
+    return Response.redirect(new URL(safeNextPath(url.searchParams.get("next")), config.publicOrigin), 303);
   }
 
   return null;
