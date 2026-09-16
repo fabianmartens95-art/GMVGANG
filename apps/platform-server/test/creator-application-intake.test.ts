@@ -21,7 +21,7 @@ function validPayload(overrides: Record<string, unknown> = {}) {
     email: "creator@example.com",
     phone: "+49 170 1234567",
     tiktokHandle: "@creator.one",
-    followerBand: "10k-50k",
+    followerCount: 23456,
     contentCategories: ["Beauty", "Lifestyle"],
     tiktokShopExperience: "affiliate",
     ageConfirmed: true,
@@ -96,19 +96,30 @@ describe("public Creator application intake", () => {
     await expect(stalePrivacy.json()).resolves.toEqual({ ok: false, errors: ["privacy_notice_version_outdated"] });
   });
 
-  it("normalizes validation boundaries and requires 1 to 5 content categories", async () => {
-    const response = await handler()(new Request(`${API_ORIGIN}/api/public/creator-application`, {
+  it("requires an exact non-negative integer follower count and 1 to 5 categories", async () => {
+    const invalidFollowers = await handler()(new Request(`${API_ORIGIN}/api/public/creator-application`, {
       method: "POST",
       headers: {
         Origin: WEBSITE_ORIGIN,
         "Content-Type": "application/json",
         "Idempotency-Key": "creator-app:1234567890abcdef",
       },
+      body: JSON.stringify(validPayload({ followerCount: -1 })),
+    }));
+    expect(invalidFollowers.status).toBe(400);
+    await expect(invalidFollowers.json()).resolves.toEqual({ ok: false, errors: ["invalid_follower_count"] });
+
+    const invalidCategories = await handler()(new Request(`${API_ORIGIN}/api/public/creator-application`, {
+      method: "POST",
+      headers: {
+        Origin: WEBSITE_ORIGIN,
+        "Content-Type": "application/json",
+        "Idempotency-Key": "creator-app:abcdef1234567890",
+      },
       body: JSON.stringify(validPayload({ contentCategories: [] })),
     }));
-
-    expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ ok: false, errors: ["invalid_content_categories"] });
+    expect(invalidCategories.status).toBe(400);
+    await expect(invalidCategories.json()).resolves.toEqual({ ok: false, errors: ["invalid_content_categories"] });
   });
 
   it("silently accepts the honeypot path without touching persistence", async () => {
