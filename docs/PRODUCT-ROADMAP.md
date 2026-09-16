@@ -114,6 +114,10 @@ AI Decision Layer
 - [ ] Campaign profitability / contribution margin
 - [ ] Brand Portal
 - [ ] Creator Portal
+  - [x] Open Creator registration and authenticated profile completion workspace
+  - [x] Creator Referral Hub with personal invite link/code and privacy-minimized milestone reporting
+  - [x] Qualified-event Referral Reward Engine foundation with fraud/evidence gates and idempotent pending rewards
+  - [ ] Creator Matches / Campaigns / Performance workspaces
 - [ ] API / Integration Layer
 
 ### Phase 6 - Community + Paid Media Operations
@@ -150,6 +154,8 @@ The first outbound integration boundary is implemented as `@gmvgang/campaign-out
 
 The first Company OS campaign remains `kaëll – PUNKTLANDUNG – Pre-Launch Validation`: an internal Draft with three real Screening creator assignments. kaëll is not yet a won client, `Client Approved` remains off, and the assigned creators have not cleared all contract / execution-eligibility gates. The Cockpit therefore shows readiness blockers and produces no outreach, sample or content action queue.
 
-The next product-data gate is verified affiliate-performance ingestion followed by the first basic affiliate performance dashboard. The persistent production idempotency store and any authorized outbound transport remain separate, approval-gated future increments.
+The Creator Portal now has an authenticated profile workspace and a first Referral Growth Loop. `/creator/referrals` exposes only the Creator's personal referral code, aggregate milestone counts and anonymized recent milestones; referred Creator IDs and fraud details stay server-side. Referral reads use a dedicated paginated Supabase port with owner, duplicate and hard-cap guards. The new `@gmvgang/referral-rewards` package evaluates only qualified milestones with explicit evidence, blocks fraud/rejected states, keeps reward amounts policy-configurable and uses attribution+event idempotency. Rewards are created as `pending` only. The `referral_rewards` schema remains under `supabase/pending`; production migration, approval workflow, payout execution and payment-provider integration are not activated.
+
+The next Creator Portal delivery gate is the real Matches / Campaigns / Performance workspace on top of existing matching, campaign and affiliate-performance domain logic. Production activation of pending reward persistence and any payout capability remains a separate explicit approval gate.
 
 Any dashboard, portal or automation must either remove a measured operational blocker, improve revenue decisions, improve delivery quality or generate defensible data.
