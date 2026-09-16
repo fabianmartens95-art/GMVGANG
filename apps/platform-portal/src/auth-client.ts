@@ -41,10 +41,24 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#039;");
 }
 
+export function safeNextPath(value: string | null | undefined, fallback = "/"): string {
+  if (!value) return fallback;
+  const cleaned = value.trim();
+  if (!cleaned.startsWith("/") || cleaned.startsWith("//") || cleaned.includes("\\") || cleaned.length > 512) {
+    return fallback;
+  }
+  try {
+    const parsed = new URL(cleaned, "https://gmvgang.local");
+    if (parsed.origin !== "https://gmvgang.local") return fallback;
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return fallback;
+  }
+}
+
 export function renderLogin(authenticated: boolean): string {
   const params = new URLSearchParams(window.location.search);
-  const rawNext = params.get("next") ?? "/";
-  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
+  const next = safeNextPath(params.get("next"));
   const authError = params.get("error");
 
   if (authenticated) {
@@ -89,7 +103,7 @@ export function wireLogin(): void {
     if (!form.reportValidity()) return;
     const data = new FormData(form);
     const email = String(data.get("email") ?? "").trim();
-    const next = String(data.get("next") ?? "/");
+    const next = safeNextPath(String(data.get("next") ?? "/"));
     const button = form.querySelector<HTMLButtonElement>("button[type=submit]");
     if (button) button.disabled = true;
     result.textContent = "Login-Link wird gesendet …";
