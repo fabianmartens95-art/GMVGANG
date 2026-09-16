@@ -2,6 +2,7 @@ import { registerCreator } from "@gmvgang/creator-registration";
 import {
   createPlatformAdminClient,
   createSupabaseCreatorRegistrationPorts,
+  ensureCreatorPortalMembership,
   resolveSupabasePlatformSessionContext,
   type PlatformSupabaseConfig,
 } from "@gmvgang/platform-supabase";
@@ -15,8 +16,10 @@ export function createSupabasePlatformApiServices(config: PlatformSupabaseConfig
     resolveSessionContext(input) {
       return resolveSupabasePlatformSessionContext(client, input);
     },
-    registerCreator(input, context) {
-      return registerCreator(input, context, registrationPorts);
+    async registerCreator(input, context) {
+      const result = await registerCreator(input, context, registrationPorts);
+      if (result.ok) await ensureCreatorPortalMembership(client, context.userId);
+      return result;
     },
   };
 }
