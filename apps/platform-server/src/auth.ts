@@ -5,6 +5,7 @@ import type { PlatformAccessTokenPort } from "@gmvgang/platform-api";
 
 export type ResponseMutations = {
   headers: Headers;
+  setCookies: string[];
 };
 
 export type SupabaseCookieAuthOptions = {
@@ -53,8 +54,7 @@ export function createRequestSupabaseClient(
       },
       setAll(cookiesToSet, headersToSet) {
         for (const cookie of cookiesToSet) {
-          mutations.headers.append(
-            "Set-Cookie",
+          mutations.setCookies.push(
             cookieHeader(cookie.name, cookie.value, cookie.options as SerializeOptions, options.production),
           );
         }
@@ -68,7 +68,7 @@ export function createCookieAccessTokenPort(client: SupabaseClient): PlatformAcc
   return {
     async getAccessToken() {
       // getSession is used only to extract/refresh the cookie-backed token.
-      // The platform authorization path revalidates it with Supabase getUser/getClaims.
+      // Platform authorization revalidates the token with Supabase getUser/getClaims.
       const { data, error } = await client.auth.getSession();
       if (error || !data.session?.access_token) return null;
       return data.session.access_token;
@@ -78,10 +78,8 @@ export function createCookieAccessTokenPort(client: SupabaseClient): PlatformAcc
 
 export function applyResponseMutations(response: Response, mutations: ResponseMutations): Response {
   const headers = new Headers(response.headers);
-  for (const [key, value] of mutations.headers.entries()) {
-    if (key.toLowerCase() === "set-cookie") headers.append(key, value);
-    else headers.set(key, value);
-  }
+  for (const [key, value] of mutations.headers.entries()) headers.set(key, value);
+  for (const value of mutations.setCookies) headers.append("Set-Cookie", value);
   headers.set("Cache-Control", "no-store");
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
