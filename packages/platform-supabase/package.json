@@ -14,6 +14,7 @@
   "dependencies": {
     "@gmvgang/creator-registration": "workspace:*",
     "@gmvgang/platform-foundation": "workspace:*",
+    "@gmvgang/referral-rewards": "workspace:*",
     "@supabase/supabase-js": "2.116.0"
   },
   "devDependencies": {
