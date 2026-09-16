@@ -1,7 +1,17 @@
 import "./styles.css";
 import "./module-navigation.css";
+import "./auth.css";
 
 import type { PlatformWorkspaceAccess } from "@gmvgang/platform-foundation";
+import {
+  browserAuthConfigFromEnv,
+  completeAuthCallback,
+  createBrowserAuthClient,
+  renderAuthCallback,
+  renderLogin,
+  safeNextPath,
+  wireMagicLinkLogin,
+} from "./auth.js";
 import { createBrandOverviewPort, loadBrandOverview, renderBrandOverview } from "./brand-workspace.js";
 import { HttpCreatorRegistrationAdapter, renderCreatorJoin, wireCreatorJoin } from "./creator-join.js";
 import {
@@ -17,6 +27,8 @@ import { createSessionPort, type PortalSession } from "./session.js";
 import { createWorkspacePort } from "./workspaces.js";
 
 const app = document.querySelector<HTMLDivElement>("#app") ?? (() => { throw new Error("APP_ROOT_NOT_FOUND"); })();
+const authConfig = browserAuthConfigFromEnv();
+const authClient = authConfig ? createBrowserAuthClient(authConfig) : null;
 
 let session: PortalSession = { status: "anonymous", roles: [] };
 let workspaces: readonly PlatformWorkspaceAccess[] = [];
@@ -75,7 +87,6 @@ function workspaceSelector(): string {
 }
 
 function navigation(): string {
-  const defaultArea = defaultAreaForSession(session);
   const currentRoute = resolvePortalRoute(window.location.pathname);
   const currentOrganizationId = session.status === "authenticated" ? session.organizationId : undefined;
   const currentWorkspace = currentOrganizationId
@@ -104,7 +115,7 @@ function navigation(): string {
           <span class="session-dot ${session.status === "authenticated" ? "is-authenticated" : ""}"></span>
           ${session.status === "authenticated"
             ? `${currentWorkspace ? escapeHtml(currentWorkspace.name) : "authenticated"} · ${session.roles.join(", ") || "workspace required"}`
-            : `Auth ausstehend · Default ${defaultArea}`}
+            : '<a href="/login?next=%2Fjoin" data-nav>Einloggen</a>'}
         </div>
       </div>
     </header>`;
@@ -120,9 +131,9 @@ function publicView(): string {
           <p>Die gemeinsame Portal-Schicht für Creator, Brands und das interne GMVGANG-Team. Business-Logik bleibt zentral, Rollen und Tenant-Grenzen sind explizit.</p>
           <div class="hero__badges">
             ${statusPill("Domain Foundation · live on main")}
-            ${statusPill("Server Session Boundary · ready")}
-            ${statusPill("Creator Registration Core · ready")}
-            ${statusPill("Provider + Persistence · next", "next")}
+            ${statusPill("Supabase Persistence · prepared")}
+            ${statusPill("Server API Runtime · ready")}
+            ${statusPill("Production configuration · next", "next")}
           </div>
         </div>
         <aside class="architecture-card">
@@ -200,14 +211,15 @@ function modulePlaceholder(route: PortalRoute): string {
 async function protectedView(area: Exclude<PortalArea, "public">, route: PortalRoute): Promise<string> {
   const copy = areaCopy[area];
   if (!canAccessArea(session, area)) {
+    const nextPath = `${window.location.pathname}${window.location.search}`;
     return `
       <main class="locked-view">
         <div class="locked-view__box">
           ${statusPill("PROTECTED AREA", "locked")}
           <div class="lock-icon">↗</div>
           <h1>${copy.title}</h1>
-          <p>Dieser Bereich ist rollenbasiert geschützt. Production akzeptiert nur serverseitig aufgelöste Sessions; ohne gültigen Provider-/Persistence-Adapter bleibt der Zugriff fail-closed.</p>
-          <a href="/" data-nav class="button">Zur Platform Übersicht</a>
+          <p>Dieser Bereich ist rollen- und tenantbasiert geschützt. Melde dich mit einem verifizierten GMVGANG Account an; die Berechtigung wird anschließend serverseitig aus Memberships aufgelöst.</p>
+          <a href="/login?next=${encodeURIComponent(nextPath)}" data-nav class="button">Einloggen</a>
         </div>
       </main>`;
   }
@@ -259,7 +271,9 @@ function wireNavigation(): void {
       event.preventDefault();
       const url = new URL(link.href);
       const workspaceId = selectedWorkspaceId();
-      if (workspaceId) url.searchParams.set("workspace", workspaceId);
+      if (workspaceId && !["/login", "/auth/callback"].includes(url.pathname)) {
+        url.searchParams.set("workspace", workspaceId);
+      }
       window.history.pushState({}, "", `${url.pathname}${url.search}`);
       void render();
     });
@@ -278,24 +292,50 @@ function wireWorkspaceSelector(): void {
   });
 }
 
+async function handleAuthCallback(): Promise<void> {
+  const target = document.querySelector<HTMLElement>("#auth-callback-result");
+  if (!target) return;
+  if (!authClient) {
+    target.textContent = "Der Login ist in dieser Umgebung noch nicht konfiguriert.";
+    return;
+  }
+
+  const result = await completeAuthCallback(authClient, new URL(window.location.href));
+  if (!result.ok) {
+    target.textContent = "Der Login-Link ist ungültig oder abgelaufen. Bitte fordere einen neuen Link an.";
+    return;
+  }
+  window.location.replace(result.nextPath);
+}
+
 async function render(): Promise<void> {
   const requestedWorkspaceId = selectedWorkspaceId();
   session = await createSessionPort(requestedWorkspaceId).getSession();
   workspaces = session.status === "authenticated" ? await createWorkspacePort().getWorkspaces() : [];
 
   const route = resolvePortalRoute(window.location.pathname);
-  const referralCode = new URLSearchParams(window.location.search).get("ref") ?? undefined;
+  const params = new URLSearchParams(window.location.search);
+  const referralCode = params.get("ref") ?? undefined;
   const privacyNoticeVersion = String(import.meta.env.VITE_CREATOR_PRIVACY_NOTICE_VERSION ?? "").trim();
+  const nextPath = safeNextPath(params.get("next"));
+
   const body = route.path === "/join"
     ? renderCreatorJoin(session, { privacyNoticeVersion, ...(referralCode ? { referralCode } : {}) })
-    : route.area === "public"
-      ? publicView()
-      : await protectedView(route.area, route);
+    : route.path === "/login"
+      ? renderLogin(Boolean(authConfig), nextPath)
+      : route.path === "/auth/callback"
+        ? renderAuthCallback()
+        : route.area === "public"
+          ? publicView()
+          : await protectedView(route.area, route);
 
   app.innerHTML = `${navigation()}${body}<footer><span>GMVGANG PLATFORM</span><span>Notion remains operational SSOT · Platform code on GitHub</span></footer>`;
   wireNavigation();
   wireWorkspaceSelector();
+
   if (route.path === "/join") wireCreatorJoin(new HttpCreatorRegistrationAdapter());
+  if (route.path === "/login" && authClient) wireMagicLinkLogin(authClient);
+  if (route.path === "/auth/callback") void handleAuthCallback();
 }
 
 window.addEventListener("popstate", () => void render());
