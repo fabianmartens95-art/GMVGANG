@@ -267,7 +267,7 @@ export function createPlatformServer(config: PlatformServerConfig) {
       url: config.supabaseUrl,
       serviceRoleKey: config.supabaseServiceRoleKey,
     },
-    { creatorOperationsSync },
+    creatorOperationsSync ? { creatorOperationsSync } : {},
   );
   const mutationRateLimits = createPlatformMutationRateLimitPort();
   const signInRateLimit = createFixedWindowRateLimiter({ limit: 5, windowMs: 15 * 60 * 1000 });
