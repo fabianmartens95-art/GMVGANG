@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "typecheck": "node --check scripts/build.mjs && node --check src/site.mjs && node --check src/client.js",
+    "typecheck": "node --check scripts/build.mjs && node --check src/site.mjs && node --check src/client.js && node --check src/creator-application-page.mjs && node --check src/creator-application.js",
     "test": "node --test"
   }
 }
