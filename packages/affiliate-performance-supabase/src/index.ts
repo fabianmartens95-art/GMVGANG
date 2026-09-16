@@ -1,3 +1,4 @@
 export * from "./types.js";
 export * from "./store.js";
 export * from "./supabase-driver.js";
+export * from "./tiktok-attribution.js";
