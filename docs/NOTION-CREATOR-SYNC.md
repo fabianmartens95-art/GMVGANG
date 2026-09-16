@@ -12,6 +12,8 @@ Use the Notion page ID as the stable `CreatorProfile.id` inside the integration 
 
 The human-readable Company OS `Creator-ID` may be displayed or referenced operationally, but it is not used as the technical primary key because page IDs remain stable across sorting, views and display-number changes.
 
+The Platform registration flow additionally stores a stable `Platform Creator ID` on the Company OS Creator row. The Platform profile keeps the linked Notion page ID as `creatorMasterId`, so later website profile updates target the existing Creator row instead of creating a parallel record.
+
 ## Runtime configuration
 
 The Notion data-source ID and authentication credentials are runtime configuration. Do not hardcode them in the public repository.
@@ -133,7 +135,7 @@ Example use cases:
 
 ## Sync direction
 
-Phase 2 starts read-heavy:
+The creator-intelligence path remains read-heavy:
 
 ```text
 Company OS Creator DB
@@ -153,7 +155,31 @@ importNotionCreators
 Segmentation + Matching
 ```
 
-Automatic write-back to Notion is deferred until the individual write actions and approval rules are explicitly defined. This prevents the intelligence layer from silently changing operational CRM state.
+The public Platform registration/profile flow has one deliberately narrow writeback path into the same Company OS Creator SSOT. It is separate from creator intelligence and does not authorize general CRM mutation.
+
+## Website registration/profile writeback ownership
+
+When a website Creator does not yet have an operational Company OS row, the Platform Server may create one and initialize only the registration-owned fields:
+
+- `Platform Creator ID`
+- TikTok profile identity/profile URL
+- website-provided category, language and market when present
+- age/privacy confirmations captured by the registration flow
+- `Bewerbung Quelle = Website`
+- initial `Status = Beworben`
+- initial `Intake-Stage = Neu – Runde 1`
+
+After that row exists, website profile synchronization owns only stable identity/profile fields such as Platform Creator ID, TikTok name/handle/profile URL, category, language and market.
+
+**Existing operational lifecycle fields are protected from profile synchronization.** Updates must not overwrite `Status`, `Intake-Stage`, `Bewerbung Quelle`, age confirmation or privacy confirmation. Those fields belong to the operational Company OS workflow after creation. This prevents a Creator who has already progressed through Screening, Onboarding or activation from being reset to the initial application state by a later profile edit.
+
+The writeback resolves rows in this order:
+
+1. linked Notion page ID (`creatorMasterId`),
+2. exact stable `Platform Creator ID`,
+3. create a new row only if neither identity resolves.
+
+Duplicate Company OS rows for the same Platform Creator ID fail closed rather than choosing an arbitrary row.
 
 ## Done criteria for this contract
 
@@ -163,5 +189,8 @@ Automatic write-back to Notion is deferred until the individual write actions an
 - missing performance handled without fabrication
 - reusable creator segments supported
 - deterministic materialized lists supported
+- website registration links into the existing Company OS Creator SSOT
+- subsequent profile updates preserve operational lifecycle/intake state
+- duplicate Platform Creator IDs fail closed
 - unit tests use synthetic data only
 - no Notion token, data-source ID or creator personal data committed
