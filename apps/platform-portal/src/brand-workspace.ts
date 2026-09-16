@@ -27,14 +27,33 @@ const STATUS_VALUES: readonly BrandPortalDataStatus[] = ["ready", "partial", "un
 const PERFORMANCE_PROVIDERS = ["tiktok-shop-seller-analytics", "csv-import", "notion", "manual"] as const;
 const PERFORMANCE_GRAINS = ["shop", "campaign", "creator", "product", "content"] as const;
 const PERFORMANCE_CHANNELS = [
-  "total", "affiliate-total", "affiliate-video", "affiliate-live", "seller-video", "seller-live",
-  "seller-product-card", "shop-tab", "unknown",
+  "total",
+  "affiliate-total",
+  "affiliate-video",
+  "affiliate-live",
+  "seller-video",
+  "seller-live",
+  "seller-product-card",
+  "shop-tab",
+  "unknown",
 ] as const;
 const PERFORMANCE_METRICS = [
-  "gmv", "orders", "unitsSold", "commission", "refunds", "refundedItems", "impressions", "clicks",
-  "addToCart", "views", "creatorPosts",
+  "gmv",
+  "orders",
+  "unitsSold",
+  "commission",
+  "refunds",
+  "refundedItems",
+  "impressions",
+  "clicks",
+  "addToCart",
+  "views",
+  "creatorPosts",
 ] as const;
 const PERFORMANCE_RATIOS = ["ctr", "clickOrderRate", "aov", "refundRate", "gmvPerThousandViews"] as const;
+
+type PerformanceModel = NonNullable<BrandPortalReadModel["performance"]>;
+type PerformanceSlice = PerformanceModel["slices"][number];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -58,8 +77,14 @@ function optionalText(record: Record<string, unknown>, key: string): string | un
 function parseCostBreakdown(value: unknown): NonNullable<BrandPortalReadModel["profitability"]>["costBreakdown"] {
   if (!isRecord(value)) throw new Error("BRAND_OVERVIEW_COST_BREAKDOWN_INVALID");
   const keys = [
-    "cogs", "fulfillmentCost", "affiliateCommissionCost", "paidMediaCost", "agencyFees", "paymentFees",
-    "platformFees", "otherVariableCosts",
+    "cogs",
+    "fulfillmentCost",
+    "affiliateCommissionCost",
+    "paidMediaCost",
+    "agencyFees",
+    "paymentFees",
+    "platformFees",
+    "otherVariableCosts",
   ] as const;
   const parsed = {} as NonNullable<BrandPortalReadModel["profitability"]>["costBreakdown"];
   for (const key of keys) {
@@ -73,7 +98,12 @@ function parseProfitability(value: unknown): BrandPortalReadModel["profitability
   if (value === null) return null;
   if (!isRecord(value)) throw new Error("BRAND_OVERVIEW_PROFITABILITY_INVALID");
   const numericKeys = [
-    "grossMerchandiseValue", "realizedGrossRevenue", "netRevenue", "totalVariableCosts", "contribution", "contributionMargin",
+    "grossMerchandiseValue",
+    "realizedGrossRevenue",
+    "netRevenue",
+    "totalVariableCosts",
+    "contribution",
+    "contributionMargin",
   ] as const;
   for (const key of numericKeys) {
     if (!finiteNumber(value[key])) throw new Error("BRAND_OVERVIEW_PROFITABILITY_INVALID");
@@ -93,17 +123,24 @@ function parseActions(value: unknown): BrandPortalReadModel["nextBestActions"] {
   if (!Array.isArray(value)) throw new Error("BRAND_OVERVIEW_ACTIONS_INVALID");
   return value.map((candidate) => {
     if (
-      !isRecord(candidate) || typeof candidate.id !== "string" ||
-      !["critical", "high", "medium"].includes(String(candidate.priority)) || typeof candidate.category !== "string" ||
-      typeof candidate.title !== "string" || typeof candidate.reason !== "string" ||
-      typeof candidate.suggestedAction !== "string" || !isRecord(candidate.evidence)
-    ) throw new Error("BRAND_OVERVIEW_ACTIONS_INVALID");
+      !isRecord(candidate) ||
+      typeof candidate.id !== "string" ||
+      !["critical", "high", "medium"].includes(String(candidate.priority)) ||
+      typeof candidate.category !== "string" ||
+      typeof candidate.title !== "string" ||
+      typeof candidate.reason !== "string" ||
+      typeof candidate.suggestedAction !== "string" ||
+      !isRecord(candidate.evidence)
+    ) {
+      throw new Error("BRAND_OVERVIEW_ACTIONS_INVALID");
+    }
 
     const evidence: Record<string, number> = {};
     for (const [key, evidenceValue] of Object.entries(candidate.evidence)) {
       if (!finiteNumber(evidenceValue)) throw new Error("BRAND_OVERVIEW_ACTIONS_INVALID");
       evidence[key] = evidenceValue;
     }
+
     return {
       id: candidate.id,
       priority: candidate.priority as "critical" | "high" | "medium",
@@ -121,47 +158,58 @@ function parsePerformance(value: unknown, organizationId: string): BrandPortalRe
   if (!isRecord(value) || !isRecord(value.scope) || !Array.isArray(value.slices)) {
     throw new Error("BRAND_OVERVIEW_PERFORMANCE_INVALID");
   }
-  if (value.scope.organizationId !== organizationId) throw new Error("BRAND_OVERVIEW_PERFORMANCE_TENANT_MISMATCH");
-  const scope: NonNullable<BrandPortalReadModel["performance"]>["scope"] = {
+  if (value.scope.organizationId !== organizationId) {
+    throw new Error("BRAND_OVERVIEW_PERFORMANCE_TENANT_MISMATCH");
+  }
+
+  const scope: PerformanceModel["scope"] = {
     organizationId,
     ...(optionalText(value.scope, "brandId") ? { brandId: optionalText(value.scope, "brandId")! } : {}),
     ...(optionalText(value.scope, "campaignId") ? { campaignId: optionalText(value.scope, "campaignId")! } : {}),
     ...(optionalText(value.scope, "shopId") ? { shopId: optionalText(value.scope, "shopId")! } : {}),
   };
 
-  const slices = value.slices.map((candidate) => {
+  const slices = value.slices.map((candidate): PerformanceSlice => {
     if (
-      !isRecord(candidate) || typeof candidate.sliceKey !== "string" || !candidate.sliceKey ||
+      !isRecord(candidate) ||
+      typeof candidate.sliceKey !== "string" ||
+      !candidate.sliceKey ||
       !PERFORMANCE_PROVIDERS.includes(candidate.provider as (typeof PERFORMANCE_PROVIDERS)[number]) ||
       !PERFORMANCE_GRAINS.includes(candidate.grain as (typeof PERFORMANCE_GRAINS)[number]) ||
       !PERFORMANCE_CHANNELS.includes(candidate.channel as (typeof PERFORMANCE_CHANNELS)[number]) ||
-      !isRecord(candidate.window) || typeof candidate.window.startDate !== "string" ||
-      typeof candidate.window.endDateExclusive !== "string" || typeof candidate.window.timeZone !== "string" ||
-      typeof candidate.currency !== "string" || !/^[A-Z]{3}$/.test(candidate.currency) ||
-      !finiteNumber(candidate.recordCount) || candidate.recordCount < 0 ||
+      !isRecord(candidate.window) ||
+      typeof candidate.window.startDate !== "string" ||
+      typeof candidate.window.endDateExclusive !== "string" ||
+      typeof candidate.window.timeZone !== "string" ||
+      typeof candidate.currency !== "string" ||
+      !/^[A-Z]{3}$/.test(candidate.currency) ||
+      !finiteNumber(candidate.recordCount) ||
+      candidate.recordCount < 0 ||
       !["final", "provisional"].includes(String(candidate.status)) ||
-      typeof candidate.firstObservedAt !== "string" || typeof candidate.lastObservedAt !== "string" ||
-      !isRecord(candidate.metrics) || !isRecord(candidate.completeness) || !isRecord(candidate.ratios)
-    ) throw new Error("BRAND_OVERVIEW_PERFORMANCE_INVALID");
+      typeof candidate.firstObservedAt !== "string" ||
+      typeof candidate.lastObservedAt !== "string" ||
+      !isRecord(candidate.metrics) ||
+      !isRecord(candidate.completeness) ||
+      !isRecord(candidate.ratios)
+    ) {
+      throw new Error("BRAND_OVERVIEW_PERFORMANCE_INVALID");
+    }
 
-    const metrics: Record<string, number | null> = {};
-    const completeness: Record<string, { records: number; totalRecords: number; ratio: number }> = {};
+    const metrics = {} as PerformanceSlice["metrics"];
+    const completeness = {} as PerformanceSlice["completeness"];
     for (const key of PERFORMANCE_METRICS) {
       const metric = candidate.metrics[key];
       if (metric !== null && !finiteNumber(metric)) throw new Error("BRAND_OVERVIEW_PERFORMANCE_INVALID");
       metrics[key] = metric as number | null;
+
       const coverage = candidate.completeness[key];
-      if (!isRecord(coverage) || !finiteNumber(coverage.records) || !finiteNumber(coverage.totalRecords) || !finiteNumber(coverage.ratio)) {
+      if (!finiteNumber(coverage) || coverage < 0 || coverage > 1) {
         throw new Error("BRAND_OVERVIEW_PERFORMANCE_INVALID");
       }
-      completeness[key] = {
-        records: coverage.records as number,
-        totalRecords: coverage.totalRecords as number,
-        ratio: coverage.ratio as number,
-      };
+      completeness[key] = coverage;
     }
 
-    const ratios: Record<string, number | null> = {};
+    const ratios = {} as PerformanceSlice["ratios"];
     for (const key of PERFORMANCE_RATIOS) {
       const ratio = candidate.ratios[key];
       if (ratio !== null && !finiteNumber(ratio)) throw new Error("BRAND_OVERVIEW_PERFORMANCE_INVALID");
@@ -170,9 +218,9 @@ function parsePerformance(value: unknown, organizationId: string): BrandPortalRe
 
     return {
       sliceKey: candidate.sliceKey,
-      provider: candidate.provider,
-      grain: candidate.grain,
-      channel: candidate.channel,
+      provider: candidate.provider as PerformanceSlice["provider"],
+      grain: candidate.grain as PerformanceSlice["grain"],
+      channel: candidate.channel as PerformanceSlice["channel"],
       window: {
         startDate: candidate.window.startDate,
         endDateExclusive: candidate.window.endDateExclusive,
@@ -182,11 +230,11 @@ function parsePerformance(value: unknown, organizationId: string): BrandPortalRe
       recordCount: candidate.recordCount,
       metrics,
       completeness,
-      status: candidate.status,
+      status: candidate.status as PerformanceSlice["status"],
       firstObservedAt: candidate.firstObservedAt,
       lastObservedAt: candidate.lastObservedAt,
       ratios,
-    } as unknown as NonNullable<BrandPortalReadModel["performance"]>["slices"][number];
+    };
   });
 
   return { scope, slices };
@@ -195,12 +243,26 @@ function parsePerformance(value: unknown, organizationId: string): BrandPortalRe
 export function parseBrandOverview(payload: unknown): BrandOverviewResponse {
   if (!isRecord(payload) || !isRecord(payload.model)) throw new Error("BRAND_OVERVIEW_PAYLOAD_INVALID");
   const model = payload.model;
-  if (typeof model.organizationId !== "string" || !model.organizationId.trim() || typeof model.asOf !== "string" || !model.asOf.trim()) {
+  if (
+    typeof model.organizationId !== "string" ||
+    !model.organizationId.trim() ||
+    typeof model.asOf !== "string" ||
+    !model.asOf.trim()
+  ) {
     throw new Error("BRAND_OVERVIEW_IDENTITY_INVALID");
   }
-  if (!isRecord(model.dataStatus) || !isRecord(model.readiness)) throw new Error("BRAND_OVERVIEW_STATUS_INVALID");
+  if (!isRecord(model.dataStatus) || !isRecord(model.readiness)) {
+    throw new Error("BRAND_OVERVIEW_STATUS_INVALID");
+  }
 
-  const statusKeys = ["profitability", "creatorOperations", "rights", "inventory", "paidPerformance", "affiliatePerformance"] as const;
+  const statusKeys = [
+    "profitability",
+    "creatorOperations",
+    "rights",
+    "inventory",
+    "paidPerformance",
+    "affiliatePerformance",
+  ] as const;
   const dataStatus = {} as BrandPortalReadModel["dataStatus"];
   for (const key of statusKeys) {
     if (!validStatus(model.dataStatus[key])) throw new Error("BRAND_OVERVIEW_STATUS_INVALID");
@@ -209,10 +271,16 @@ export function parseBrandOverview(payload: unknown): BrandOverviewResponse {
 
   const readinessKeys = ["availableSections", "partialSections", "unavailableSections"] as const;
   for (const key of readinessKeys) {
-    if (!finiteNumber(model.readiness[key]) || model.readiness[key] < 0) throw new Error("BRAND_OVERVIEW_READINESS_INVALID");
+    if (!finiteNumber(model.readiness[key]) || model.readiness[key] < 0) {
+      throw new Error("BRAND_OVERVIEW_READINESS_INVALID");
+    }
   }
 
-  const source = payload.source === "synthetic-development" ? "synthetic-development" : payload.source === "production" ? "production" : null;
+  const source = payload.source === "synthetic-development"
+    ? "synthetic-development"
+    : payload.source === "production"
+      ? "production"
+      : null;
   if (!source) throw new Error("BRAND_OVERVIEW_SOURCE_INVALID");
 
   return {
@@ -244,7 +312,11 @@ export class HttpBrandOverviewAdapter implements BrandOverviewPort {
     try {
       const headers: Record<string, string> = { Accept: "application/json" };
       if (this.organizationId) headers["X-GMVGANG-Organization-Id"] = this.organizationId;
-      const response = await this.fetchOverview(this.endpoint, { credentials: "include", cache: "no-store", headers });
+      const response = await this.fetchOverview(this.endpoint, {
+        credentials: "include",
+        cache: "no-store",
+        headers,
+      });
       if (!response.ok) return null;
       return parseBrandOverview(await response.json());
     } catch {
@@ -311,15 +383,28 @@ export async function loadBrandOverview(
 }
 
 function escapeHtml(value: string): string {
-  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 function money(value: number, currencyCode = "EUR"): string {
-  return new Intl.NumberFormat("de-DE", { style: "currency", currency: currencyCode, maximumFractionDigits: 0 }).format(value);
+  return new Intl.NumberFormat("de-DE", {
+    style: "currency",
+    currency: currencyCode,
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
 function percent(value: number): string {
-  return new Intl.NumberFormat("de-DE", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value);
+  return new Intl.NumberFormat("de-DE", {
+    style: "percent",
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 
 function statusLabel(status: BrandPortalDataStatus): string {
@@ -357,7 +442,8 @@ export function renderBrandOverview(overview: BrandOverviewResponse | null): str
   const profitability = model.profitability;
   const sourceBadge = overview.source === "synthetic-development" ? "BEISPIELDATEN" : "LIVE READ MODEL";
   const demoNotice = overview.source === "synthetic-development"
-    ? `<aside class="brand-demo-notice" role="status"><strong>Beispieldaten</strong><span>Diese Werte sind synthetisch und stellen keine Live-Daten deiner Brand dar.</span></aside>` : "";
+    ? `<aside class="brand-demo-notice" role="status"><strong>Beispieldaten</strong><span>Diese Werte sind synthetisch und stellen keine Live-Daten deiner Brand dar.</span></aside>`
+    : "";
   const statusEntries: Array<[string, BrandPortalDataStatus]> = [
     ["Profitability", model.dataStatus.profitability],
     ["Creator Ops", model.dataStatus.creatorOperations],

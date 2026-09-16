@@ -1,3 +1,4 @@
+import { createAffiliatePerformanceStore, createSupabaseAffiliatePerformanceDriver } from "@gmvgang/affiliate-performance-supabase";
 import { completeCreatorProfile, registerCreator } from "@gmvgang/creator-registration";
 import { unavailableBrandPortalReadModel } from "@gmvgang/brand-intelligence/portal";
 import type { CreatorProfile } from "@gmvgang/platform-foundation";
@@ -8,11 +9,16 @@ import {
   resolveSupabasePlatformSessionContext,
   type PlatformSupabaseConfig,
 } from "@gmvgang/platform-supabase";
+import {
+  createAffiliatePerformanceBrandOverviewReadPort,
+  type BrandAffiliatePerformancePolicy,
+} from "./brand-performance.js";
 import type { BrandOverviewReadPort, CreatorOperationsSyncPort, PlatformApiServices } from "./types.js";
 
 export type SupabasePlatformApiOptions = {
   creatorOperationsSync?: CreatorOperationsSyncPort;
   brandOverview?: BrandOverviewReadPort;
+  affiliatePerformancePolicy?: BrandAffiliatePerformancePolicy;
 };
 
 export function createSupabasePlatformApiServices(
@@ -21,6 +27,14 @@ export function createSupabasePlatformApiServices(
 ): PlatformApiServices {
   const client = createPlatformAdminClient(config);
   const registrationPorts = createSupabaseCreatorRegistrationPorts(client);
+  const brandOverview = options.brandOverview ?? (
+    options.affiliatePerformancePolicy
+      ? createAffiliatePerformanceBrandOverviewReadPort(
+          createAffiliatePerformanceStore(createSupabaseAffiliatePerformanceDriver(client)),
+          options.affiliatePerformancePolicy,
+        )
+      : undefined
+  );
 
   async function syncCreatorOperations(profile: CreatorProfile, now: string): Promise<CreatorProfile> {
     if (!options.creatorOperationsSync) return profile;
@@ -52,7 +66,7 @@ export function createSupabasePlatformApiServices(
       return resolveSupabasePlatformSessionContext(client, input);
     },
     async getBrandOverview(input) {
-      if (options.brandOverview) return options.brandOverview.getOverview(input);
+      if (brandOverview) return brandOverview.getOverview(input);
       return unavailableBrandPortalReadModel(input.organizationId, input.now);
     },
     async registerCreator(input, context) {
