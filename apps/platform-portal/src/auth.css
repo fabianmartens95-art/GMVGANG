@@ -1,0 +1,80 @@
+.auth-page {
+  min-height: calc(100vh - 180px);
+  display: grid;
+  place-items: center;
+  padding: 3rem 1.25rem;
+}
+
+.auth-shell {
+  width: min(640px, 100%);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding: clamp(1.5rem, 5vw, 3rem);
+}
+
+.auth-shell h1 {
+  margin: 0.35rem 0 0.8rem;
+  font-size: clamp(2rem, 7vw, 4rem);
+  line-height: 0.95;
+}
+
+.auth-shell > p,
+.auth-result {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.auth-form {
+  display: grid;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.auth-form label > span {
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.auth-form input[type="email"] {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  padding: 0.9rem 1rem;
+  font: inherit;
+}
+
+.auth-form input[type="email"]:focus {
+  outline: 1px solid var(--text);
+  outline-offset: 2px;
+}
+
+.auth-form button {
+  border: 0;
+  background: var(--text);
+  color: var(--background);
+  padding: 1rem 1.1rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.auth-form button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.auth-result {
+  min-height: 1.5rem;
+}
+
+.auth-result strong {
+  color: var(--text);
+}
