@@ -1,22 +1,75 @@
 import { describe, expect, it } from "vitest";
 
-import { canAccessArea, defaultAreaForSession, resolvePortalRoute } from "../src/routing.js";
+import {
+  canAccessArea,
+  defaultAreaForSession,
+  moduleRoutesForArea,
+  PRIMARY_PORTAL_ROUTES,
+  resolvePortalRoute,
+} from "../src/routing.js";
 import type { PortalSession } from "../src/session.js";
 
-const creator: PortalSession = { status: "authenticated", userId: "creator-1", roles: ["creator"] };
+const creator: PortalSession = {
+  status: "authenticated",
+  userId: "creator-1",
+  organizationId: "creator-org-1",
+  roles: ["creator"],
+};
 const brand: PortalSession = {
   status: "authenticated",
   userId: "brand-1",
   organizationId: "org-1",
   roles: ["brand_member"],
 };
-const team: PortalSession = { status: "authenticated", userId: "team-1", roles: ["creator_manager"] };
+const team: PortalSession = {
+  status: "authenticated",
+  userId: "team-1",
+  organizationId: "gmvgang-org",
+  roles: ["creator_manager"],
+};
 const anonymous: PortalSession = { status: "anonymous", roles: [] };
 
 describe("platform portal routing", () => {
-  it("resolves known areas and falls back to public", () => {
-    expect(resolvePortalRoute("/creator/").area).toBe("creator");
-    expect(resolvePortalRoute("/unknown").area).toBe("public");
+  it("resolves area roots, nested modules and trailing slashes", () => {
+    expect(resolvePortalRoute("/creator/")).toMatchObject({ area: "creator", moduleId: "overview" });
+    expect(resolvePortalRoute("/creator/referrals/")).toMatchObject({
+      area: "creator",
+      moduleId: "referrals",
+      label: "Referral Hub",
+    });
+    expect(resolvePortalRoute("brand/profitability")).toMatchObject({
+      area: "brand",
+      moduleId: "profitability",
+    });
+    expect(resolvePortalRoute("/team/activity")).toMatchObject({ area: "team", moduleId: "activity" });
+  });
+
+  it("does not infer protected access from unknown path prefixes", () => {
+    expect(resolvePortalRoute("/brand/unknown").area).toBe("public");
+    expect(resolvePortalRoute("/brand-malicious").area).toBe("public");
+    expect(resolvePortalRoute("/creatorish").area).toBe("public");
+  });
+
+  it("keeps the global navigation limited to top-level surfaces", () => {
+    expect(PRIMARY_PORTAL_ROUTES.map((route) => route.path)).toEqual([
+      "/",
+      "/join",
+      "/creator",
+      "/brand",
+      "/team",
+    ]);
+  });
+
+  it("returns only module navigation for the requested protected area", () => {
+    expect(moduleRoutesForArea("brand").map((route) => route.path)).toEqual([
+      "/brand/profitability",
+      "/brand/actions",
+      "/brand/campaigns",
+      "/brand/creators",
+      "/brand/approvals",
+      "/brand/reporting",
+    ]);
+    expect(moduleRoutesForArea("brand").every((route) => route.area === "brand")).toBe(true);
   });
 
   it("keeps creator, brand and team areas isolated", () => {
