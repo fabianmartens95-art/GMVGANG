@@ -4,6 +4,7 @@ import { unavailableBrandPortalReadModel } from "@gmvgang/brand-intelligence/por
 import type { CreatorProfile } from "@gmvgang/platform-foundation";
 import {
   createPlatformAdminClient,
+  createSupabaseCreatorReferralReadPort,
   createSupabaseCreatorRegistrationPorts,
   ensureSupabaseCreatorMembership,
   resolveSupabasePlatformSessionContext,
@@ -13,6 +14,7 @@ import {
   createAffiliatePerformanceBrandOverviewReadPort,
   type BrandAffiliatePerformancePolicy,
 } from "./brand-performance.js";
+import { buildCreatorReferralHubReadModel } from "./creator-referrals.js";
 import type { BrandOverviewReadPort, CreatorOperationsSyncPort, PlatformApiServices } from "./types.js";
 
 export type SupabasePlatformApiOptions = {
@@ -27,6 +29,7 @@ export function createSupabasePlatformApiServices(
 ): PlatformApiServices {
   const client = createPlatformAdminClient(config);
   const registrationPorts = createSupabaseCreatorRegistrationPorts(client);
+  const referralReadPort = createSupabaseCreatorReferralReadPort(client);
   const brandOverview = options.brandOverview ?? (
     options.affiliatePerformancePolicy
       ? createAffiliatePerformanceBrandOverviewReadPort(
@@ -71,6 +74,12 @@ export function createSupabasePlatformApiServices(
     },
     async getCreatorProfile(input) {
       return registrationPorts.profiles.findByUserId(input.userId);
+    },
+    async getCreatorReferralHub(input) {
+      const profile = await registrationPorts.profiles.findByUserId(input.userId);
+      if (!profile) return null;
+      const attributions = await referralReadPort.listByReferrerCreatorProfileId(profile.id);
+      return buildCreatorReferralHubReadModel(profile, attributions);
     },
     async registerCreator(input, context) {
       const result = await registerCreator(input, context, registrationPorts);
