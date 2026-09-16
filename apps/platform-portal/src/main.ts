@@ -53,14 +53,15 @@ function statusPill(label: string, tone: "ready" | "next" | "locked" = "ready"):
 
 function workspaceSelector(): string {
   if (session.status !== "authenticated" || workspaces.length <= 1) return "";
+  const currentOrganizationId = session.organizationId;
 
   return `
     <label class="workspace-switcher">
       <span>Workspace</span>
       <select id="workspace-selector" aria-label="Workspace auswählen">
-        ${session.organizationId ? "" : '<option value="" selected disabled>Workspace wählen</option>'}
+        ${currentOrganizationId ? "" : '<option value="" selected disabled>Workspace wählen</option>'}
         ${workspaces.map((workspace) => `
-          <option value="${escapeHtml(workspace.organizationId)}"${workspace.organizationId === session.organizationId ? " selected" : ""}>
+          <option value="${escapeHtml(workspace.organizationId)}"${workspace.organizationId === currentOrganizationId ? " selected" : ""}>
             ${escapeHtml(workspace.name)}
           </option>`).join("")}
       </select>
@@ -70,8 +71,9 @@ function workspaceSelector(): string {
 function navigation(): string {
   const defaultArea = defaultAreaForSession(session);
   const currentRoute = resolvePortalRoute(window.location.pathname);
-  const currentWorkspace = session.status === "authenticated"
-    ? workspaces.find((workspace) => workspace.organizationId === session.organizationId)
+  const currentOrganizationId = session.status === "authenticated" ? session.organizationId : undefined;
+  const currentWorkspace = currentOrganizationId
+    ? workspaces.find((workspace) => workspace.organizationId === currentOrganizationId)
     : undefined;
 
   return `
