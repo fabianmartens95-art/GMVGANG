@@ -1,3 +1,5 @@
+import "./auth.css";
+
 export type AuthActionResult = { ok: true } | { ok: false; error: string };
 
 async function postJson(endpoint: string, payload?: unknown): Promise<AuthActionResult> {
