@@ -52,10 +52,10 @@ function port(value: string | undefined): number {
 }
 
 function notionCreatorSync(env: NodeJS.ProcessEnv): PlatformServerConfig["notionCreatorSync"] {
-  const token = env.NOTION_TOKEN?.trim() ?? "";
   const dataSourceId = env.NOTION_CREATOR_DATA_SOURCE_ID?.trim() ?? "";
-  if (!token && !dataSourceId) return null;
-  if (!token || !dataSourceId) throw new Error("NOTION_CREATOR_SYNC_CONFIG_INCOMPLETE");
+  if (!dataSourceId) return null;
+  const token = env.NOTION_TOKEN?.trim() ?? "";
+  if (!token) throw new Error("NOTION_CREATOR_SYNC_CONFIG_INCOMPLETE");
   return { token, dataSourceId };
 }
 
