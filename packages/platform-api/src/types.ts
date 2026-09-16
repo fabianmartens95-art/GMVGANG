@@ -5,7 +5,11 @@ import type {
   TrustedCreatorRegistrationContext,
 } from "@gmvgang/creator-registration";
 import type { BrandPortalReadModel } from "@gmvgang/brand-intelligence/portal";
-import type { CreatorProfile, PlatformSessionContext } from "@gmvgang/platform-foundation";
+import type {
+  CreatorProfile,
+  PlatformSessionContext,
+  ReferralStatus,
+} from "@gmvgang/platform-foundation";
 
 export interface PlatformAccessTokenPort {
   getAccessToken(request: Request): Promise<string | null>;
@@ -37,6 +41,22 @@ export interface BrandOverviewReadPort {
   }): Promise<BrandPortalReadModel>;
 }
 
+export type CreatorReferralHubItem = {
+  status: ReferralStatus;
+  attributedAt: string;
+  qualifiedAt?: string;
+  contractedAt?: string;
+  activatedAt?: string;
+  performingAt?: string;
+};
+
+export type CreatorReferralHubReadModel = {
+  referralCode: string;
+  totalReferrals: number;
+  statusCounts: Record<ReferralStatus, number>;
+  recentReferrals: CreatorReferralHubItem[];
+};
+
 export interface PlatformApiServices {
   resolveSessionContext(input: {
     accessToken: string;
@@ -52,6 +72,10 @@ export interface PlatformApiServices {
     userId: string;
     now: string;
   }): Promise<CreatorProfile | null>;
+  getCreatorReferralHub(input: {
+    userId: string;
+    now: string;
+  }): Promise<CreatorReferralHubReadModel | null>;
   registerCreator(
     input: PublicCreatorRegistrationInput,
     context: TrustedCreatorRegistrationContext,
