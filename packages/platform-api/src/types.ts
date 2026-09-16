@@ -43,7 +43,7 @@ export interface PlatformApiServices {
     requestedOrganizationId?: string;
     now: string;
   }): Promise<PlatformSessionContext>;
-  getBrandOverview(input: {
+  getBrandOverview?(input: {
     organizationId: string;
     userId: string;
     now: string;
