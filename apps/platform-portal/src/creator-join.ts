@@ -135,13 +135,16 @@ export function renderCreatorJoin(
   options: { privacyNoticeVersion: string; referralCode?: string },
 ): string {
   if (session.status !== "authenticated") {
+    const referralCode = options.referralCode?.trim().toUpperCase() ?? "";
+    const nextPath = referralCode ? `/join?ref=${encodeURIComponent(referralCode)}` : "/join";
     return `
       <main class="join-page">
         <section class="join-shell join-shell--gate">
           <div class="eyebrow">CREATOR REGISTRATION</div>
           <h1>Creator Account erforderlich</h1>
-          <p>Die öffentliche Registrierung ist vorbereitet. Bevor Daten angenommen werden, muss eine serverseitig verifizierte Account-Session bestehen. Der konkrete Production-Auth-Adapter ist noch nicht angeschlossen.</p>
-          <div class="join-gate__status"><span></span>AUTH BOUNDARY READY · PROVIDER NEXT</div>
+          <p>Melde dich zuerst mit einem verifizierten GMVGANG Account an. Danach kannst du dein Creator-Profil anlegen; ein vorhandener Referral-Code bleibt über den Login hinweg erhalten.</p>
+          <a href="/login?next=${encodeURIComponent(nextPath)}" data-nav class="join-submit">Einloggen oder Account erstellen</a>
+          <div class="join-gate__status"><span></span>SUPABASE AUTH · SERVER VERIFIED</div>
         </section>
       </main>`;
   }
@@ -240,6 +243,6 @@ export function wireCreatorJoin(port: CreatorRegistrationPort): void {
       return;
     }
 
-    result.innerHTML = `<strong>Profil angelegt.</strong> Profilstatus: ${response.creatorProfile.profileCompletionPercent}% · Dein Referral-Code: <code>${escapeHtml(response.creatorProfile.referralCode)}</code>`;
+    result.innerHTML = `<strong>Profil angelegt.</strong> Profilstatus: ${response.creatorProfile.profileCompletionPercent}% · Dein Referral-Code: <code>${escapeHtml(response.creatorProfile.referralCode)}</code> · <a href="/creator">Creator Portal öffnen →</a>`;
   });
 }
