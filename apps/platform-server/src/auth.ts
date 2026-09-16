@@ -88,6 +88,6 @@ export function applyResponseMutations(response: Response, mutations: ResponseMu
   const headers = new Headers(response.headers);
   for (const [key, value] of mutations.headers.entries()) headers.set(key, value);
   for (const value of mutations.setCookies) headers.append("Set-Cookie", value);
-  headers.set("Cache-Control", "no-store");
+  headers.set("Cache-Control", "private, no-store");
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
