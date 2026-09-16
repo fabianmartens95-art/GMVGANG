@@ -80,8 +80,10 @@ describe("evaluateReferralReward", () => {
 
   it("blocks forged milestone state without its evidence timestamp", async () => {
     const { ports } = harness();
+    const forged = attribution();
+    delete forged.qualifiedAt;
     const result = await evaluateReferralReward({
-      attribution: attribution({ qualifiedAt: undefined }),
+      attribution: forged,
       event: "qualified",
       policy,
       now: NOW,
