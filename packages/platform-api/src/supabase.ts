@@ -13,6 +13,7 @@ import {
   createAffiliatePerformanceBrandOverviewReadPort,
   type BrandAffiliatePerformancePolicy,
 } from "./brand-performance.js";
+import { buildCreatorReferralHubReadModel } from "./creator-referrals.js";
 import type { BrandOverviewReadPort, CreatorOperationsSyncPort, PlatformApiServices } from "./types.js";
 
 export type SupabasePlatformApiOptions = {
@@ -71,6 +72,12 @@ export function createSupabasePlatformApiServices(
     },
     async getCreatorProfile(input) {
       return registrationPorts.profiles.findByUserId(input.userId);
+    },
+    async getCreatorReferralHub(input) {
+      const profile = await registrationPorts.profiles.findByUserId(input.userId);
+      if (!profile) return null;
+      const attributions = await registrationPorts.referrals.listByReferrerCreatorProfileId(profile.id);
+      return buildCreatorReferralHubReadModel(profile, attributions);
     },
     async registerCreator(input, context) {
       const result = await registerCreator(input, context, registrationPorts);
