@@ -27,17 +27,19 @@ describe("platform mutation rate limiter", () => {
     const base = Date.parse("2026-09-16T14:00:00.000Z");
 
     for (let index = 0; index < 5; index += 1) {
-      await expect(limiter.consume({
+      const allowed = await limiter.consume({
         action: "creator_registration",
         subject: "creator-user-1",
         now: new Date(base + index * 1_000).toISOString(),
-      })).resolves.toBe(true);
+      });
+      expect(allowed).toBe(true);
     }
 
-    await expect(limiter.consume({
+    const sixth = await limiter.consume({
       action: "creator_registration",
       subject: "creator-user-1",
       now: new Date(base + 5_000).toISOString(),
-    })).resolves.toBe(false);
+    });
+    expect(sixth).toBe(false);
   });
 });
