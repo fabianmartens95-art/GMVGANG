@@ -30,10 +30,11 @@ describe("loadPlatformServerConfig", () => {
     expect(config.production).toBe(true);
     expect(config.portalDistDir.endsWith("apps/platform-portal/dist")).toBe(true);
     expect(config.notionCreatorSync).toBeNull();
+    expect(config.notionCreatorWorkspace).toBeNull();
     expect(config.affiliatePerformanceRead).toBeNull();
   });
 
-  it("loads the Notion Creator sync only when both server-side values exist", () => {
+  it("loads the Notion Creator sync only when the creator data source and shared server token exist", () => {
     const config = loadPlatformServerConfig({
       ...BASE_ENV,
       NOTION_TOKEN: "secret-test-token",
@@ -46,10 +47,8 @@ describe("loadPlatformServerConfig", () => {
     });
   });
 
-  it("fails closed on a partially configured Notion Creator sync", () => {
-    expect(() => loadPlatformServerConfig({ ...BASE_ENV, NOTION_TOKEN: "secret-test-token" })).toThrow(
-      "NOTION_CREATOR_SYNC_CONFIG_INCOMPLETE",
-    );
+  it("does not activate Creator sync from a shared Notion token alone and fails closed without auth for its data source", () => {
+    expect(loadPlatformServerConfig({ ...BASE_ENV, NOTION_TOKEN: "secret-test-token" }).notionCreatorSync).toBeNull();
     expect(() => loadPlatformServerConfig({
       ...BASE_ENV,
       NOTION_CREATOR_DATA_SOURCE_ID: "8a6eb54f-cefc-4f5b-bda6-57998fd09904",
