@@ -16,7 +16,7 @@ export type SessionFetch = (
   init: {
     credentials: "include";
     cache: "no-store";
-    headers: { Accept: "application/json" };
+    headers: Record<string, string>;
   },
 ) => Promise<SessionHttpResponse>;
 
@@ -75,14 +75,20 @@ export class HttpSessionAdapter implements SessionPort {
   constructor(
     private readonly endpoint = "/api/session",
     private readonly fetchSession: SessionFetch = (input, init) => fetch(input, init),
+    private readonly requestedOrganizationId?: string,
   ) {}
 
   async getSession(): Promise<PortalSession> {
     try {
+      const headers: Record<string, string> = { Accept: "application/json" };
+      if (this.requestedOrganizationId) {
+        headers["X-GMVGANG-Organization-Id"] = this.requestedOrganizationId;
+      }
+
       const response = await this.fetchSession(this.endpoint, {
         credentials: "include",
         cache: "no-store",
-        headers: { Accept: "application/json" },
+        headers,
       });
 
       if (!response.ok) {
@@ -97,9 +103,11 @@ export class HttpSessionAdapter implements SessionPort {
 }
 
 export class EnvironmentSessionAdapter implements SessionPort {
+  constructor(private readonly requestedOrganizationId?: string) {}
+
   async getSession(): Promise<PortalSession> {
     if (!import.meta.env.DEV) {
-      return new HttpSessionAdapter().getSession();
+      return new HttpSessionAdapter("/api/session", undefined, this.requestedOrganizationId).getSession();
     }
 
     const role = String(import.meta.env.VITE_PLATFORM_DEV_ROLE ?? "").trim();
@@ -108,7 +116,7 @@ export class EnvironmentSessionAdapter implements SessionPort {
     }
 
     const organizationId = String(import.meta.env.VITE_PLATFORM_DEV_ORGANIZATION_ID ?? "").trim();
-    if (!organizationId) {
+    if (!organizationId || (this.requestedOrganizationId && this.requestedOrganizationId !== organizationId)) {
       return { status: "anonymous", roles: [] };
     }
 
@@ -121,6 +129,8 @@ export class EnvironmentSessionAdapter implements SessionPort {
   }
 }
 
-export function createSessionPort(): SessionPort {
-  return import.meta.env.DEV ? new EnvironmentSessionAdapter() : new HttpSessionAdapter();
+export function createSessionPort(requestedOrganizationId?: string): SessionPort {
+  return import.meta.env.DEV
+    ? new EnvironmentSessionAdapter(requestedOrganizationId)
+    : new HttpSessionAdapter("/api/session", undefined, requestedOrganizationId);
 }

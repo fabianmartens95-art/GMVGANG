@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { buildBrandPortalReadModel } from "../src/brand-read-model.js";
 import {
+  HttpBrandOverviewAdapter,
   loadBrandOverview,
   parseBrandOverview,
   renderBrandOverview,
@@ -65,6 +66,41 @@ describe("parseBrandOverview", () => {
         },
       }),
     ).toThrow("BRAND_OVERVIEW_ACTIONS_INVALID");
+  });
+});
+
+describe("HttpBrandOverviewAdapter", () => {
+  it("scopes overview requests to the selected organization while keeping the server authoritative", async () => {
+    let capturedInput = "";
+    let capturedInit: unknown;
+    const adapter = new HttpBrandOverviewAdapter(
+      "/api/brand/overview",
+      async (input, init) => {
+        capturedInput = input;
+        capturedInit = init;
+        return {
+          ok: true,
+          async json() {
+            return { source: "production", model: model("brand-1") };
+          },
+        };
+      },
+      "brand-1",
+    );
+
+    await expect(adapter.getOverview()).resolves.toMatchObject({
+      source: "production",
+      model: { organizationId: "brand-1" },
+    });
+    expect(capturedInput).toBe("/api/brand/overview");
+    expect(capturedInit).toEqual({
+      credentials: "include",
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+        "X-GMVGANG-Organization-Id": "brand-1",
+      },
+    });
   });
 });
 

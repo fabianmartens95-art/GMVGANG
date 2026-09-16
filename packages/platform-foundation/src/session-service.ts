@@ -1,5 +1,6 @@
 import { resolvePlatformSession, type PlatformSession, type VerifiedPlatformIdentity } from "./session.js";
 import type { Membership, Organization, PlatformUser } from "./types.js";
+import { accessibleWorkspacesForUser, type PlatformWorkspaceAccess } from "./workspaces.js";
 
 export interface PlatformIdentityPort {
   verifyIdentity(): Promise<VerifiedPlatformIdentity | null>;
@@ -18,6 +19,11 @@ export type LoadPlatformSessionInput = {
   now: string;
 };
 
+export type PlatformSessionContext = {
+  session: PlatformSession;
+  workspaces: readonly PlatformWorkspaceAccess[];
+};
+
 function uniqueOrganizationIds(memberships: readonly Membership[]): string[] {
   return [...new Set(memberships.map((membership) => membership.organizationId))];
 }
@@ -26,22 +32,28 @@ function requestedOrganization(input: LoadPlatformSessionInput): { requestedOrga
   return input.requestedOrganizationId ? { requestedOrganizationId: input.requestedOrganizationId } : {};
 }
 
-export async function loadPlatformSession(input: LoadPlatformSessionInput): Promise<PlatformSession> {
+export async function loadPlatformSessionContext(input: LoadPlatformSessionInput): Promise<PlatformSessionContext> {
   const verifiedIdentity = await input.identity.verifyIdentity();
   if (!verifiedIdentity) {
-    return { status: "anonymous", roles: [] };
+    return {
+      session: { status: "anonymous", roles: [] },
+      workspaces: [],
+    };
   }
 
   const user = await input.persistence.findUserById(verifiedIdentity.userId);
   if (!user) {
-    return resolvePlatformSession({
-      identity: verifiedIdentity,
-      user: null,
-      memberships: [],
-      organizations: [],
-      ...requestedOrganization(input),
-      now: input.now,
-    });
+    return {
+      session: resolvePlatformSession({
+        identity: verifiedIdentity,
+        user: null,
+        memberships: [],
+        organizations: [],
+        ...requestedOrganization(input),
+        now: input.now,
+      }),
+      workspaces: [],
+    };
   }
 
   const memberships = await input.persistence.listMembershipsForUser(user.id);
@@ -50,12 +62,19 @@ export async function loadPlatformSession(input: LoadPlatformSessionInput): Prom
     ? await input.persistence.listOrganizationsByIds(organizationIds)
     : [];
 
-  return resolvePlatformSession({
-    identity: verifiedIdentity,
-    user,
-    memberships,
-    organizations,
-    ...requestedOrganization(input),
-    now: input.now,
-  });
+  return {
+    session: resolvePlatformSession({
+      identity: verifiedIdentity,
+      user,
+      memberships,
+      organizations,
+      ...requestedOrganization(input),
+      now: input.now,
+    }),
+    workspaces: accessibleWorkspacesForUser(user.id, memberships, organizations),
+  };
+}
+
+export async function loadPlatformSession(input: LoadPlatformSessionInput): Promise<PlatformSession> {
+  return (await loadPlatformSessionContext(input)).session;
 }

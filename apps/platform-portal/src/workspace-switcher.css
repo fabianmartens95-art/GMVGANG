@@ -1,0 +1,56 @@
+.session-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  min-width: 0;
+}
+
+.workspace-switcher {
+  display: grid;
+  gap: 4px;
+  min-width: 150px;
+}
+
+.workspace-switcher > span {
+  color: var(--gray);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.workspace-switcher select {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 28px 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--white);
+  font: inherit;
+  font-size: 11px;
+  outline: none;
+}
+
+.workspace-switcher select:focus {
+  border-color: var(--purple);
+  box-shadow: 0 0 0 1px var(--purple);
+}
+
+@media (max-width: 1050px) {
+  .session-controls {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
+@media (max-width: 700px) {
+  .session-controls {
+    gap: 0;
+  }
+
+  .workspace-switcher {
+    min-width: 132px;
+  }
+}

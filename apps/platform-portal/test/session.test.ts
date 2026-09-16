@@ -75,6 +75,38 @@ describe("HttpSessionAdapter", () => {
     });
   });
 
+  it("sends a requested organization only as untrusted server-validated request context", async () => {
+    let capturedInit: unknown;
+    const adapter = new HttpSessionAdapter(
+      "/api/session",
+      async (_input, init) => {
+        capturedInit = init;
+        return {
+          ok: true,
+          async json() {
+            return {
+              status: "authenticated",
+              userId: "user-1",
+              organizationId: "brand-2",
+              roles: ["brand_member"],
+            };
+          },
+        };
+      },
+      "brand-2",
+    );
+
+    await expect(adapter.getSession()).resolves.toMatchObject({ organizationId: "brand-2" });
+    expect(capturedInit).toEqual({
+      credentials: "include",
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+        "X-GMVGANG-Organization-Id": "brand-2",
+      },
+    });
+  });
+
   it("fails closed on transport errors, non-success responses and malformed payloads", async () => {
     const transportFailure = new HttpSessionAdapter("/api/session", async () => {
       throw new Error("network");

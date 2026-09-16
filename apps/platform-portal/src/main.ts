@@ -1,14 +1,16 @@
 import "./styles.css";
 
+import type { PlatformWorkspaceAccess } from "@gmvgang/platform-foundation";
 import { createBrandOverviewPort, loadBrandOverview, renderBrandOverview } from "./brand-workspace.js";
 import { HttpCreatorRegistrationAdapter, renderCreatorJoin, wireCreatorJoin } from "./creator-join.js";
 import { canAccessArea, defaultAreaForSession, PORTAL_ROUTES, resolvePortalRoute, type PortalArea } from "./routing.js";
 import { createSessionPort, type PortalSession } from "./session.js";
+import { createWorkspacePort } from "./workspaces.js";
 
 const app = document.querySelector<HTMLDivElement>("#app") ?? (() => { throw new Error("APP_ROOT_NOT_FOUND"); })();
 
-const sessionPort = createSessionPort();
 let session: PortalSession = { status: "anonymous", roles: [] };
+let workspaces: readonly PlatformWorkspaceAccess[] = [];
 
 const areaCopy: Record<Exclude<PortalArea, "public">, { eyebrow: string; title: string; description: string; modules: string[] }> = {
   creator: {
@@ -31,13 +33,49 @@ const areaCopy: Record<Exclude<PortalArea, "public">, { eyebrow: string; title: 
   },
 };
 
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function selectedWorkspaceId(): string | undefined {
+  const selected = new URLSearchParams(window.location.search).get("workspace")?.trim();
+  return selected || undefined;
+}
+
 function statusPill(label: string, tone: "ready" | "next" | "locked" = "ready"): string {
   return `<span class="status status--${tone}">${label}</span>`;
+}
+
+function workspaceSelector(): string {
+  if (session.status !== "authenticated" || workspaces.length <= 1) return "";
+  const currentOrganizationId = session.organizationId;
+
+  return `
+    <label class="workspace-switcher">
+      <span>Workspace</span>
+      <select id="workspace-selector" aria-label="Workspace auswählen">
+        ${currentOrganizationId ? "" : '<option value="" selected disabled>Workspace wählen</option>'}
+        ${workspaces.map((workspace) => `
+          <option value="${escapeHtml(workspace.organizationId)}"${workspace.organizationId === currentOrganizationId ? " selected" : ""}>
+            ${escapeHtml(workspace.name)}
+          </option>`).join("")}
+      </select>
+    </label>`;
 }
 
 function navigation(): string {
   const defaultArea = defaultAreaForSession(session);
   const currentRoute = resolvePortalRoute(window.location.pathname);
+  const currentOrganizationId = session.status === "authenticated" ? session.organizationId : undefined;
+  const currentWorkspace = currentOrganizationId
+    ? workspaces.find((workspace) => workspace.organizationId === currentOrganizationId)
+    : undefined;
+
   return `
     <header class="topbar">
       <a class="brand" href="/" data-nav>
@@ -52,9 +90,14 @@ function navigation(): string {
           return `<a href="${route.path}" data-nav class="nav__link${active ? " is-active" : ""}${accessible ? "" : " is-locked"}" aria-disabled="${accessible ? "false" : "true"}">${route.label}</a>`;
         }).join("")}
       </nav>
-      <div class="session-chip">
-        <span class="session-dot ${session.status === "authenticated" ? "is-authenticated" : ""}"></span>
-        ${session.status === "authenticated" ? session.roles.join(", ") || "authenticated" : `Auth ausstehend · Default ${defaultArea}`}
+      <div class="session-controls">
+        ${workspaceSelector()}
+        <div class="session-chip">
+          <span class="session-dot ${session.status === "authenticated" ? "is-authenticated" : ""}"></span>
+          ${session.status === "authenticated"
+            ? `${currentWorkspace ? escapeHtml(currentWorkspace.name) : "authenticated"} · ${session.roles.join(", ") || "workspace required"}`
+            : `Auth ausstehend · Default ${defaultArea}`}
+        </div>
       </div>
     </header>`;
 }
@@ -176,14 +219,31 @@ function wireNavigation(): void {
     link.addEventListener("click", (event) => {
       event.preventDefault();
       const url = new URL(link.href);
-      window.history.pushState({}, "", url.pathname);
+      const workspaceId = selectedWorkspaceId();
+      if (workspaceId) url.searchParams.set("workspace", workspaceId);
+      window.history.pushState({}, "", `${url.pathname}${url.search}`);
       void render();
     });
   });
 }
 
+function wireWorkspaceSelector(): void {
+  const selector = document.querySelector<HTMLSelectElement>("#workspace-selector");
+  selector?.addEventListener("change", () => {
+    const organizationId = selector.value.trim();
+    if (!organizationId) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("workspace", organizationId);
+    window.history.pushState({}, "", `${url.pathname}${url.search}`);
+    void render();
+  });
+}
+
 async function render(): Promise<void> {
-  session = await sessionPort.getSession();
+  const requestedWorkspaceId = selectedWorkspaceId();
+  session = await createSessionPort(requestedWorkspaceId).getSession();
+  workspaces = session.status === "authenticated" ? await createWorkspacePort().getWorkspaces() : [];
+
   const route = resolvePortalRoute(window.location.pathname);
   const referralCode = new URLSearchParams(window.location.search).get("ref") ?? undefined;
   const privacyNoticeVersion = String(import.meta.env.VITE_CREATOR_PRIVACY_NOTICE_VERSION ?? "").trim();
@@ -195,6 +255,7 @@ async function render(): Promise<void> {
 
   app.innerHTML = `${navigation()}${body}<footer><span>GMVGANG PLATFORM</span><span>Notion remains operational SSOT · Platform code on GitHub</span></footer>`;
   wireNavigation();
+  wireWorkspaceSelector();
   if (route.path === "/join") wireCreatorJoin(new HttpCreatorRegistrationAdapter());
 }
 
