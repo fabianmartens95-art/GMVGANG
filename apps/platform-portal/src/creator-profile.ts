@@ -70,15 +70,20 @@ export function parseCreatorProfileResult(payload: unknown): CreatorProfileResul
     (profile.niche !== undefined && (!Array.isArray(profile.niche) || !profile.niche.every((item) => typeof item === "string")))
   ) throw new Error("CREATOR_PROFILE_PAYLOAD_INVALID");
 
+  const displayName = optionalText(profile.displayName);
+  const market = optionalText(profile.market);
+  const language = optionalText(profile.language);
+  const niche = Array.isArray(profile.niche) ? profile.niche.map(String) : undefined;
+
   return {
     ok: true,
     creatorProfile: {
       id: profile.id,
       tiktokHandle: profile.tiktokHandle,
-      ...(optionalText(profile.displayName) ? { displayName: optionalText(profile.displayName) } : {}),
-      ...(optionalText(profile.market) ? { market: optionalText(profile.market) } : {}),
-      ...(optionalText(profile.language) ? { language: optionalText(profile.language) } : {}),
-      ...(Array.isArray(profile.niche) ? { niche: profile.niche.map(String) } : {}),
+      ...(displayName ? { displayName } : {}),
+      ...(market ? { market } : {}),
+      ...(language ? { language } : {}),
+      ...(niche ? { niche } : {}),
       networkStatus: profile.networkStatus as "registered" | "profile_complete",
       profileCompletionPercent: profile.profileCompletionPercent,
       referralCode: profile.referralCode,
