@@ -42,14 +42,7 @@ const applicationSection = `
 
             <label class="field">
               <span>Followerzahl *</span>
-              <select name="followerBand" required>
-                <option value="">Bitte wählen</option>
-                <option value="0-1k">Unter 1.000</option>
-                <option value="1k-10k">1.000–10.000</option>
-                <option value="10k-50k">10.000–50.000</option>
-                <option value="50k-100k">50.000–100.000</option>
-                <option value="100k+">Über 100.000</option>
-              </select>
+              <input name="followerCount" type="number" inputmode="numeric" autocomplete="off" min="0" max="2000000000" step="1" placeholder="z. B. 12500" required>
             </label>
 
             <label class="field">
