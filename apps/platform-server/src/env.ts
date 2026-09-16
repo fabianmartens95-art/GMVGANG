@@ -18,6 +18,7 @@ export type PlatformServerConfig = {
     token: string;
     assignmentDataSourceId: string;
   } | null;
+  companyOsSyncSecret: string | null;
   affiliatePerformanceRead: BrandAffiliatePerformancePolicy | null;
   production: boolean;
 };
@@ -65,6 +66,13 @@ function notionCreatorWorkspace(env: NodeJS.ProcessEnv): PlatformServerConfig["n
   const token = env.NOTION_TOKEN?.trim() ?? "";
   if (!token) throw new Error("NOTION_CREATOR_WORKSPACE_CONFIG_INCOMPLETE");
   return { token, assignmentDataSourceId };
+}
+
+function companyOsSyncSecret(env: NodeJS.ProcessEnv): string | null {
+  const secret = env.COMPANY_OS_SYNC_SECRET?.trim() ?? "";
+  if (!secret) return null;
+  if (secret.length < 32) throw new Error("COMPANY_OS_SYNC_SECRET_TOO_SHORT");
+  return secret;
 }
 
 function explicitFeatureFlag(value: string | undefined): boolean {
@@ -158,6 +166,7 @@ export function loadPlatformServerConfig(env: NodeJS.ProcessEnv = process.env): 
     privacyNoticeVersion: required(env.CREATOR_PRIVACY_NOTICE_VERSION, "CREATOR_PRIVACY_NOTICE_VERSION_REQUIRED"),
     notionCreatorSync: notionCreatorSync(env),
     notionCreatorWorkspace: notionCreatorWorkspace(env),
+    companyOsSyncSecret: companyOsSyncSecret(env),
     affiliatePerformanceRead: affiliatePerformanceRead(env),
     production,
   };
