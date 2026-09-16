@@ -8,7 +8,7 @@ const cards = (items) => `<div class="card-grid">${items
   .map(([title, text]) => `<article class="card"><h3>${title}</h3><p>${text}</p></article>`)
   .join('')}</div>`;
 
-const SITE_INDEXABLE = false;
+export const SITE_INDEXABLE = process.env.SITE_INDEXABLE === 'true';
 
 export const pages = [
   {
@@ -208,7 +208,6 @@ export const pages = [
         <div id="pc-failure" class="form-message form-error" role="alert" tabindex="-1" hidden>Wir konnten den Eingang noch nicht bestätigen. Ihre Eingaben bleiben erhalten. Bitte versuchen Sie es später erneut oder schreiben Sie an tiktokagentur@gmail.com.</div>
       </section>
     `,
-    index: false,
   },
   {
     path: '/analyse-erhalten/',
