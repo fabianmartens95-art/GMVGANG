@@ -14,7 +14,7 @@ export const pages = [
     title: 'GMVGANG – TikTok Shop Growth für Brands',
     description: 'GMVGANG baut TikTok Shop für DTC- und E-Commerce-Brands als messbaren Vertriebskanal auf – creator-getrieben, transparent und wirtschaftlich.',
     eyebrow: 'TikTok Shop Growth System',
-    heading: 'TikTok Shop skalieren. Profitabel, transparent, creator-getrieben.',
+    heading: 'TikTok Shop skalieren. Profitabel, transparent, creator‑getrieben.',
     lead: 'Wir bauen TikTok Shop für DTC- und E-Commerce-Brands als messbaren Vertriebskanal auf: mit passenden Creatorn, verkaufsfähigem Content, Affiliate und LIVE. Paid Media kommt erst dazu, wenn Produkt, Content und Wirtschaftlichkeit tragen.',
     actions: [
       ['/potenzialanalyse/', 'TikTok Shop Potenzial prüfen', 'primary'],
