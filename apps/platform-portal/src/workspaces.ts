@@ -1,3 +1,5 @@
+import "./workspace-switcher.css";
+
 import type { OrganizationType, PlatformUserRole, PlatformWorkspaceAccess } from "@gmvgang/platform-foundation";
 
 export interface WorkspacePort {
