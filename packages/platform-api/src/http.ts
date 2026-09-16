@@ -11,6 +11,7 @@ const JSON_HEADERS = {
   "Cache-Control": "no-store",
   "Content-Type": "application/json; charset=utf-8",
 } as const;
+const IDEMPOTENCY_KEY = /^[A-Za-z0-9._:-]{16,128}$/;
 
 function jsonResponse(payload: unknown, status = 200, headers?: HeadersInit): Response {
   return new Response(JSON.stringify(payload), {
@@ -154,6 +155,82 @@ async function mutationAllowed(
   return dependencies.rateLimits.consume({ action, subject, now });
 }
 
+async function requestHash(action: PlatformRateLimitAction, input: unknown): Promise<string> {
+  const encoded = new TextEncoder().encode(`${action}:${JSON.stringify(input)}`);
+  const digest = await crypto.subtle.digest("SHA-256", encoded);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function idempotencyStart(
+  request: Request,
+  dependencies: PlatformApiDependencies,
+  action: PlatformRateLimitAction,
+  subject: string,
+  input: unknown,
+  now: string,
+): Promise<
+  | { status: "started"; key: string; requestHash: string }
+  | { status: "response"; response: Response }
+> {
+  if (!dependencies.idempotency) {
+    return { status: "response", response: jsonResponse({ ok: false, errors: ["idempotency_unavailable"] }, 503) };
+  }
+
+  const key = request.headers.get("Idempotency-Key")?.trim() ?? "";
+  if (!key) {
+    return { status: "response", response: jsonResponse({ ok: false, errors: ["idempotency_key_required"] }, 400) };
+  }
+  if (!IDEMPOTENCY_KEY.test(key)) {
+    return { status: "response", response: jsonResponse({ ok: false, errors: ["idempotency_key_invalid"] }, 400) };
+  }
+
+  const fingerprint = await requestHash(action, input);
+  const result = await dependencies.idempotency.begin({
+    scope: action,
+    subject,
+    key,
+    requestHash: fingerprint,
+    now,
+  });
+
+  if (result.status === "replay") {
+    return {
+      status: "response",
+      response: jsonResponse(result.responseBody, result.responseStatus, { "Idempotency-Replayed": "true" }),
+    };
+  }
+  if (result.status === "conflict") {
+    return { status: "response", response: jsonResponse({ ok: false, errors: ["idempotency_key_conflict"] }, 409) };
+  }
+  if (result.status === "in_progress") {
+    return {
+      status: "response",
+      response: jsonResponse({ ok: false, errors: ["idempotency_in_progress"] }, 409, { "Retry-After": "2" }),
+    };
+  }
+  return { status: "started", key, requestHash: fingerprint };
+}
+
+async function idempotencyComplete(
+  dependencies: PlatformApiDependencies,
+  action: PlatformRateLimitAction,
+  subject: string,
+  started: { key: string; requestHash: string },
+  responseStatus: number,
+  responseBody: unknown,
+): Promise<void> {
+  if (!dependencies.idempotency) throw new Error("IDEMPOTENCY_UNAVAILABLE");
+  await dependencies.idempotency.complete({
+    scope: action,
+    subject,
+    key: started.key,
+    requestHash: started.requestHash,
+    responseStatus,
+    responseBody,
+    now: dependencies.clock.now(),
+  });
+}
+
 async function handleSession(request: Request, dependencies: PlatformApiDependencies): Promise<Response> {
   if (request.method !== "GET") return methodNotAllowed(["GET"]);
   const token = await accessToken(request, dependencies);
@@ -231,8 +308,29 @@ async function handleCreatorRegistration(request: Request, dependencies: Platfor
   if (!await mutationAllowed(dependencies, "creator_registration", trustedContext.userId, trustedContext.now)) {
     return jsonResponse({ ok: false, errors: ["rate_limited"] }, 429, { "Retry-After": "600" });
   }
+
+  const idempotency = await idempotencyStart(
+    request,
+    dependencies,
+    "creator_registration",
+    trustedContext.userId,
+    input,
+    trustedContext.now,
+  );
+  if (idempotency.status === "response") return idempotency.response;
+
   const result = await dependencies.services.registerCreator(input, trustedContext);
-  return jsonResponse(publicRegistrationResult(result), result.ok ? 200 : 400);
+  const responseBody = publicRegistrationResult(result);
+  const responseStatus = result.ok ? 200 : 400;
+  await idempotencyComplete(
+    dependencies,
+    "creator_registration",
+    trustedContext.userId,
+    idempotency,
+    responseStatus,
+    responseBody,
+  );
+  return jsonResponse(responseBody, responseStatus);
 }
 
 async function handleCreatorProfile(request: Request, dependencies: PlatformApiDependencies): Promise<Response> {
@@ -259,8 +357,28 @@ async function handleCreatorProfile(request: Request, dependencies: PlatformApiD
   if (!await mutationAllowed(dependencies, "creator_profile_completion", trustedContext.userId, trustedContext.now)) {
     return jsonResponse({ ok: false, errors: ["rate_limited"] }, 429, { "Retry-After": "600" });
   }
+
+  const idempotency = await idempotencyStart(
+    request,
+    dependencies,
+    "creator_profile_completion",
+    trustedContext.userId,
+    input,
+    trustedContext.now,
+  );
+  if (idempotency.status === "response") return idempotency.response;
+
   const profile = await dependencies.services.completeCreatorProfile(input, trustedContext);
-  return jsonResponse({ ok: true, creatorProfile: publicCreatorProfile(profile) });
+  const responseBody = { ok: true, creatorProfile: publicCreatorProfile(profile) };
+  await idempotencyComplete(
+    dependencies,
+    "creator_profile_completion",
+    trustedContext.userId,
+    idempotency,
+    200,
+    responseBody,
+  );
+  return jsonResponse(responseBody);
 }
 
 function publicError(error: unknown): Response {
