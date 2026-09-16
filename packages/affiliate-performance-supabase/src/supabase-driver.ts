@@ -192,7 +192,7 @@ export function createSupabaseAffiliatePerformanceDriver(
         .eq("external_record_id", externalRecordId)
         .maybeSingle();
       ensureNoError(error, "AFFILIATE_PERFORMANCE_IDENTITY_QUERY_FAILED");
-      return data ? rowToMeasurement(data as Record<string, unknown>) : null;
+      return data ? rowToMeasurement(data as unknown as Record<string, unknown>) : null;
     },
 
     async findByCoverage(coverageKey) {
@@ -202,7 +202,7 @@ export function createSupabaseAffiliatePerformanceDriver(
         .eq("coverage_key", coverageKey)
         .maybeSingle();
       ensureNoError(error, "AFFILIATE_PERFORMANCE_COVERAGE_QUERY_FAILED");
-      return data ? rowToMeasurement(data as Record<string, unknown>) : null;
+      return data ? rowToMeasurement(data as unknown as Record<string, unknown>) : null;
     },
 
     async touchLastObservedAt(provider, externalRecordId, observedAt) {
@@ -235,7 +235,7 @@ export function createSupabaseAffiliatePerformanceDriver(
         .order("external_record_id", { ascending: true })
         .limit(input.limit ?? 200);
       ensureNoError(error, "AFFILIATE_PERFORMANCE_LIST_FAILED");
-      return (data ?? []).map((row) => rowToMeasurement(row as Record<string, unknown>));
+      return (data ?? []).map((row) => rowToMeasurement(row as unknown as Record<string, unknown>));
     }
   };
 }
