@@ -51,7 +51,10 @@ export async function ensureSupabaseCreatorMembership(
 
   if (existing) {
     if (existing.status === "active") return;
-    if (typeof existing.id !== "string") throw new Error("CREATOR_MEMBERSHIP_ROW_INVALID");
+    if (existing.status === "revoked") throw new Error("CREATOR_MEMBERSHIP_REVOKED");
+    if (existing.status !== "invited" || typeof existing.id !== "string") {
+      throw new Error("CREATOR_MEMBERSHIP_ROW_INVALID");
+    }
 
     const { error } = await client
       .from("memberships")
