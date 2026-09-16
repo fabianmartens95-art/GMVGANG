@@ -30,7 +30,7 @@ test('native Creator application preserves required intake and consent fields', 
     'tiktokHandle',
     'email',
     'phone',
-    'followerBand',
+    'followerCount',
     'tiktokShopExperience',
     'contentCategories',
     'ageConfirmed',
@@ -41,6 +41,7 @@ test('native Creator application preserves required intake and consent fields', 
   ]) {
     assert.match(html, new RegExp(`name="${field}"`));
   }
+  assert.match(html, /name="followerCount" type="number"[^>]*min="0"[^>]*max="2000000000"[^>]*step="1"/);
   assert.match(html, /1–5 auswählen/);
   assert.match(html, /mindestens 18 Jahre alt/);
   assert.match(html, /href="\/datenschutz\/"/);
@@ -59,6 +60,7 @@ test('Creator application client keeps PII in request body and uses idempotent p
   assert.match(source, /\/api\/public\/creator-application\/config/);
   assert.match(source, /'Idempotency-Key': idempotencyKey\(\)/);
   assert.match(source, /crypto\.randomUUID\(\)/);
+  assert.match(source, /const followerCount = Number\(data\.get\('followerCount'\)\)/);
   assert.match(source, /body: JSON\.stringify\(payload\)/);
   assert.match(source, /new URLSearchParams\(window\.location\.search\)\.get\('ref'\)/);
   assert.doesNotMatch(source, /query\.set\('email'/);

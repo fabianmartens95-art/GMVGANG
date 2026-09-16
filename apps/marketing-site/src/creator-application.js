@@ -104,12 +104,18 @@
     }
 
     const data = new FormData(form);
+    const followerCount = Number(data.get('followerCount'));
+    if (!Number.isSafeInteger(followerCount) || followerCount < 0 || followerCount > 2_000_000_000) {
+      setStatus('Bitte gib eine gültige Followerzahl ein.', 'error');
+      return;
+    }
+
     const payload = {
       displayName: String(data.get('displayName') || '').trim(),
       tiktokHandle: String(data.get('tiktokHandle') || '').trim(),
       email: String(data.get('email') || '').trim(),
       phone: String(data.get('phone') || '').trim() || undefined,
-      followerBand: String(data.get('followerBand') || ''),
+      followerCount,
       contentCategories: categories,
       tiktokShopExperience: String(data.get('tiktokShopExperience') || ''),
       referralCode: String(data.get('referralCode') || '').trim() || undefined,
