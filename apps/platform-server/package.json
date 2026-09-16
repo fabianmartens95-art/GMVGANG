@@ -1,0 +1,23 @@
+{
+  "name": "@gmvgang/platform-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@gmvgang/platform-api": "workspace:*",
+    "@supabase/ssr": "^0.10.0",
+    "@supabase/supabase-js": "2.116.0",
+    "cookie": "^1.0.2",
+    "tsx": "^4.20.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}

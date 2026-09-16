@@ -30,7 +30,8 @@ const team: PortalSession = {
 const anonymous: PortalSession = { status: "anonymous", roles: [] };
 
 describe("platform portal routing", () => {
-  it("resolves area roots, nested modules and trailing slashes", () => {
+  it("resolves area roots, public login, nested modules and trailing slashes", () => {
+    expect(resolvePortalRoute("/login")).toMatchObject({ area: "public", path: "/login" });
     expect(resolvePortalRoute("/creator/")).toMatchObject({ area: "creator", moduleId: "overview" });
     expect(resolvePortalRoute("/creator/referrals/")).toMatchObject({
       area: "creator",
@@ -54,6 +55,7 @@ describe("platform portal routing", () => {
     expect(PRIMARY_PORTAL_ROUTES.map((route) => route.path)).toEqual([
       "/",
       "/join",
+      "/login",
       "/creator",
       "/brand",
       "/team",

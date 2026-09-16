@@ -1,0 +1,9 @@
+[build]
+buildCommand = "pnpm install --frozen-lockfile=false && pnpm --filter @gmvgang/platform-portal build"
+
+[deploy]
+startCommand = "pnpm --filter @gmvgang/platform-server start"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
