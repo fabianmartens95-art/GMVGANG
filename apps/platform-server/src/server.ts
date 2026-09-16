@@ -11,6 +11,10 @@ import {
   type ResponseMutations,
 } from "./auth.js";
 import { loadPlatformServerConfig, type PlatformServerConfig } from "./env.js";
+import {
+  createSupabaseIdempotencyClient,
+  SupabasePlatformIdempotencyPort,
+} from "./idempotency.js";
 import { NotionCreatorOperationsSync } from "./notion-creator-sync.js";
 import { NotionCreatorWorkspaceReadPort } from "./notion-creator-workspace.js";
 import {
@@ -280,6 +284,10 @@ export function createPlatformServer(config: PlatformServerConfig) {
         : {}),
     },
   );
+  const idempotency = new SupabasePlatformIdempotencyPort(createSupabaseIdempotencyClient({
+    url: config.supabaseUrl,
+    serviceRoleKey: config.supabaseServiceRoleKey,
+  }));
   const mutationRateLimits = createPlatformMutationRateLimitPort();
   const signInRateLimit = createFixedWindowRateLimiter({ limit: 5, windowMs: 15 * 60 * 1000 });
 
@@ -307,6 +315,7 @@ export function createPlatformServer(config: PlatformServerConfig) {
         await writeNodeResponse(json({
           ok: true,
           service: "gmvgang-platform",
+          revision: config.deploymentRevision,
           creatorOperationsSync: creatorOperationsSync ? "configured" : "not_configured",
           creatorWorkspaceRead: creatorWorkspace ? "configured" : "not_configured",
           affiliatePerformanceRead: config.affiliatePerformanceRead ? "configured" : "disabled",
@@ -335,6 +344,7 @@ export function createPlatformServer(config: PlatformServerConfig) {
           clock: { now: () => new Date().toISOString() },
           privacyNoticeVersion: config.privacyNoticeVersion,
           rateLimits: mutationRateLimits,
+          idempotency,
         });
         const response = await handler(request);
         await writeNodeResponse(applyResponseMutations(response, mutations), outgoing);
