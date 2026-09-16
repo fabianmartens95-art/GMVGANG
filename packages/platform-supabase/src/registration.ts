@@ -179,6 +179,16 @@ export function createSupabaseCreatorRegistrationPorts(
         ensureNoError(error, "REFERRAL_QUERY_FAILED");
         return data ? referralFromRow(data as Record<string, unknown>) : null;
       },
+      async listByReferrerCreatorProfileId(creatorProfileId) {
+        const { data, error } = await client
+          .from("referral_attributions")
+          .select(REFERRAL_SELECT)
+          .eq("referrer_creator_profile_id", creatorProfileId)
+          .order("attributed_at", { ascending: false });
+        ensureNoError(error, "REFERRAL_QUERY_FAILED");
+        if (!Array.isArray(data)) return [];
+        return data.map((row) => referralFromRow(row as Record<string, unknown>));
+      },
       async save(attribution) {
         const { error } = await client.from("referral_attributions").insert(referralWrite(attribution));
         ensureNoError(error, "REFERRAL_INSERT_FAILED");
