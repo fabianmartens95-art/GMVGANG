@@ -49,7 +49,8 @@ test('native Creator application preserves required intake and consent fields', 
 test('Tally remains a fallback only during migration', () => {
   const html = enhanceCreatorApplicationPage(renderPage(creatorPage));
   const matches = html.match(new RegExp(TALLY_FALLBACK_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) ?? [];
-  assert.equal(matches.length, 2);
+  assert.equal(matches.length, 3);
+  assert.match(html, /data-fallback-url="https:\/\/tally\.so\/r\/68BbAO"/);
   assert.match(html, /Technischer Fallback während der Umstellung/);
 });
 
