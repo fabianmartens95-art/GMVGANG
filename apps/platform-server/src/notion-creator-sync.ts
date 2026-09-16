@@ -1,5 +1,6 @@
 import type { CreatorOperationsSyncPort } from "@gmvgang/platform-api";
-import type { CreatorProfile } from "@gmvgang/platform-foundation";
+
+type CreatorProfile = Parameters<CreatorOperationsSyncPort["syncCreatorProfile"]>[0];
 
 const NOTION_API_VERSION = "2026-03-11";
 const NOTION_API_ORIGIN = "https://api.notion.com";
@@ -113,7 +114,7 @@ function creatorProperties(profile: CreatorProfile): Record<string, unknown> {
     "Bewerbung Quelle": select("Website"),
     "Status": select("Beworben"),
     "Intake-Stage": select("Neu – Runde 1"),
-    ...(categories.length ? { "Kategorie": multiSelect(categories) } : {}),
+    ...(categories.length ? { Kategorie: multiSelect(categories) } : {}),
     ...(language ? { "Content-Sprache": select(language) } : {}),
     ...(market ? { "Account-Region": select(market) } : {}),
   };
