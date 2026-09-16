@@ -77,12 +77,12 @@ function parseProfitability(value: unknown): BrandPortalReadModel["profitability
   }
 
   return {
-    grossMerchandiseValue: value.grossMerchandiseValue,
-    realizedGrossRevenue: value.realizedGrossRevenue,
-    netRevenue: value.netRevenue,
-    totalVariableCosts: value.totalVariableCosts,
-    contribution: value.contribution,
-    contributionMargin: value.contributionMargin,
+    grossMerchandiseValue: value.grossMerchandiseValue as number,
+    realizedGrossRevenue: value.realizedGrossRevenue as number,
+    netRevenue: value.netRevenue as number,
+    totalVariableCosts: value.totalVariableCosts as number,
+    contribution: value.contribution as number,
+    contributionMargin: value.contributionMargin as number,
     costBreakdown: parseCostBreakdown(value.costBreakdown),
   };
 }
