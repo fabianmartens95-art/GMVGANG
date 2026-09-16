@@ -194,6 +194,9 @@ async function handleBrandOverview(request: Request, dependencies: PlatformApiDe
   if (!anyRoleHasCapability(context.session.roles, "brand.portal.access")) {
     return jsonResponse({ error: "brand_access_denied" }, 403);
   }
+  if (!dependencies.services.getBrandOverview) {
+    return jsonResponse({ error: "brand_overview_unavailable" }, 503);
+  }
 
   const model = await dependencies.services.getBrandOverview({
     organizationId,
