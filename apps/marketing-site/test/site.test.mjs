@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { pages, renderPage } from '../src/site.mjs';
+import { pages, renderPage, SITE_INDEXABLE } from '../src/site.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
@@ -17,10 +17,15 @@ test('migration contains all required public routes', () => {
 });
 
 test('preview build is globally noindex until final domain cutover', () => {
+  assert.equal(SITE_INDEXABLE, false);
   for (const page of pages) {
     const html = renderPage(page);
     assert.match(html, /<meta name="robots" content="noindex,nofollow">/);
   }
+});
+
+test('potential check is eligible for production indexing once global gate is enabled', () => {
+  assert.notEqual(byPath('/potenzialanalyse/').index, false);
 });
 
 test('potential check preserves secure intake boundary', () => {
