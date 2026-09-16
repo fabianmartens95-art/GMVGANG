@@ -71,31 +71,6 @@ export function parsePortalSession(payload: unknown): PortalSession {
   };
 }
 
-export class EnvironmentSessionAdapter implements SessionPort {
-  async getSession(): Promise<PortalSession> {
-    if (!import.meta.env.DEV) {
-      return { status: "anonymous", roles: [] };
-    }
-
-    const role = String(import.meta.env.VITE_PLATFORM_DEV_ROLE ?? "").trim();
-    if (!role || !isPlatformRole(role)) {
-      return { status: "anonymous", roles: [] };
-    }
-
-    const organizationId = String(import.meta.env.VITE_PLATFORM_DEV_ORGANIZATION_ID ?? "").trim();
-    if (!organizationId) {
-      return { status: "anonymous", roles: [] };
-    }
-
-    return {
-      status: "authenticated",
-      userId: "dev-user",
-      organizationId,
-      roles: [role],
-    };
-  }
-}
-
 export class HttpSessionAdapter implements SessionPort {
   constructor(
     private readonly endpoint = "/api/session",
@@ -118,6 +93,31 @@ export class HttpSessionAdapter implements SessionPort {
     } catch {
       return { status: "anonymous", roles: [] };
     }
+  }
+}
+
+export class EnvironmentSessionAdapter implements SessionPort {
+  async getSession(): Promise<PortalSession> {
+    if (!import.meta.env.DEV) {
+      return new HttpSessionAdapter().getSession();
+    }
+
+    const role = String(import.meta.env.VITE_PLATFORM_DEV_ROLE ?? "").trim();
+    if (!role || !isPlatformRole(role)) {
+      return { status: "anonymous", roles: [] };
+    }
+
+    const organizationId = String(import.meta.env.VITE_PLATFORM_DEV_ORGANIZATION_ID ?? "").trim();
+    if (!organizationId) {
+      return { status: "anonymous", roles: [] };
+    }
+
+    return {
+      status: "authenticated",
+      userId: "dev-user",
+      organizationId,
+      roles: [role],
+    };
   }
 }
 
