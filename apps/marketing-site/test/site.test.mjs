@@ -32,6 +32,12 @@ test('potential check preserves secure intake boundary', () => {
   }
 });
 
+test('client blocks real writes on pages.dev preview', async () => {
+  const source = await readFile(join(root, 'src/client.js'), 'utf8');
+  assert.match(source, /hostname\.endsWith\('\.pages\.dev'\)/);
+  assert.match(source, /Preview-Modus: Der echte Formularversand/);
+});
+
 test('client only routes to result after confirmed Make save and only transfers score/band', async () => {
   const source = await readFile(join(root, 'src/client.js'), 'utf8');
   assert.match(source, /result\.saved !== true/);
