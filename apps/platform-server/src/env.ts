@@ -52,12 +52,10 @@ function port(value: string | undefined): number {
   return parsed;
 }
 
-function deploymentRevision(env: NodeJS.ProcessEnv, production: boolean): string {
-  const revision = [env.APP_REVISION, env.RAILWAY_GIT_COMMIT_SHA, env.GITHUB_SHA]
+function deploymentRevision(env: NodeJS.ProcessEnv): string {
+  return [env.APP_REVISION, env.RAILWAY_GIT_COMMIT_SHA, env.GITHUB_SHA]
     .map((value) => value?.trim() ?? "")
-    .find(Boolean);
-  if (production && !revision) throw new Error("DEPLOYMENT_REVISION_REQUIRED");
-  return revision || "development";
+    .find(Boolean) || "unknown";
 }
 
 function notionCreatorSync(env: NodeJS.ProcessEnv): PlatformServerConfig["notionCreatorSync"] {
@@ -165,7 +163,7 @@ export function loadPlatformServerConfig(env: NodeJS.ProcessEnv = process.env): 
     supabasePublishableKey: required(env.SUPABASE_PUBLISHABLE_KEY, "SUPABASE_PUBLISHABLE_KEY_REQUIRED"),
     supabaseServiceRoleKey: required(env.SUPABASE_SERVICE_ROLE_KEY, "SUPABASE_SERVICE_ROLE_KEY_REQUIRED"),
     privacyNoticeVersion: required(env.CREATOR_PRIVACY_NOTICE_VERSION, "CREATOR_PRIVACY_NOTICE_VERSION_REQUIRED"),
-    deploymentRevision: deploymentRevision(env, production),
+    deploymentRevision: deploymentRevision(env),
     notionCreatorSync: notionCreatorSync(env),
     notionCreatorWorkspace: notionCreatorWorkspace(env),
     affiliatePerformanceRead: affiliatePerformanceRead(env),
