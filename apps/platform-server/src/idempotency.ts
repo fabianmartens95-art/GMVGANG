@@ -31,6 +31,12 @@ export class SupabasePlatformIdempotencyPort implements PlatformIdempotencyPort 
     requestHash: string;
     now: string;
   }): Promise<PlatformIdempotencyBeginResult> {
+    const { error: cleanupError } = await this.client
+      .from("mutation_idempotency")
+      .delete()
+      .lt("expires_at", input.now);
+    ensureNoError(cleanupError, "IDEMPOTENCY_CLEANUP_FAILED");
+
     const expiresAt = new Date(Date.parse(input.now) + 24 * 60 * 60 * 1000).toISOString();
     const { error } = await this.client.from("mutation_idempotency").insert({
       scope: input.scope,
