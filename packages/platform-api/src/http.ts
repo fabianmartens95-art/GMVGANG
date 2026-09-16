@@ -4,6 +4,7 @@ import type {
 } from "@gmvgang/creator-registration";
 import { anyRoleHasCapability, type CreatorProfile } from "@gmvgang/platform-foundation";
 import { handleCreatorReferralHub } from "./creator-referral-http.js";
+import { handleCreatorWorkspace } from "./creator-workspace-http.js";
 import type { PlatformApiDependencies, PlatformRateLimitAction } from "./types.js";
 
 const JSON_HEADERS = {
@@ -288,6 +289,7 @@ export function createPlatformApiHandler(dependencies: PlatformApiDependencies):
       if (pathname === "/api/creator/registration") return await handleCreatorRegistration(request, dependencies);
       if (pathname === "/api/creator/profile") return await handleCreatorProfile(request, dependencies);
       if (pathname === "/api/creator/referrals") return await handleCreatorReferralHub(request, dependencies);
+      if (pathname === "/api/creator/workspace") return await handleCreatorWorkspace(request, dependencies);
       return jsonResponse({ error: "not_found" }, 404);
     } catch (error) {
       return publicError(error);
