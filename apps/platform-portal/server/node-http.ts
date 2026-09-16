@@ -21,7 +21,7 @@ export function requestBaseUrl(request: IncomingMessage): string {
   return `${protocol}://${host}`;
 }
 
-async function readRequestBody(request: IncomingMessage): Promise<Uint8Array | undefined> {
+async function readRequestBody(request: IncomingMessage): Promise<string | undefined> {
   if (request.method === "GET" || request.method === "HEAD") return undefined;
   const chunks: Buffer[] = [];
   let size = 0;
@@ -32,8 +32,7 @@ async function readRequestBody(request: IncomingMessage): Promise<Uint8Array | u
     chunks.push(buffer);
   }
   if (chunks.length === 0) return undefined;
-  const body = Buffer.concat(chunks);
-  return new Uint8Array(body.buffer, body.byteOffset, body.byteLength);
+  return Buffer.concat(chunks).toString("utf8");
 }
 
 export async function nodeRequestToWebRequest(request: IncomingMessage): Promise<Request> {
@@ -49,11 +48,12 @@ export async function nodeRequestToWebRequest(request: IncomingMessage): Promise
 
   const url = new URL(request.url ?? "/", requestBaseUrl(request));
   const body = await readRequestBody(request);
-  return new Request(url, {
+  const init: RequestInit = {
     method: request.method ?? "GET",
     headers,
-    ...(body ? { body } : {}),
-  });
+  };
+  if (body !== undefined) init.body = body;
+  return new Request(url, init);
 }
 
 export async function writeWebResponse(
