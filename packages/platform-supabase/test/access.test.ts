@@ -122,13 +122,23 @@ describe("ensureSupabaseCreatorMembership", () => {
     expect(fake.updated).toEqual([]);
   });
 
-  it("reactivates an invited or revoked creator membership", async () => {
-    const fake = fakeClient({ membership: { id: "membership-1", status: "revoked" } });
+  it("activates an invited creator membership", async () => {
+    const fake = fakeClient({ membership: { id: "membership-1", status: "invited" } });
 
     await ensureSupabaseCreatorMembership(fake.client, "user-1", NOW);
 
     expect(fake.inserted).toEqual([]);
     expect(fake.updated).toEqual([{ status: "active", updated_at: NOW }]);
+  });
+
+  it("never silently reactivates a revoked creator membership", async () => {
+    const fake = fakeClient({ membership: { id: "membership-1", status: "revoked" } });
+
+    await expect(ensureSupabaseCreatorMembership(fake.client, "user-1", NOW)).rejects.toThrow(
+      "CREATOR_MEMBERSHIP_REVOKED",
+    );
+    expect(fake.inserted).toEqual([]);
+    expect(fake.updated).toEqual([]);
   });
 
   it("fails closed when the canonical GMVGANG organization is missing or ambiguous", async () => {
