@@ -1,12 +1,14 @@
 import "./styles.css";
 import "./module-navigation.css";
 import "./creator-profile.css";
+import "./creator-referrals.css";
 
 import type { PlatformWorkspaceAccess } from "@gmvgang/platform-foundation";
 import { renderLogin, signOut, wireLogin } from "./auth-client.js";
 import { createBrandOverviewPort, loadBrandOverview, renderBrandOverview } from "./brand-workspace.js";
 import { HttpCreatorRegistrationAdapter, renderCreatorJoin, wireCreatorJoin } from "./creator-join.js";
 import { HttpCreatorProfileAdapter, renderCreatorProfile, wireCreatorProfile } from "./creator-profile.js";
+import { HttpCreatorReferralHubAdapter, renderCreatorReferralHub, wireCreatorReferralHub } from "./creator-referrals.js";
 import {
   canAccessArea,
   defaultAreaForSession,
@@ -259,6 +261,15 @@ async function protectedView(area: Exclude<PortalArea, "public">, route: PortalR
       </main>`;
   }
 
+  if (area === "creator" && route.moduleId === "referrals") {
+    const referralHub = await new HttpCreatorReferralHubAdapter().getHub();
+    return `
+      <main class="workspace">
+        ${intro}
+        ${renderCreatorReferralHub(referralHub, window.location.origin)}
+      </main>`;
+  }
+
   return `
     <main class="workspace">
       ${intro}
@@ -332,6 +343,7 @@ async function render(): Promise<void> {
   if (route.path === "/login") wireLogin();
   if (route.path === "/join") wireCreatorJoin(new HttpCreatorRegistrationAdapter());
   if (route.path === "/creator/profile") wireCreatorProfile(new HttpCreatorProfileAdapter());
+  if (route.path === "/creator/referrals") wireCreatorReferralHub();
 }
 
 window.addEventListener("popstate", () => void render());
