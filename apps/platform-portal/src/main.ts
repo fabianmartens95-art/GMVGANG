@@ -1,12 +1,13 @@
 import "./styles.css";
 
 import { createBrandOverviewPort, loadBrandOverview, renderBrandOverview } from "./brand-workspace.js";
+import { HttpCreatorRegistrationAdapter, renderCreatorJoin, wireCreatorJoin } from "./creator-join.js";
 import { canAccessArea, defaultAreaForSession, PORTAL_ROUTES, resolvePortalRoute, type PortalArea } from "./routing.js";
-import { EnvironmentSessionAdapter, type PortalSession } from "./session.js";
+import { createSessionPort, type PortalSession } from "./session.js";
 
 const app = document.querySelector<HTMLDivElement>("#app") ?? (() => { throw new Error("APP_ROOT_NOT_FOUND"); })();
 
-const sessionPort = new EnvironmentSessionAdapter();
+const sessionPort = createSessionPort();
 let session: PortalSession = { status: "anonymous", roles: [] };
 
 const areaCopy: Record<Exclude<PortalArea, "public">, { eyebrow: string; title: string; description: string; modules: string[] }> = {
@@ -36,6 +37,7 @@ function statusPill(label: string, tone: "ready" | "next" | "locked" = "ready"):
 
 function navigation(): string {
   const defaultArea = defaultAreaForSession(session);
+  const currentRoute = resolvePortalRoute(window.location.pathname);
   return `
     <header class="topbar">
       <a class="brand" href="/" data-nav>
@@ -46,7 +48,7 @@ function navigation(): string {
       <nav class="nav" aria-label="Portal Navigation">
         ${PORTAL_ROUTES.map((route) => {
           const accessible = canAccessArea(session, route.area);
-          const active = resolvePortalRoute(window.location.pathname).area === route.area;
+          const active = currentRoute.path === route.path;
           return `<a href="${route.path}" data-nav class="nav__link${active ? " is-active" : ""}${accessible ? "" : " is-locked"}" aria-disabled="${accessible ? "false" : "true"}">${route.label}</a>`;
         }).join("")}
       </nav>
@@ -68,12 +70,13 @@ function publicView(): string {
           <div class="hero__badges">
             ${statusPill("Domain Foundation · live on main")}
             ${statusPill("Server Session Boundary · ready")}
+            ${statusPill("Creator Registration Core · ready")}
             ${statusPill("Provider + Persistence · next", "next")}
           </div>
         </div>
         <aside class="architecture-card">
           <div class="architecture-card__label">CURRENT ARCHITECTURE</div>
-          <div class="stack-item"><strong>Creator Portal</strong><span>Profile · Referrals · Matches</span></div>
+          <div class="stack-item"><strong>Creator Portal</strong><span>Registration · Profile · Referrals · Matches</span></div>
           <div class="connector"></div>
           <div class="stack-item stack-item--core"><strong>GMVGANG Core</strong><span>RBAC · Matching · Campaigns · Economics</span></div>
           <div class="connector"></div>
@@ -182,9 +185,17 @@ function wireNavigation(): void {
 async function render(): Promise<void> {
   session = await sessionPort.getSession();
   const route = resolvePortalRoute(window.location.pathname);
-  const body = route.area === "public" ? publicView() : await protectedView(route.area);
+  const referralCode = new URLSearchParams(window.location.search).get("ref") ?? undefined;
+  const privacyNoticeVersion = String(import.meta.env.VITE_CREATOR_PRIVACY_NOTICE_VERSION ?? "").trim();
+  const body = route.path === "/join"
+    ? renderCreatorJoin(session, { privacyNoticeVersion, ...(referralCode ? { referralCode } : {}) })
+    : route.area === "public"
+      ? publicView()
+      : await protectedView(route.area);
+
   app.innerHTML = `${navigation()}${body}<footer><span>GMVGANG PLATFORM</span><span>Notion remains operational SSOT · Platform code on GitHub</span></footer>`;
   wireNavigation();
+  if (route.path === "/join") wireCreatorJoin(new HttpCreatorRegistrationAdapter());
 }
 
 window.addEventListener("popstate", () => void render());
