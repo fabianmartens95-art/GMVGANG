@@ -19,7 +19,7 @@ export type BrandOverviewFetch = (
   init: {
     credentials: "include";
     cache: "no-store";
-    headers: { Accept: "application/json" };
+    headers: Record<string, string>;
   },
 ) => Promise<BrandOverviewHttpResponse>;
 
@@ -174,14 +174,20 @@ export class HttpBrandOverviewAdapter implements BrandOverviewPort {
   constructor(
     private readonly endpoint = "/api/brand/overview",
     private readonly fetchOverview: BrandOverviewFetch = (input, init) => fetch(input, init),
+    private readonly organizationId?: string,
   ) {}
 
   async getOverview(): Promise<BrandOverviewResponse | null> {
     try {
+      const headers: Record<string, string> = { Accept: "application/json" };
+      if (this.organizationId) {
+        headers["X-GMVGANG-Organization-Id"] = this.organizationId;
+      }
+
       const response = await this.fetchOverview(this.endpoint, {
         credentials: "include",
         cache: "no-store",
-        headers: { Accept: "application/json" },
+        headers,
       });
       if (!response.ok) return null;
       return parseBrandOverview(await response.json());
@@ -352,5 +358,5 @@ export function createBrandOverviewPort(organizationId: string): BrandOverviewPo
   if (import.meta.env.DEV && String(import.meta.env.VITE_PLATFORM_DEV_BRAND_DEMO ?? "") === "1") {
     return new DevelopmentBrandOverviewAdapter(organizationId);
   }
-  return new HttpBrandOverviewAdapter();
+  return new HttpBrandOverviewAdapter("/api/brand/overview", undefined, organizationId);
 }
