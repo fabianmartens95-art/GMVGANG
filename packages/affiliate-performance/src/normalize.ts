@@ -102,11 +102,11 @@ export function normalizePerformanceRecord(input: AffiliatePerformanceRecord): A
   };
 }
 
-function identity(record: AffiliatePerformanceRecord): string {
+export function performanceRecordIdentity(record: AffiliatePerformanceRecord): string {
   return `${record.source.provider}:${record.source.externalRecordId}`;
 }
 
-function coverageKey(record: AffiliatePerformanceRecord): string {
+export function performanceCoverageKey(record: AffiliatePerformanceRecord): string {
   const dimensions = record.dimensions;
   return [
     record.source.provider,
@@ -126,6 +126,15 @@ function coverageKey(record: AffiliatePerformanceRecord): string {
   ].join("|");
 }
 
+/**
+ * Semantic fingerprint intentionally excludes observedAt. Re-fetching the same
+ * provider measurement later is a duplicate observation, not a changed business value.
+ */
+export function performanceSemanticFingerprint(record: AffiliatePerformanceRecord): string {
+  const { observedAt: _observedAt, ...semantic } = record;
+  return JSON.stringify(semantic);
+}
+
 export function normalizePerformanceBatch(input: readonly AffiliatePerformanceRecord[]): NormalizedPerformanceBatch {
   const byIdentity = new Map<string, string>();
   const byCoverage = new Map<string, string>();
@@ -134,8 +143,8 @@ export function normalizePerformanceBatch(input: readonly AffiliatePerformanceRe
 
   for (const raw of input) {
     const record = normalizePerformanceRecord(raw);
-    const key = identity(record);
-    const fingerprint = JSON.stringify(record);
+    const key = performanceRecordIdentity(record);
+    const fingerprint = performanceSemanticFingerprint(record);
     const existingFingerprint = byIdentity.get(key);
 
     if (existingFingerprint) {
@@ -146,7 +155,7 @@ export function normalizePerformanceBatch(input: readonly AffiliatePerformanceRe
       continue;
     }
 
-    const coverage = coverageKey(record);
+    const coverage = performanceCoverageKey(record);
     const existingCoverageIdentity = byCoverage.get(coverage);
     if (existingCoverageIdentity && existingCoverageIdentity !== key) {
       throw new Error(`overlapping performance coverage for ${coverage}`);
