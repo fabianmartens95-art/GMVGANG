@@ -1,80 +1,134 @@
 # GMVGANG Platform Portal
 
-Shared web shell for the future Creator Portal, Brand Portal and internal Team Workspace.
+Shared web application and same-origin Node runtime for the Creator Portal, Brand Portal and internal Team Workspace.
 
-## Current boundary
+## Production architecture
 
-This app is intentionally provider-neutral. It consumes `@gmvgang/platform-foundation` for role/capability decisions and now expects production sessions from a same-origin server endpoint at `/api/session`.
+The Portal uses Supabase for technical authentication and Postgres persistence while GMVGANG domain rules remain in the workspace packages.
 
-Production session handling is fail-closed:
-
-- the browser sends credentials only to the same-origin session endpoint
-- responses are requested with `cache: no-store`
-- unknown roles, malformed payloads and role-bearing sessions without an organization/tenant are rejected
-- transport errors and non-success responses resolve to an anonymous session
-- provider verification, account lookup, membership lookup and tenant selection stay server-side
-
-The current `EnvironmentSessionAdapter` remains only for local development previews. `VITE_PLATFORM_DEV_ROLE` and `VITE_PLATFORM_DEV_ORGANIZATION_ID` are honored only when `import.meta.env.DEV` is true. A development role also requires an explicit development organization ID so local previews exercise the same tenant assumption as production portal roles.
-
-## Production session contract
-
-`GET /api/session` must return one of:
-
-```json
-{ "status": "anonymous", "roles": [] }
+```text
+Browser
+  ↓ passwordless Supabase Auth / secure cookies
+app.gmvgang.de Node runtime
+  ↓ re-verified identity
+@gmvgang/platform-supabase
+  ↓
+@gmvgang/platform-foundation + @gmvgang/creator-registration
+  ↓
+Supabase technical platform tables
+  ↓ later approved sync
+Notion / GMVGANG Company OS operational SSOT
 ```
 
-or a server-resolved, tenant-bound session:
+The Supabase database is not a second Creator/Brand CRM. Technical records use linkage fields such as `creator_master_id` so the platform can later synchronize with the existing Company OS record.
 
-```json
-{
-  "status": "authenticated",
-  "userId": "platform-user-id",
-  "organizationId": "organization-id",
-  "roles": ["brand_member"]
-}
-```
+## Authentication
 
-The concrete authentication provider is deliberately not selected in this package. The server adapter must first verify the provider identity, then use the shared `resolvePlatformSession` domain function with persisted PlatformUser, Membership and Organization records. Client-supplied roles or organization IDs must never be treated as authoritative.
+- `/login` uses passwordless email magic-link/OTP initiation through Supabase Auth.
+- `/auth/callback` exchanges the PKCE code or supported token hash and writes the browser session through `@supabase/ssr` cookie storage.
+- `GET /api/session` reads the same-origin cookies, obtains the access token and then re-verifies that identity server-side through `@gmvgang/platform-supabase`.
+- the server loads `platform_users`, `memberships` and `organizations`, then delegates the final account/tenant/role decision to `resolvePlatformSession`.
+- client-supplied user IDs or roles are never authoritative.
+- invalid, expired, unverified or inactive identities fail closed.
+
+## Creator registration
+
+`/join` remains public to discover, but registration requires an authenticated platform session.
+
+`POST /api/creator/registration`:
+
+- accepts only allowlisted registration fields
+- derives `userId` from the verified server session
+- enforces the exact current `CREATOR_PRIVACY_NOTICE_VERSION`
+- delegates consent, handle-dedupe, referral attribution and profile lifecycle logic to `@gmvgang/creator-registration`
+- writes technical records through `@gmvgang/platform-supabase`
+- provisions an active `creator` membership in the canonical GMVGANG organization after successful registration
+- never silently reactivates a revoked Creator membership
+- returns only a minimized Creator registration response
+
+The registration endpoint does not admit a Creator into the contractual GMVGANG Creator Network and does not create or approve monetary referral rewards.
 
 ## Brand Workspace contract
 
 The protected Brand Workspace reads its first customer-facing modules from `GET /api/brand/overview`.
 
-The endpoint is expected to return the existing `BrandPortalReadModel` plus a source label. The browser performs an additional tenant-equality guard and refuses to render the payload when `model.organizationId` differs from the verified portal session's organization. This browser guard is defense in depth only; the server must authorize the tenant before reading or returning any Brand data.
+The browser performs an additional tenant-equality guard and refuses to render payloads when `model.organizationId` differs from the verified portal session's organization. This is defense in depth only; server-side tenant authorization remains mandatory. The production Brand Overview data source is still a later integration gate.
 
-The current Brand Workspace renders:
-
-- Profitability KPIs: GMV, Net Revenue, Contribution and Contribution Margin
-- variable cost breakdown
-- explainable Next Best Actions from `@gmvgang/brand-intelligence`
-- source/readiness coverage for Profitability, Creator Ops, Rights, Inventory and Paid Performance
-- explicit unavailable state when the server data source is not connected
-
-For local visual development only, set `VITE_PLATFORM_DEV_BRAND_DEMO=1` with a `brand_member` role and a development organization ID. The fixture is synthetic and is visibly labeled `SYNTHETIC DEV DATA`. Production never uses that fixture.
-
-## Areas
+## Routes
 
 - `/` — public platform overview
-- `/creator` — Creator Portal shell; requires `creator.portal.access`
-- `/brand` — Brand Portal shell; requires `brand.portal.access`
-- `/team` — internal workspace shell; requires `team.workspace.read`
+- `/login` — passwordless account login/signup
+- `/auth/callback` — Supabase account callback
+- `/join` — Creator registration surface
+- `/creator` — Creator Portal; requires `creator.portal.access`
+- `/brand` — Brand Portal; requires `brand.portal.access`
+- `/team` — internal workspace; requires `team.workspace.read`
 
-## Development
+## Environment
+
+Copy `apps/platform-portal/.env.example` and configure the deployment environment.
+
+Server-only values:
+
+- `SUPABASE_URL`
+- `SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `CREATOR_PRIVACY_NOTICE_VERSION`
+
+Browser-public build values:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+- `VITE_CREATOR_PRIVACY_NOTICE_VERSION`
+
+`SUPABASE_SERVICE_ROLE_KEY` must never be exposed in a `VITE_*` variable or committed to GitHub.
+
+The browser and server Privacy Notice versions must match. A stale version is rejected by the server even if a browser hidden field is manipulated.
+
+## Build and production start
 
 ```bash
-cp apps/platform-portal/.env.example apps/platform-portal/.env.local
-pnpm --filter @gmvgang/platform-portal dev
+pnpm --filter @gmvgang/platform-portal build
+pnpm --filter @gmvgang/platform-portal start
 ```
 
-Change `VITE_PLATFORM_DEV_ROLE` and set `VITE_PLATFORM_DEV_ORGANIZATION_ID` locally to preview permitted areas.
+The Node runtime serves the built Vite `dist` and the `/api/*` routes from the same origin. This avoids cross-origin auth/session plumbing for the portal MVP.
+
+Local Vite-only development can still use the explicit `VITE_PLATFORM_DEV_*` preview variables, but it does not represent the full production API/auth path.
+
+## Database migrations
+
+Supabase migrations live under `/supabase/migrations`.
+
+Current platform migrations define:
+
+- platform users
+- organizations and memberships
+- technical Creator profiles
+- immutable referral attribution
+- consent evidence
+- server-only platform audit events
+- the canonical GMVGANG platform organization
+- RLS and explicit grants
+
+The migrations must still be applied and validated against the connected Supabase project before any live Creator registration is enabled.
 
 ## Security / SSOT
 
-- Production remains anonymous when `/api/session` is missing, invalid or unauthenticated.
-- Portal route access is derived from shared capabilities, not hard-coded duplicate role rules.
-- Tenant-bound roles are never accepted without an organization ID.
-- Brand overview payloads are not rendered across tenant boundaries.
-- No API tokens, passwords, Creator PII or customer data belong in the repository.
-- Notion / GMVGANG Company OS remains the operational SSOT during this phase.
-- The next implementation step is the concrete provider + persistence adapter behind `/api/session` and `/api/brand/overview`, followed by authenticated Public Creator Registration, Profile Completion and immutable Referral Capture.
+- production auth is fail-closed
+- service-role credentials remain server-only
+- exposed tables have RLS enabled and `anon` has no table privileges
+- Creator registration writes run only through the server/domain layer
+- referral identity is immutable in domain logic and Postgres
+- revoked memberships are not automatically restored
+- no secrets or production customer/Creator raw data belong in the repository
+- Notion / GMVGANG Company OS remains the operational SSOT
+
+## Remaining production gates
+
+1. apply and lint the migrations in the real Supabase project
+2. configure Auth Site URL and allowed redirect URL for `https://app.gmvgang.de/auth/callback`
+3. configure matching server/browser environment variables
+4. run a real passwordless login → session → Creator registration E2E test
+5. connect the technical Creator profile to the existing Creator SSOT and persist `creator_master_id`
+6. connect `/api/brand/overview` to the approved tenant-scoped production data source
