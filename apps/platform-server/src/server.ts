@@ -108,7 +108,8 @@ async function authResponse(
   if (url.pathname === "/api/auth/sign-out") {
     if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
     if (!sameOrigin(request)) return json({ ok: false, error: "same_origin_required" }, 403);
-    await client.auth.signOut();
+    const { error } = await client.auth.signOut({ scope: "local" });
+    if (error) return json({ ok: false, error: "sign_out_unavailable" }, 503);
     return json({ ok: true });
   }
 
