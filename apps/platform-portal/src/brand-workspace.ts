@@ -186,7 +186,7 @@ function parsePerformance(value: unknown, organizationId: string): BrandPortalRe
       firstObservedAt: candidate.firstObservedAt,
       lastObservedAt: candidate.lastObservedAt,
       ratios,
-    } as NonNullable<BrandPortalReadModel["performance"]>["slices"][number];
+    } as unknown as NonNullable<BrandPortalReadModel["performance"]>["slices"][number];
   });
 
   return { scope, slices };
