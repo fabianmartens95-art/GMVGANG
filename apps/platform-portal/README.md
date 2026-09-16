@@ -86,13 +86,45 @@ The current Brand Workspace renders:
 
 For local visual development only, set `VITE_PLATFORM_DEV_BRAND_DEMO=1` with a `brand_member` role and a development organization ID. The fixture is synthetic and is visibly labeled `SYNTHETIC DEV DATA`. Production never uses that fixture.
 
-## Areas
+## Portal route hierarchy
+
+The platform is one web app with nested role-protected module routes, not a collection of separate portals. The global navigation exposes only the main surfaces; each protected surface owns its own module navigation.
+
+Creator:
+
+- `/creator` — overview
+- `/creator/profile` — profile
+- `/creator/referrals` — Referral Hub
+- `/creator/matches` — matching
+- `/creator/campaigns` — campaigns
+- `/creator/performance` — performance
+
+Brand:
+
+- `/brand` — overview
+- `/brand/profitability` — Profitability Center
+- `/brand/actions` — Next Best Actions
+- `/brand/campaigns` — campaigns
+- `/brand/creators` — Creator Intelligence
+- `/brand/approvals` — approvals
+- `/brand/reporting` — reporting
+
+Internal team:
+
+- `/team` — overview
+- `/team/creators` — Creator Operations
+- `/team/brands` — Brand Operations
+- `/team/campaigns` — Campaign Control
+- `/team/approvals` — Approval Center
+- `/team/risk` — Risk & Alerts
+- `/team/activity` — Activity Trail
+
+Every nested route inherits the capability check of its parent area. Unknown path prefixes do not infer access to a protected area and fall back to the public surface until an explicit route exists.
+
+## Public areas
 
 - `/` — public platform overview
 - `/join` — Public Creator Join flow
-- `/creator` — Creator Portal shell; requires `creator.portal.access`
-- `/brand` — Brand Portal shell; requires `brand.portal.access`
-- `/team` — internal workspace shell; requires `team.workspace.read`
 
 ## Development
 
@@ -107,6 +139,7 @@ Change `VITE_PLATFORM_DEV_ROLE` and set `VITE_PLATFORM_DEV_ORGANIZATION_ID` loca
 
 - Production remains anonymous when `/api/session` is missing, invalid or unauthenticated.
 - Portal route access is derived from shared capabilities, not hard-coded duplicate role rules.
+- Nested module routes inherit their parent area's capability boundary.
 - Tenant-bound roles are never accepted without an organization ID.
 - Workspace discovery exposes only organizations backed by active server-side memberships.
 - `?workspace=` and `X-GMVGANG-Organization-Id` are selectors, never authorization evidence.
