@@ -63,9 +63,25 @@ CSV metric values use machine-readable decimal syntax with a dot as decimal sepa
 
 The Seller Analytics domain adapter reuses the platform `ExternalConnection` contract and fails closed unless the connection is a syncable `tiktok_shop_seller` connection owned by an organization, contains the `data.shop_analytics.public.read` scope, and explicitly authorizes the requested shop.
 
-`@gmvgang/tiktok-shop-infrastructure`, merged through PR #56, owns the provider-side boundary: official HMAC-SHA256 request signing, connection/secret resolution, authorized-shop / `shop_cipher` resolution, signed Product Performance reads, bounded transient retry/backoff and HTTP timeout handling. OAuth access tokens, refresh tokens, app secrets, secret references and request signatures stay inside infrastructure and never enter canonical performance records or UI payloads.
+`@gmvgang/tiktok-shop-infrastructure`, merged through PR #56, owns the provider-side boundary: official HMAC-SHA256 request signing, connection/secret resolution, authorized-shop / `shop_cipher` resolution, signed Product Performance reads, bounded transient retry/backoff and HTTP timeout handling. The same boundary now supports signed v202605 Video Performance reads with explicit `account_type` filtering. OAuth access tokens, refresh tokens, app secrets, secret references and request signatures stay inside infrastructure and never enter canonical performance records or UI payloads.
 
-The first response mapper intentionally covers the documented additive Product Performance fields for `total_performance` and `affiliate_total_performance`. Provider percentages are not trusted as aggregate inputs; CTR and related rates remain derived from normalized raw totals. Page-token traversal is bounded and fails on token loops.
+The Product Performance mapper intentionally covers documented additive fields for `total_performance` and `affiliate_total_performance`. Provider percentages are not trusted as aggregate inputs; CTR and related rates remain derived from normalized raw totals. Page-token traversal is bounded and fails on token loops.
+
+## Video performance + protected attribution
+
+The v202605 Video Performance adapter uses only fields verified in TikTok's current Partner Center documentation for this boundary. TikTok documents creator attribution through `creator.open_id`, `creator.user_name`, `creator.nick_name` and `creator.author_type`, plus `account_type` filtering with `AFFILIATE_ACCOUNTS`. The endpoint also exposes/sorts by core performance fields including GMV, SKU orders, items sold and views.
+
+Privacy and identity rules:
+
+- provider `creator.open_id` is accepted only at the protected attribution resolver boundary.
+- raw creator username/nickname is not copied into canonical measurement records.
+- the resolver must return stable internal `creatorId` and `contentId` values before a row can become a canonical `content`-grain record.
+- optional `campaignId` and `productId` may be attached only when the resolver has a deterministic internal mapping.
+- unresolved attribution fails closed instead of persisting raw creator identity.
+- `AFFILIATE_ACCOUNTS` responses are rejected if the provider row is not authored by an `AFFILIATE` creator.
+- `AFFILIATE` rows map to `affiliate-video`; `OFFICIAL` and `CHANNEL` rows map to `seller-video` when broader account filters are explicitly requested.
+- additive canonical metrics currently map GMV, SKU orders → orders, items sold → units sold, and views.
+- provider GPM and click-through-rate values are intentionally not stored as additive metrics; downstream ratios remain derived from raw totals where mathematically valid.
 
 ## Persistence boundary
 
@@ -90,8 +106,8 @@ The SQL under `supabase/pending/20260916_affiliate_performance_store.sql` is **n
 2. Controlled fixture/CSV adapter for end-to-end validation without TikTok credentials. **Implemented via PR #38.**
 3. Seller Connection reuse + authorized Seller Analytics client boundary + Product Performance response mapping. **Implemented via PR #40.**
 4. Seller Analytics infrastructure client: secret resolution, `shop_cipher`, signing, HTTP and bounded retry/backoff. **Implemented and merged via PR #56; no live credentials activated.**
-5. Persistent normalized measurement adapter + server-only Supabase schema/verification. **Implemented in code; production schema activation pending.**
-6. Add verified Video Performance mapping and map provider creator/product/content identifiers to protected internal references.
+5. Persistent normalized measurement adapter + server-only Supabase schema/verification. **Implemented in code via PR #57; production schema activation pending.**
+6. v202605 Video Performance mapping + protected creator/content attribution resolver boundary. **Implemented in code; no live sync activated.**
 7. Project approved campaign-level metrics into Campaign Cockpit / Brand Portal.
 8. Add the first dashboard: GMV, orders, units, refund indicators, impressions, clicks, CTR, click-to-order rate, AOV, video views and GPM where source coverage is complete.
 
@@ -107,7 +123,7 @@ The provider infrastructure package owns:
 - rate-limit/backoff handling
 - provider-envelope validation
 
-The domain adapter owns connection/readiness checks, bounded pagination orchestration, documented provider-to-canonical mapping and canonical validation. The persistence adapter owns technical measurement durability and reconciliation. Raw access tokens or request signatures must never enter canonical performance records or persistence rows.
+The domain adapter owns connection/readiness checks, bounded pagination orchestration, documented provider-to-canonical mapping and canonical validation. The protected attribution resolver owns external TikTok creator/video → internal Creator/Content reference resolution. The persistence adapter owns technical measurement durability and reconciliation. Raw access tokens or request signatures must never enter canonical performance records or persistence rows.
 
 ## Official references verified 2026-09-16
 
