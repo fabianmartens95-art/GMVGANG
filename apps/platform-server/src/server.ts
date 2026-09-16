@@ -10,6 +10,7 @@ import {
   createRequestSupabaseClient,
   type ResponseMutations,
 } from "./auth.js";
+import { createCreatorApplicationIntakeHandler } from "./creator-application-intake.js";
 import { loadPlatformServerConfig, type PlatformServerConfig } from "./env.js";
 import { NotionCreatorOperationsSync } from "./notion-creator-sync.js";
 import { NotionCreatorWorkspaceReadPort } from "./notion-creator-workspace.js";
@@ -26,7 +27,7 @@ const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".ico": "image/x-icon",
   ".jpeg": "image/jpeg",
-  ".jpg": "image/jpeg",
+  ".jpg": "image/jpg",
   ".js": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
   ".png": "image/png",
@@ -267,6 +268,16 @@ export function createPlatformServer(config: PlatformServerConfig) {
   const creatorWorkspace = config.notionCreatorWorkspace
     ? new NotionCreatorWorkspaceReadPort(config.notionCreatorWorkspace)
     : undefined;
+  const creatorApplicationIntake = config.creatorApplicationIntake
+    ? createCreatorApplicationIntakeHandler({
+        supabaseUrl: config.supabaseUrl,
+        supabaseServiceRoleKey: config.supabaseServiceRoleKey,
+        privacyNoticeVersion: config.privacyNoticeVersion,
+        allowedOrigins: config.creatorApplicationIntake.allowedOrigins,
+        makeWebhookUrl: config.creatorApplicationIntake.makeWebhookUrl,
+        makeWebhookSecret: config.creatorApplicationIntake.makeWebhookSecret,
+      })
+    : undefined;
   const services = createSupabasePlatformApiServices(
     {
       url: config.supabaseUrl,
@@ -307,11 +318,23 @@ export function createPlatformServer(config: PlatformServerConfig) {
         await writeNodeResponse(json({
           ok: true,
           service: "gmvgang-platform",
+          creatorApplicationIntake: creatorApplicationIntake ? "configured" : "disabled",
           creatorOperationsSync: creatorOperationsSync ? "configured" : "not_configured",
           creatorWorkspaceRead: creatorWorkspace ? "configured" : "not_configured",
           affiliatePerformanceRead: config.affiliatePerformanceRead ? "configured" : "disabled",
           requestId,
         }), outgoing);
+        return;
+      }
+
+      if (
+        url.pathname === "/api/public/creator-application" ||
+        url.pathname === "/api/public/creator-application/config"
+      ) {
+        const response = creatorApplicationIntake
+          ? await creatorApplicationIntake(request)
+          : json({ ok: false, error: "creator_application_unavailable", requestId }, 503);
+        await writeNodeResponse(response, outgoing);
         return;
       }
 
