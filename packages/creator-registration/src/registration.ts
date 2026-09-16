@@ -47,7 +47,6 @@ export interface CreatorRegistrationRepository {
 
 export interface CreatorReferralRepository {
   findByReferredCreatorProfileId(creatorProfileId: string): Promise<ReferralAttribution | null>;
-  listByReferrerCreatorProfileId(creatorProfileId: string): Promise<ReferralAttribution[]>;
   save(attribution: ReferralAttribution): Promise<void>;
   update(attribution: ReferralAttribution): Promise<void>;
 }
