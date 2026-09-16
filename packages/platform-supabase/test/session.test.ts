@@ -30,7 +30,7 @@ function fakeClient(options?: { authenticated?: boolean; verified?: boolean; mem
           data: {
             claims: {
               sub: "11111111-1111-4111-8111-111111111111",
-              exp: 1789516800,
+              exp: 1893456000,
             },
           },
           error: null,
