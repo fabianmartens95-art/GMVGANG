@@ -1,94 +1,47 @@
 # GMVGANG Platform Portal
 
-Shared web shell for the future Creator Portal, Brand Portal and internal Team Workspace.
+Shared web application for Creator, Brand and internal Team surfaces under `app.gmvgang.de`.
 
-## Current boundary
+## Architecture
 
-This app is intentionally provider-neutral. It consumes `@gmvgang/platform-foundation` for role/capability decisions and expects production sessions from a same-origin server endpoint at `/api/session`.
+The portal is one role- and tenant-aware application. It consumes the shared Platform Foundation contracts and the host-neutral `@gmvgang/platform-api`; it does not create separate Creator, Brand or Team backends.
 
-Production session handling is fail-closed:
+Production authentication is prepared around Supabase Auth plus the existing Supabase/Postgres platform persistence layer:
 
-- the browser sends credentials only to same-origin platform endpoints
-- responses are requested with `cache: no-store`
-- unknown roles, malformed payloads and role-bearing sessions without an organization/tenant are rejected
-- transport errors and non-success responses resolve to an anonymous session or an empty optional read model
-- provider verification, account lookup, membership lookup and tenant authorization stay server-side
+1. `/login` sends a passwordless e-mail login link through the browser-safe Supabase client.
+2. `/auth/callback` exchanges the PKCE code/token and establishes the Supabase cookie session.
+3. The Node host reads or refreshes those cookies only as session transport and extracts the access token.
+4. `@gmvgang/platform-api` invokes `resolveSupabasePlatformSessionContext()`, which re-verifies the Supabase identity and resolves persisted PlatformUser, Membership and Organization data.
+5. Client-supplied roles, user IDs and organization IDs are never authoritative.
 
-The current `EnvironmentSessionAdapter` remains only for local development previews. `VITE_PLATFORM_DEV_ROLE` and `VITE_PLATFORM_DEV_ORGANIZATION_ID` are honored only when `import.meta.env.DEV` is true. A development role also requires an explicit development organization ID so local previews exercise the same tenant assumption as production portal roles.
+The service-role key is server-only. It must never be exposed in `VITE_*` variables or browser bundles.
 
-## Production session contract
+## API surface
 
-`GET /api/session` must return one of:
+The production Node host bridges incoming Node HTTP requests to the existing host-neutral Web Request/Response API layer:
 
-```json
-{ "status": "anonymous", "roles": [] }
-```
+- `GET /api/session`
+- `GET /api/workspaces`
+- `POST /api/creator/registration`
 
-or a server-resolved, tenant-bound session:
+Creator Registration is same-origin protected, requires an authenticated verified account, enforces the configured privacy-notice version and derives `userId` exclusively from the verified server session.
 
-```json
-{
-  "status": "authenticated",
-  "userId": "platform-user-id",
-  "organizationId": "organization-id",
-  "roles": ["brand_member"]
-}
-```
+After successful Creator Registration, the technical account receives an active `creator` membership in the canonical GMVGANG platform organization so the existing `creator.portal.access` capability becomes available. A revoked creator membership is never silently reactivated.
 
-A multi-workspace client may send `X-GMVGANG-Organization-Id` as request context. That header is an untrusted tenant selection only. The server must verify the provider identity, load the persisted PlatformUser, Memberships and Organizations, and authorize the requested organization before returning roles or tenant data. Client-supplied roles or organization IDs must never be treated as authoritative.
+## Workspace and tenant boundary
 
-The concrete authentication provider is deliberately not selected in this package. Server infrastructure should implement the provider-neutral identity and persistence ports from `@gmvgang/platform-foundation` and resolve the final session through the shared session service.
+Authenticated users may belong to more than one organization. The portal discovers workspaces through `GET /api/workspaces` and may carry the selected organization in `?workspace=` / `X-GMVGANG-Organization-Id`.
 
-## Workspace discovery contract
-
-Authenticated users with access to more than one organization can use the portal workspace selector. The portal discovers available workspaces from:
-
-`GET /api/workspaces`
-
-The endpoint must derive its response exclusively from the verified server identity and active persisted memberships. A response is an array of tenant-local access records:
-
-```json
-[
-  {
-    "organizationId": "gmvgang-org-id",
-    "organizationType": "gmvgang",
-    "name": "GMVGANG",
-    "roles": ["founder", "admin"]
-  },
-  {
-    "organizationId": "brand-org-id",
-    "organizationType": "brand",
-    "name": "Example Brand",
-    "roles": ["brand_member"]
-  }
-]
-```
-
-The portal may persist the current UI selection in the `?workspace=` URL parameter so navigation can retain context. The query parameter is not authorization state. It is forwarded as request context only and must be revalidated by the server for every tenant-bound session or data read.
-
-No roles are merged across workspaces. When the authenticated user belongs to multiple organizations and no organization is explicitly selected, the platform session remains authenticated but has no tenant roles until a valid workspace is selected.
-
-## Brand Workspace contract
-
-The protected Brand Workspace reads its first customer-facing modules from `GET /api/brand/overview`.
-
-For tenant-scoped reads the portal sends the same `X-GMVGANG-Organization-Id` request context used for session resolution. The endpoint must independently authorize that organization for the verified user before reading Brand data.
-
-The endpoint is expected to return the existing `BrandPortalReadModel` plus a source label. The browser performs an additional tenant-equality guard and refuses to render the payload when `model.organizationId` differs from the verified portal session's organization. This browser guard is defense in depth only; the server must authorize the tenant before reading or returning any Brand data.
-
-The current Brand Workspace renders:
-
-- Profitability KPIs: GMV, Net Revenue, Contribution and Contribution Margin
-- variable cost breakdown
-- explainable Next Best Actions from `@gmvgang/brand-intelligence`
-- source/readiness coverage for Profitability, Creator Ops, Rights, Inventory and Paid Performance
-- explicit unavailable state when the server data source is not connected
-
-For local visual development only, set `VITE_PLATFORM_DEV_BRAND_DEMO=1` with a `brand_member` role and a development organization ID. The fixture is synthetic and is visibly labeled `SYNTHETIC DEV DATA`. Production never uses that fixture.
+Those values are selectors only. Every selected organization is re-authorized against persisted active Memberships. Roles are not merged across tenants.
 
 ## Portal route hierarchy
 
-The platform is one web app with nested role-protected module routes, not a collection of separate portals. The global navigation exposes only the main surfaces; each protected surface owns its own module navigation.
+Public:
+
+- `/` — platform overview
+- `/join` — Creator Join
+- `/login` — passwordless account login; hidden from primary navigation
+- `/auth/callback` — Supabase callback; hidden from primary navigation
 
 Creator:
 
@@ -119,31 +72,70 @@ Internal team:
 - `/team/risk` — Risk & Alerts
 - `/team/activity` — Activity Trail
 
-Every nested route inherits the capability check of its parent area. Unknown path prefixes do not infer access to a protected area and fall back to the public surface until an explicit route exists.
+Every protected nested route inherits its parent area's capability and tenant boundary.
 
-## Public areas
+## Environment
 
-- `/` — public platform overview
-- `/join` — Public Creator Join flow
-
-## Development
+Browser-safe build values:
 
 ```bash
-cp apps/platform-portal/.env.example apps/platform-portal/.env.local
-pnpm --filter @gmvgang/platform-portal dev
+VITE_SUPABASE_URL=
+VITE_SUPABASE_PUBLISHABLE_KEY=
+VITE_CREATOR_PRIVACY_NOTICE_VERSION=
 ```
 
-Change `VITE_PLATFORM_DEV_ROLE` and set `VITE_PLATFORM_DEV_ORGANIZATION_ID` locally to preview permitted areas.
+Server-only runtime values:
 
-## Security / SSOT
+```bash
+SUPABASE_URL=
+SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+CREATOR_PRIVACY_NOTICE_VERSION=
+```
 
-- Production remains anonymous when `/api/session` is missing, invalid or unauthenticated.
-- Portal route access is derived from shared capabilities, not hard-coded duplicate role rules.
-- Nested module routes inherit their parent area's capability boundary.
-- Tenant-bound roles are never accepted without an organization ID.
-- Workspace discovery exposes only organizations backed by active server-side memberships.
-- `?workspace=` and `X-GMVGANG-Organization-Id` are selectors, never authorization evidence.
-- Brand overview payloads are not rendered across tenant boundaries.
-- No API tokens, passwords, Creator PII or customer data belong in the repository.
-- Notion / GMVGANG Company OS remains the operational SSOT during this phase.
-- The next implementation gate is the concrete production provider + persistence adapter behind `/api/session`, `/api/workspaces` and tenant-bound read endpoints, followed by durable Creator/Brand data integration.
+`VITE_CREATOR_PRIVACY_NOTICE_VERSION` is only the version rendered into the form. `CREATOR_PRIVACY_NOTICE_VERSION` is authoritative on the server; mismatches fail closed.
+
+Development-only preview variables remain available for local visual work:
+
+```bash
+VITE_PLATFORM_DEV_ROLE=creator
+VITE_PLATFORM_DEV_ORGANIZATION_ID=
+VITE_PLATFORM_DEV_BRAND_DEMO=0
+```
+
+## Build and run
+
+```bash
+pnpm --filter @gmvgang/platform-portal build
+pnpm --filter @gmvgang/platform-portal start
+```
+
+The production server serves the Vite `dist` directory with SPA fallback and routes `/api/*` into `@gmvgang/platform-api`.
+
+## Security boundary
+
+- Supabase cookies are transport, not authorization evidence.
+- Access tokens are re-verified by the server-side Supabase session resolver before roles or tenants are accepted.
+- `X-GMVGANG-Organization-Id` and `?workspace=` are selectors only; persisted Memberships decide access.
+- Creator Registration never accepts browser-supplied `userId` or roles.
+- API mutation requests require same origin.
+- Server secrets are fail-fast required at process startup.
+- CSP, frame denial, MIME sniffing protection, referrer policy and a restrictive Permissions Policy are set by the Node host.
+- API request bodies are bounded before being forwarded to the application layer.
+- Unknown routes never infer access to protected portal areas.
+
+## SSOT boundary
+
+Supabase stores technical platform identity, memberships, profile linkage, referral attribution, consent and audit data. Notion / GMVGANG Company OS remains the operative business SSOT during this phase; this runtime does not create a second CRM.
+
+## Remaining production gate
+
+The code path is prepared, but it is not live until a real Supabase project is configured. Production activation still requires:
+
+1. apply the checked-in Supabase migrations to the selected project,
+2. configure the allowed auth redirect for `https://app.gmvgang.de/auth/callback`,
+3. set browser-safe identifiers and server-only secrets in the hosting environment,
+4. use the same current privacy-notice version in browser and server configuration,
+5. run an end-to-end test: `/join?ref=...` → login → callback → Creator Registration → creator membership → `/creator`.
+
+No live Supabase project mutation is performed merely by merging this code.
