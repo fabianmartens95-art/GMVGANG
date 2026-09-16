@@ -7,7 +7,7 @@ import {
   ensureCreatorPortalMembership,
   resolveSupabasePlatformSession,
 } from "@gmvgang/platform-supabase";
-import type { PortalSession } from "@gmvgang/platform-foundation";
+import type { PlatformSession } from "@gmvgang/platform-foundation";
 import { createRequestSupabaseClient, requestAccessToken } from "./supabase-request.js";
 
 export type PlatformApiConfig = {
@@ -147,7 +147,7 @@ export function createPlatformApi(config: PlatformApiConfig, dependencies: Platf
   async function authenticatedSession(
     request: IncomingMessage,
     response: ServerResponse,
-  ): Promise<PortalSession | null> {
+  ): Promise<PlatformSession | null> {
     const requestClient = requestClientFactory(request, response, {
       url: supabaseUrl,
       publishableKey: supabasePublishableKey,
@@ -155,9 +155,10 @@ export function createPlatformApi(config: PlatformApiConfig, dependencies: Platf
     const accessToken = await requestAccessToken(requestClient);
     if (!accessToken) return null;
 
+    const organizationId = requestedOrganizationId(request);
     const session = await resolveSupabasePlatformSession(adminClient, {
       accessToken,
-      ...(requestedOrganizationId(request) ? { requestedOrganizationId: requestedOrganizationId(request) } : {}),
+      ...(organizationId ? { requestedOrganizationId: organizationId } : {}),
       now: now(),
     });
     return session.status === "authenticated" ? session : null;
@@ -189,7 +190,7 @@ export function createPlatformApi(config: PlatformApiConfig, dependencies: Platf
     if (url.pathname === "/api/creator/registration" && request.method === "POST") {
       try {
         const session = await authenticatedSession(request, response);
-        if (!session) {
+        if (!session || session.status !== "authenticated") {
           sendJson(response, 401, { ok: false, errors: ["authentication_required"] });
           return true;
         }
