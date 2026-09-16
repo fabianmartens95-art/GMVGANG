@@ -11,6 +11,7 @@ import {
   type ResponseMutations,
 } from "./auth.js";
 import { loadPlatformServerConfig, type PlatformServerConfig } from "./env.js";
+import { NotionCreatorOperationsSync } from "./notion-creator-sync.js";
 import {
   createFixedWindowRateLimiter,
   createPlatformMutationRateLimitPort,
@@ -258,10 +259,16 @@ async function writeNodeResponse(response: Response, target: ServerResponse): Pr
 }
 
 export function createPlatformServer(config: PlatformServerConfig) {
-  const services = createSupabasePlatformApiServices({
-    url: config.supabaseUrl,
-    serviceRoleKey: config.supabaseServiceRoleKey,
-  });
+  const creatorOperationsSync = config.notionCreatorSync
+    ? new NotionCreatorOperationsSync(config.notionCreatorSync)
+    : undefined;
+  const services = createSupabasePlatformApiServices(
+    {
+      url: config.supabaseUrl,
+      serviceRoleKey: config.supabaseServiceRoleKey,
+    },
+    { creatorOperationsSync },
+  );
   const mutationRateLimits = createPlatformMutationRateLimitPort();
   const signInRateLimit = createFixedWindowRateLimiter({ limit: 5, windowMs: 15 * 60 * 1000 });
 
@@ -271,7 +278,11 @@ export function createPlatformServer(config: PlatformServerConfig) {
       const url = new URL(request.url);
 
       if (url.pathname === "/health") {
-        await writeNodeResponse(json({ ok: true, service: "gmvgang-platform" }), outgoing);
+        await writeNodeResponse(json({
+          ok: true,
+          service: "gmvgang-platform",
+          creatorOperationsSync: creatorOperationsSync ? "configured" : "not_configured",
+        }), outgoing);
         return;
       }
 
