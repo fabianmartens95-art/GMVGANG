@@ -4,6 +4,7 @@ import { unavailableBrandPortalReadModel } from "@gmvgang/brand-intelligence/por
 import type { CreatorProfile } from "@gmvgang/platform-foundation";
 import {
   createPlatformAdminClient,
+  createSupabaseCreatorReferralReadPort,
   createSupabaseCreatorRegistrationPorts,
   ensureSupabaseCreatorMembership,
   resolveSupabasePlatformSessionContext,
@@ -28,6 +29,7 @@ export function createSupabasePlatformApiServices(
 ): PlatformApiServices {
   const client = createPlatformAdminClient(config);
   const registrationPorts = createSupabaseCreatorRegistrationPorts(client);
+  const referralReadPort = createSupabaseCreatorReferralReadPort(client);
   const brandOverview = options.brandOverview ?? (
     options.affiliatePerformancePolicy
       ? createAffiliatePerformanceBrandOverviewReadPort(
@@ -76,7 +78,7 @@ export function createSupabasePlatformApiServices(
     async getCreatorReferralHub(input) {
       const profile = await registrationPorts.profiles.findByUserId(input.userId);
       if (!profile) return null;
-      const attributions = await registrationPorts.referrals.listByReferrerCreatorProfileId(profile.id);
+      const attributions = await referralReadPort.listByReferrerCreatorProfileId(profile.id);
       return buildCreatorReferralHubReadModel(profile, attributions);
     },
     async registerCreator(input, context) {
