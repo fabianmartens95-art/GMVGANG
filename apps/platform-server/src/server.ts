@@ -18,6 +18,7 @@ import {
   createPlatformMutationRateLimitPort,
   type FixedWindowRateLimiter,
 } from "./rate-limit.js";
+import { requestIdFromHeader, requestLogEntry, withRequestId } from "./request-context.js";
 
 const MAX_REQUEST_BYTES = 1024 * 1024;
 const MIME: Record<string, string> = {
@@ -283,8 +284,23 @@ export function createPlatformServer(config: PlatformServerConfig) {
   const signInRateLimit = createFixedWindowRateLimiter({ limit: 5, windowMs: 15 * 60 * 1000 });
 
   return createServer(async (incoming, outgoing) => {
+    const startedAt = Date.now();
+    const requestId = requestIdFromHeader(incoming.headers["x-request-id"]);
+    const path = (incoming.url ?? "/").split("?", 1)[0] || "/";
+    outgoing.setHeader("X-Request-Id", requestId);
+    outgoing.once("finish", () => {
+      console.log(JSON.stringify(requestLogEntry({
+        requestId,
+        method: incoming.method,
+        path,
+        status: outgoing.statusCode,
+        durationMs: Date.now() - startedAt,
+      })));
+    });
+
     try {
-      const request = await webRequest(incoming, config);
+      let request = await webRequest(incoming, config);
+      request = withRequestId(request, requestId);
       const url = new URL(request.url);
 
       if (url.pathname === "/health") {
@@ -294,6 +310,7 @@ export function createPlatformServer(config: PlatformServerConfig) {
           creatorOperationsSync: creatorOperationsSync ? "configured" : "not_configured",
           creatorWorkspaceRead: creatorWorkspace ? "configured" : "not_configured",
           affiliatePerformanceRead: config.affiliatePerformanceRead ? "configured" : "disabled",
+          requestId,
         }), outgoing);
         return;
       }
@@ -328,7 +345,10 @@ export function createPlatformServer(config: PlatformServerConfig) {
     } catch (error) {
       const code = error instanceof Error ? error.message : "";
       const status = code === "REQUEST_TOO_LARGE" ? 413 : 500;
-      await writeNodeResponse(json({ error: status === 413 ? "request_too_large" : "internal_error" }, status), outgoing);
+      await writeNodeResponse(json({
+        error: status === 413 ? "request_too_large" : "internal_error",
+        requestId,
+      }, status), outgoing);
     }
   });
 }
