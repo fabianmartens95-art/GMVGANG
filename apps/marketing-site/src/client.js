@@ -4,13 +4,16 @@ const nav = document.querySelector('#main-nav');
 if (menuButton && nav) {
   const closeMenu = () => {
     menuButton.setAttribute('aria-expanded', 'false');
+    menuButton.textContent = 'Menü';
     nav.dataset.open = 'false';
   };
 
   menuButton.addEventListener('click', () => {
     const isOpen = menuButton.getAttribute('aria-expanded') === 'true';
-    menuButton.setAttribute('aria-expanded', String(!isOpen));
-    nav.dataset.open = String(!isOpen);
+    const nextOpen = !isOpen;
+    menuButton.setAttribute('aria-expanded', String(nextOpen));
+    menuButton.textContent = nextOpen ? 'Schließen' : 'Menü';
+    nav.dataset.open = String(nextOpen);
   });
 
   nav.addEventListener('click', (event) => {
