@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { resolveSupabasePlatformSession } from "../src/index.js";
+import { resolveSupabasePlatformSession, resolveSupabasePlatformSessionContext } from "../src/index.js";
 
 function fakeClient(options?: { authenticated?: boolean; verified?: boolean; memberships?: boolean }): SupabaseClient {
   const authenticated = options?.authenticated ?? true;
@@ -163,5 +163,41 @@ describe("resolveSupabasePlatformSession", () => {
         now: "2026-09-16T00:00:00.000Z",
       }),
     ).rejects.toThrow("SESSION_EMAIL_NOT_VERIFIED");
+  });
+});
+
+describe("resolveSupabasePlatformSessionContext", () => {
+  it("returns the same verified session together with server-derived workspace access", async () => {
+    await expect(
+      resolveSupabasePlatformSessionContext(fakeClient(), {
+        accessToken: "verified-token",
+        requestedOrganizationId: "33333333-3333-4333-8333-333333333333",
+        now: "2026-09-16T00:00:00.000Z",
+      }),
+    ).resolves.toEqual({
+      session: {
+        status: "authenticated",
+        userId: "11111111-1111-4111-8111-111111111111",
+        organizationId: "33333333-3333-4333-8333-333333333333",
+        roles: ["brand_member"],
+      },
+      workspaces: [
+        {
+          organizationId: "33333333-3333-4333-8333-333333333333",
+          organizationType: "brand",
+          name: "Brand One",
+          roles: ["brand_member"],
+        },
+      ],
+    });
+  });
+
+  it("returns no workspaces when authentication is rejected", async () => {
+    await expect(
+      resolveSupabasePlatformSessionContext(fakeClient({ authenticated: false }), {
+        accessToken: "invalid-token",
+        now: "2026-09-16T00:00:00.000Z",
+      }),
+    ).resolves.toEqual({ session: { status: "anonymous", roles: [] }, workspaces: [] });
   });
 });
