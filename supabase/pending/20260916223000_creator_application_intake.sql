@@ -5,6 +5,7 @@ create table if not exists public.creator_applications (
   email text not null,
   phone text,
   tiktok_handle text not null,
+  follower_count bigint not null check (follower_count between 0 and 2000000000),
   follower_band text not null check (follower_band in ('0-1k', '1k-10k', '10k-50k', '50k-100k', '100k+')),
   content_categories text[] not null,
   tiktok_shop_experience text not null check (tiktok_shop_experience in ('none', 'affiliate', 'live', 'affiliate_and_live')),
@@ -74,4 +75,5 @@ grant select, insert, update on table public.creator_applications to service_rol
 
 comment on table public.creator_applications is 'Server-only pre-account Creator application intake. Website clients never receive direct table access.';
 comment on column public.creator_applications.idempotency_key is 'Client request idempotency key; unique across application submissions.';
+comment on column public.creator_applications.follower_band is 'Server-derived follower band for qualification/analytics; follower_count retains the submitted exact count.';
 comment on column public.creator_applications.operations_sync_status is 'Best-effort downstream operations sync state; the application row remains canonical even if downstream sync fails.';
