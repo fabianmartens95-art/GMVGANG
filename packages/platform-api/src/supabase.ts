@@ -1,4 +1,4 @@
-import { registerCreator } from "@gmvgang/creator-registration";
+import { completeCreatorProfile, registerCreator } from "@gmvgang/creator-registration";
 import {
   createPlatformAdminClient,
   createSupabaseCreatorRegistrationPorts,
@@ -22,6 +22,9 @@ export function createSupabasePlatformApiServices(config: PlatformSupabaseConfig
         await ensureSupabaseCreatorMembership(client, context.userId, context.now);
       }
       return result;
+    },
+    completeCreatorProfile(input, context) {
+      return completeCreatorProfile(input, context, registrationPorts);
     },
   };
 }
