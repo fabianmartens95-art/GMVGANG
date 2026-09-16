@@ -6,3 +6,4 @@ export * from "./referrals.js";
 export * from "./session-service.js";
 export * from "./session.js";
 export * from "./types.js";
+export * from "./workspaces.js";
