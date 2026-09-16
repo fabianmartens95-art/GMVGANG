@@ -1,7 +1,10 @@
 import type {
   TikTokSellerAnalyticsAuthorizedClient,
   TikTokSellerProductPerformancePage,
-  TikTokSellerProductPageRequest
+  TikTokSellerProductPageRequest,
+  TikTokSellerVideoAnalyticsAuthorizedClient,
+  TikTokSellerVideoPerformancePage,
+  TikTokSellerVideoPageRequest
 } from "@gmvgang/affiliate-performance";
 import {
   assertConnectionOwnership,
@@ -21,6 +24,7 @@ import { systemTikTokClock, systemTikTokSleeper } from "./ports.js";
 import { signTikTokShopRequest } from "./sign.js";
 
 const PRODUCT_PERFORMANCE_PATH = "/analytics/202605/shop_products/performance";
+const VIDEO_PERFORMANCE_PATH = "/analytics/202605/shop_videos/performance";
 const AUTHORIZED_SHOPS_PATH = "/authorization/202309/shops";
 const TRANSIENT_TIKTOK_CODES = new Set([36009002, 36009003]);
 
@@ -42,6 +46,11 @@ interface AuthorizedShopsData {
 
 interface ProductPerformanceData {
   products: TikTokSellerProductPerformancePage["products"];
+  next_page_token?: string;
+}
+
+interface VideoPerformanceData {
+  videos: TikTokSellerVideoPerformancePage["videos"];
   next_page_token?: string;
 }
 
@@ -102,7 +111,8 @@ function isRetryableHttpStatus(status: number): boolean {
   return status === 429 || status >= 500;
 }
 
-export class TikTokSellerAnalyticsInfrastructureClient implements TikTokSellerAnalyticsAuthorizedClient {
+export class TikTokSellerAnalyticsInfrastructureClient
+  implements TikTokSellerAnalyticsAuthorizedClient, TikTokSellerVideoAnalyticsAuthorizedClient {
   private readonly app: TikTokShopAppConfig;
   private readonly connections: TikTokShopConnectionResolver;
   private readonly secrets: SecretResolver;
@@ -158,6 +168,39 @@ export class TikTokSellerAnalyticsInfrastructureClient implements TikTokSellerAn
     const nextPageToken = envelope.data.next_page_token?.trim();
     return {
       products: envelope.data.products,
+      ...(nextPageToken ? { nextPageToken } : {}),
+      ...(envelope.request_id ? { requestId: envelope.request_id } : {})
+    };
+  }
+
+  async getVideoPerformancePage(
+    request: TikTokSellerVideoPageRequest
+  ): Promise<TikTokSellerVideoPerformancePage> {
+    const resolved = await this.resolveConnectionSecrets(request.connectionId, request.shopId);
+    const shopCipher = await this.resolveShopCipher(resolved, request.shopId);
+    const query: Record<string, string> = {
+      start_date_ge: request.startDate,
+      end_date_lt: request.endDateExclusive,
+      page_size: String(request.pageSize),
+      currency: request.currency,
+      account_type: request.accountType,
+      shop_cipher: shopCipher,
+      ...(request.pageToken ? { page_token: request.pageToken } : {})
+    };
+
+    const envelope = await this.signedGet<VideoPerformanceData>(
+      VIDEO_PERFORMANCE_PATH,
+      query,
+      resolved.accessToken,
+      resolved.appSecret
+    );
+    if (!envelope.data || !Array.isArray(envelope.data.videos)) {
+      throw new Error("TIKTOK_VIDEO_PERFORMANCE_VIDEOS_MISSING");
+    }
+
+    const nextPageToken = envelope.data.next_page_token?.trim();
+    return {
+      videos: envelope.data.videos,
       ...(nextPageToken ? { nextPageToken } : {}),
       ...(envelope.request_id ? { requestId: envelope.request_id } : {})
     };
