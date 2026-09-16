@@ -10,6 +10,11 @@ export type PlatformServerConfig = {
   supabasePublishableKey: string;
   supabaseServiceRoleKey: string;
   privacyNoticeVersion: string;
+  creatorApplicationIntake: {
+    allowedOrigins: string[];
+    makeWebhookUrl: string | null;
+    makeWebhookSecret: string | null;
+  } | null;
   notionCreatorSync: {
     token: string;
     dataSourceId: string;
@@ -31,6 +36,13 @@ const AFFILIATE_POLICY_ENV = [
   "AFFILIATE_PERFORMANCE_REQUIRED_METRICS",
 ] as const;
 
+const CREATOR_APPLICATION_ENV = [
+  "CREATOR_APPLICATION_SCHEMA_VERIFIED",
+  "CREATOR_APPLICATION_ALLOWED_ORIGINS",
+  "CREATOR_APPLICATION_MAKE_WEBHOOK_URL",
+  "CREATOR_APPLICATION_MAKE_WEBHOOK_SECRET",
+] as const;
+
 function required(value: string | undefined, code: string): string {
   const cleaned = value?.trim();
   if (!cleaned) throw new Error(code);
@@ -43,6 +55,19 @@ function validOrigin(value: string): string {
     throw new Error("PLATFORM_PUBLIC_ORIGIN_INVALID");
   }
   return parsed.origin;
+}
+
+function optionalHttpUrl(value: string | undefined, code: string): string | null {
+  const cleaned = value?.trim();
+  if (!cleaned) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(cleaned);
+  } catch {
+    throw new Error(code);
+  }
+  if (!["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password) throw new Error(code);
+  return parsed.toString();
 }
 
 function port(value: string | undefined): number {
@@ -72,6 +97,43 @@ function explicitFeatureFlag(value: string | undefined): boolean {
   if (!cleaned || cleaned === "0") return false;
   if (cleaned === "1") return true;
   throw new Error("AFFILIATE_PERFORMANCE_READ_ENABLED_INVALID");
+}
+
+function creatorApplicationFeatureFlag(value: string | undefined): boolean {
+  const cleaned = value?.trim() ?? "";
+  if (!cleaned || cleaned === "0") return false;
+  if (cleaned === "1") return true;
+  throw new Error("CREATOR_APPLICATION_INTAKE_ENABLED_INVALID");
+}
+
+function creatorApplicationIntake(env: NodeJS.ProcessEnv): PlatformServerConfig["creatorApplicationIntake"] {
+  const enabled = creatorApplicationFeatureFlag(env.CREATOR_APPLICATION_INTAKE_ENABLED);
+  const hasConfigValues = CREATOR_APPLICATION_ENV.some((key) => Boolean(env[key]?.trim()));
+
+  if (!enabled) {
+    if (hasConfigValues) throw new Error("CREATOR_APPLICATION_INTAKE_DISABLED_WITH_CONFIG");
+    return null;
+  }
+
+  if (env.CREATOR_APPLICATION_SCHEMA_VERIFIED?.trim() !== "1") {
+    throw new Error("CREATOR_APPLICATION_SCHEMA_NOT_VERIFIED");
+  }
+
+  const rawOrigins = required(
+    env.CREATOR_APPLICATION_ALLOWED_ORIGINS,
+    "CREATOR_APPLICATION_ALLOWED_ORIGINS_REQUIRED",
+  );
+  const allowedOrigins = [...new Set(rawOrigins.split(",").map((value) => value.trim()).filter(Boolean).map(validOrigin))];
+  if (!allowedOrigins.length) throw new Error("CREATOR_APPLICATION_ALLOWED_ORIGINS_REQUIRED");
+
+  return {
+    allowedOrigins,
+    makeWebhookUrl: optionalHttpUrl(
+      env.CREATOR_APPLICATION_MAKE_WEBHOOK_URL,
+      "CREATOR_APPLICATION_MAKE_WEBHOOK_URL_INVALID",
+    ),
+    makeWebhookSecret: env.CREATOR_APPLICATION_MAKE_WEBHOOK_SECRET?.trim() || null,
+  };
 }
 
 function finiteNumber(value: string | undefined, code: string): number {
@@ -156,6 +218,7 @@ export function loadPlatformServerConfig(env: NodeJS.ProcessEnv = process.env): 
     supabasePublishableKey: required(env.SUPABASE_PUBLISHABLE_KEY, "SUPABASE_PUBLISHABLE_KEY_REQUIRED"),
     supabaseServiceRoleKey: required(env.SUPABASE_SERVICE_ROLE_KEY, "SUPABASE_SERVICE_ROLE_KEY_REQUIRED"),
     privacyNoticeVersion: required(env.CREATOR_PRIVACY_NOTICE_VERSION, "CREATOR_PRIVACY_NOTICE_VERSION_REQUIRED"),
+    creatorApplicationIntake: creatorApplicationIntake(env),
     notionCreatorSync: notionCreatorSync(env),
     notionCreatorWorkspace: notionCreatorWorkspace(env),
     affiliatePerformanceRead: affiliatePerformanceRead(env),
