@@ -38,6 +38,7 @@ if (form instanceof HTMLFormElement) {
   const failure = document.querySelector('#pc-failure');
   const stepNow = document.querySelector('#pc-step-now');
   const progress = document.querySelector('#pc-progress-fill');
+  const previewHost = window.location.hostname.endsWith('.pages.dev');
   let current = 1;
   let busy = false;
 
@@ -194,6 +195,15 @@ if (form instanceof HTMLFormElement) {
     }
 
     const resultState = calculate();
+    if (previewHost) {
+      setMessage(
+        failure,
+        'Preview-Modus: Der echte Formularversand ist bis zum kontrollierten Ende-zu-Ende-Test gesperrt. Ihre Eingaben wurden nicht übertragen.',
+        true,
+      );
+      return;
+    }
+
     busy = true;
     setMessage(failure, '', false);
 
