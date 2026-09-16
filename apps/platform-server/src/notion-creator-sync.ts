@@ -97,7 +97,7 @@ function marketName(value: string | undefined): string | null {
   return null;
 }
 
-function creatorProperties(profile: CreatorProfile): Record<string, unknown> {
+function creatorProfileProperties(profile: CreatorProfile): Record<string, unknown> {
   const categories = profile.niche?.length
     ? [...new Set(profile.niche.map(categoryName))]
     : [];
@@ -109,14 +109,20 @@ function creatorProperties(profile: CreatorProfile): Record<string, unknown> {
     "TikTok Name": title(profile.displayName?.trim() || `@${profile.tiktokHandle}`),
     "TikTok Handle": richText(profile.tiktokHandle),
     "Profil URL": { url: `https://www.tiktok.com/@${encodeURIComponent(profile.tiktokHandle)}` },
+    ...(categories.length ? { Kategorie: multiSelect(categories) } : {}),
+    ...(language ? { "Content-Sprache": select(language) } : {}),
+    ...(market ? { "Account-Region": select(market) } : {}),
+  };
+}
+
+function creatorCreateProperties(profile: CreatorProfile): Record<string, unknown> {
+  return {
+    ...creatorProfileProperties(profile),
     "Mindestens 18 Jahre": checkbox(true),
     "Datenschutz bestätigt": checkbox(true),
     "Bewerbung Quelle": select("Website"),
     "Status": select("Beworben"),
     "Intake-Stage": select("Neu – Runde 1"),
-    ...(categories.length ? { Kategorie: multiSelect(categories) } : {}),
-    ...(language ? { "Content-Sprache": select(language) } : {}),
-    ...(market ? { "Account-Region": select(market) } : {}),
   };
 }
 
@@ -153,7 +159,7 @@ export class NotionCreatorOperationsSync implements CreatorOperationsSyncPort {
     const response = await this.notionFetch(`${NOTION_API_ORIGIN}/v1/pages/${encodeURIComponent(id)}`, {
       method: "PATCH",
       headers: this.headers(),
-      body: JSON.stringify({ properties: creatorProperties(profile) }),
+      body: JSON.stringify({ properties: creatorProfileProperties(profile) }),
     });
     if (response.ok) return true;
     if (response.status === 404) return false;
@@ -187,7 +193,7 @@ export class NotionCreatorOperationsSync implements CreatorOperationsSyncPort {
       headers: this.headers(),
       body: JSON.stringify({
         parent: { type: "data_source_id", data_source_id: this.dataSourceId },
-        properties: creatorProperties(profile),
+        properties: creatorCreateProperties(profile),
       }),
     });
     if (!response.ok) throw new Error(`NOTION_CREATOR_CREATE_FAILED:${response.status}`);
