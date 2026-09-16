@@ -172,19 +172,17 @@ async function idempotencyStart(
   | { status: "started"; key: string; requestHash: string }
   | { status: "response"; response: Response }
 > {
+  const fingerprint = await requestHash(action, input);
   if (!dependencies.idempotency) {
-    return { status: "response", response: jsonResponse({ ok: false, errors: ["idempotency_unavailable"] }, 503) };
+    return { status: "started", key: `local:${fingerprint}`, requestHash: fingerprint };
   }
 
-  const key = request.headers.get("Idempotency-Key")?.trim() ?? "";
-  if (!key) {
-    return { status: "response", response: jsonResponse({ ok: false, errors: ["idempotency_key_required"] }, 400) };
-  }
+  const suppliedKey = request.headers.get("Idempotency-Key")?.trim() ?? "";
+  const key = suppliedKey || `auto:${fingerprint}`;
   if (!IDEMPOTENCY_KEY.test(key)) {
     return { status: "response", response: jsonResponse({ ok: false, errors: ["idempotency_key_invalid"] }, 400) };
   }
 
-  const fingerprint = await requestHash(action, input);
   const result = await dependencies.idempotency.begin({
     scope: action,
     subject,
@@ -219,7 +217,7 @@ async function idempotencyComplete(
   responseStatus: number,
   responseBody: unknown,
 ): Promise<void> {
-  if (!dependencies.idempotency) throw new Error("IDEMPOTENCY_UNAVAILABLE");
+  if (!dependencies.idempotency) return;
   await dependencies.idempotency.complete({
     scope: action,
     subject,
