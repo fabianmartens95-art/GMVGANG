@@ -37,6 +37,22 @@ or a server-resolved, tenant-bound session:
 
 The concrete authentication provider is deliberately not selected in this package. The server adapter must first verify the provider identity, then use the shared `resolvePlatformSession` domain function with persisted PlatformUser, Membership and Organization records. Client-supplied roles or organization IDs must never be treated as authoritative.
 
+## Brand Workspace contract
+
+The protected Brand Workspace reads its first customer-facing modules from `GET /api/brand/overview`.
+
+The endpoint is expected to return the existing `BrandPortalReadModel` plus a source label. The browser performs an additional tenant-equality guard and refuses to render the payload when `model.organizationId` differs from the verified portal session's organization. This browser guard is defense in depth only; the server must authorize the tenant before reading or returning any Brand data.
+
+The current Brand Workspace renders:
+
+- Profitability KPIs: GMV, Net Revenue, Contribution and Contribution Margin
+- variable cost breakdown
+- explainable Next Best Actions from `@gmvgang/brand-intelligence`
+- source/readiness coverage for Profitability, Creator Ops, Rights, Inventory and Paid Performance
+- explicit unavailable state when the server data source is not connected
+
+For local visual development only, set `VITE_PLATFORM_DEV_BRAND_DEMO=1` with a `brand_member` role and a development organization ID. The fixture is synthetic and is visibly labeled `SYNTHETIC DEV DATA`. Production never uses that fixture.
+
 ## Areas
 
 - `/` — public platform overview
@@ -58,6 +74,7 @@ Change `VITE_PLATFORM_DEV_ROLE` and set `VITE_PLATFORM_DEV_ORGANIZATION_ID` loca
 - Production remains anonymous when `/api/session` is missing, invalid or unauthenticated.
 - Portal route access is derived from shared capabilities, not hard-coded duplicate role rules.
 - Tenant-bound roles are never accepted without an organization ID.
+- Brand overview payloads are not rendered across tenant boundaries.
 - No API tokens, passwords, Creator PII or customer data belong in the repository.
 - Notion / GMVGANG Company OS remains the operational SSOT during this phase.
-- The next implementation step is the concrete provider + persistence adapter behind `/api/session`, followed by authenticated Public Creator Registration, Profile Completion and immutable Referral Capture.
+- The next implementation step is the concrete provider + persistence adapter behind `/api/session` and `/api/brand/overview`, followed by authenticated Public Creator Registration, Profile Completion and immutable Referral Capture.
