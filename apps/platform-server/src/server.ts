@@ -101,7 +101,6 @@ async function authResponse(
       },
     });
 
-    // Keep the public result generic so this endpoint does not become an account-existence oracle.
     if (error) return json({ ok: false, error: "sign_in_unavailable" }, 503);
     return json({ ok: true }, 202);
   }
@@ -130,7 +129,7 @@ async function authResponse(
   return null;
 }
 
-async function readRequestBody(request: IncomingMessage): Promise<Uint8Array | undefined> {
+async function readRequestBody(request: IncomingMessage): Promise<string | undefined> {
   const method = request.method ?? "GET";
   if (method === "GET" || method === "HEAD") return undefined;
 
@@ -142,7 +141,7 @@ async function readRequestBody(request: IncomingMessage): Promise<Uint8Array | u
     if (size > MAX_REQUEST_BYTES) throw new Error("REQUEST_TOO_LARGE");
     chunks.push(buffer);
   }
-  return Buffer.concat(chunks);
+  return Buffer.concat(chunks).toString("utf8");
 }
 
 function webHeaders(request: IncomingMessage): Headers {
@@ -161,7 +160,7 @@ async function webRequest(request: IncomingMessage, config: PlatformServerConfig
   return new Request(url, {
     method: request.method ?? "GET",
     headers: webHeaders(request),
-    ...(body ? { body } : {}),
+    ...(body !== undefined ? { body } : {}),
   });
 }
 
