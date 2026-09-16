@@ -294,7 +294,10 @@ export function renderBrandOverview(overview: BrandOverviewResponse | null): str
 
   const { model } = overview;
   const profitability = model.profitability;
-  const sourceBadge = overview.source === "synthetic-development" ? "SYNTHETIC DEV DATA" : "LIVE READ MODEL";
+  const sourceBadge = overview.source === "synthetic-development" ? "BEISPIELDATEN" : "LIVE READ MODEL";
+  const demoNotice = overview.source === "synthetic-development"
+    ? `<aside class="brand-demo-notice" role="status"><strong>Beispieldaten</strong><span>Diese Werte sind synthetisch und stellen keine Live-Daten deiner Brand dar.</span></aside>`
+    : "";
   const statusEntries: Array<[string, BrandPortalDataStatus]> = [
     ["Profitability", model.dataStatus.profitability],
     ["Creator Ops", model.dataStatus.creatorOperations],
@@ -309,6 +312,8 @@ export function renderBrandOverview(overview: BrandOverviewResponse | null): str
         <span class="brand-overview__source">${sourceBadge}</span>
         <span>As of ${escapeHtml(model.asOf)}</span>
       </div>
+
+      ${demoNotice}
 
       <section class="brand-kpis" aria-label="Profitability KPIs">
         <article><span>GMV</span><strong>${profitability ? currency(profitability.grossMerchandiseValue) : "—"}</strong></article>

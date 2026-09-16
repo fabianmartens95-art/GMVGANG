@@ -1,4 +1,5 @@
-import { registerCreator } from "@gmvgang/creator-registration";
+import { completeCreatorProfile, registerCreator } from "@gmvgang/creator-registration";
+import type { CreatorProfile } from "@gmvgang/platform-foundation";
 import {
   createPlatformAdminClient,
   createSupabaseCreatorRegistrationPorts,
@@ -6,11 +7,43 @@ import {
   resolveSupabasePlatformSessionContext,
   type PlatformSupabaseConfig,
 } from "@gmvgang/platform-supabase";
-import type { PlatformApiServices } from "./types.js";
+import type { CreatorOperationsSyncPort, PlatformApiServices } from "./types.js";
 
-export function createSupabasePlatformApiServices(config: PlatformSupabaseConfig): PlatformApiServices {
+export type SupabasePlatformApiOptions = {
+  creatorOperationsSync?: CreatorOperationsSyncPort;
+};
+
+export function createSupabasePlatformApiServices(
+  config: PlatformSupabaseConfig,
+  options: SupabasePlatformApiOptions = {},
+): PlatformApiServices {
   const client = createPlatformAdminClient(config);
   const registrationPorts = createSupabaseCreatorRegistrationPorts(client);
+
+  async function syncCreatorOperations(profile: CreatorProfile, now: string): Promise<CreatorProfile> {
+    if (!options.creatorOperationsSync) return profile;
+
+    try {
+      const result = await options.creatorOperationsSync.syncCreatorProfile(profile);
+      const creatorMasterId = result.creatorMasterId?.trim();
+      if (!creatorMasterId || creatorMasterId === profile.creatorMasterId) return profile;
+
+      const linked: CreatorProfile = {
+        ...profile,
+        creatorMasterId,
+        updatedAt: now,
+      };
+      await registrationPorts.profiles.updateProfile(linked);
+      return linked;
+    } catch (error) {
+      const code = error instanceof Error ? error.message.split(":", 1)[0] : "CREATOR_OPERATIONS_SYNC_FAILED";
+      console.error("GMVGANG_CREATOR_OPERATIONS_SYNC_FAILED", {
+        creatorProfileId: profile.id,
+        code,
+      });
+      return profile;
+    }
+  }
 
   return {
     resolveSessionContext(input) {
@@ -18,10 +51,15 @@ export function createSupabasePlatformApiServices(config: PlatformSupabaseConfig
     },
     async registerCreator(input, context) {
       const result = await registerCreator(input, context, registrationPorts);
-      if (result.ok) {
-        await ensureSupabaseCreatorMembership(client, context.userId, context.now);
-      }
-      return result;
+      if (!result.ok) return result;
+
+      await ensureSupabaseCreatorMembership(client, context.userId, context.now);
+      const creatorProfile = await syncCreatorOperations(result.creatorProfile, context.now);
+      return { ...result, creatorProfile };
+    },
+    async completeCreatorProfile(input, context) {
+      const profile = await completeCreatorProfile(input, context, registrationPorts);
+      return syncCreatorOperations(profile, context.now);
     },
   };
 }
