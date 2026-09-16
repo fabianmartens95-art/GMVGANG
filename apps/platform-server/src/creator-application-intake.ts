@@ -378,7 +378,6 @@ export function createCreatorApplicationIntakeHandler(config: CreatorApplication
     const submittedAt = new Date().toISOString();
     const existing = await findStored(client, idempotencyKey, parsed.value.tiktokHandle);
     if (existing) {
-      await syncToMake(config, client, existing, parsed.value, submittedAt);
       return json({ ok: true, accepted: true, created: false, applicationId: existing.id }, 200, origin);
     }
 
@@ -417,7 +416,7 @@ export function createCreatorApplicationIntakeHandler(config: CreatorApplication
     }
 
     if (!application) throw new Error("CREATOR_APPLICATION_INSERT_RESPONSE_INVALID");
-    await syncToMake(config, client, application, parsed.value, submittedAt);
+    if (!inserted.error) await syncToMake(config, client, application, parsed.value, submittedAt);
 
     return json({ ok: true, accepted: true, created: !inserted.error, applicationId: application.id }, inserted.error ? 200 : 201, origin);
   };
