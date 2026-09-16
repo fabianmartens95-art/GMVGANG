@@ -3,38 +3,25 @@ import {
   recommendNextBestActions,
   type BrandDecisionPolicy,
   type BrandDecisionSignals,
-  type BrandNextBestAction,
-  type ProfitabilitySnapshot,
   type ProfitabilitySnapshotInput,
 } from "@gmvgang/brand-intelligence";
+import type {
+  BrandPortalDataStatus,
+  BrandPortalDataStatusMap,
+  BrandPortalReadModel,
+} from "@gmvgang/brand-intelligence/portal";
 
-export type BrandPortalDataStatus = "ready" | "partial" | "unavailable";
+export type { BrandPortalDataStatus, BrandPortalReadModel } from "@gmvgang/brand-intelligence/portal";
 
 export type BrandPortalReadModelInput = {
   organizationId: string;
   asOf: string;
   profitability?: ProfitabilitySnapshotInput;
+  performance?: NonNullable<BrandPortalReadModel["performance"]>;
   signals?: Omit<BrandDecisionSignals, "profitability">;
   policy: BrandDecisionPolicy;
-  dataStatus: {
-    profitability: BrandPortalDataStatus;
-    creatorOperations: BrandPortalDataStatus;
-    rights: BrandPortalDataStatus;
-    inventory: BrandPortalDataStatus;
-    paidPerformance: BrandPortalDataStatus;
-  };
-};
-
-export type BrandPortalReadModel = {
-  organizationId: string;
-  asOf: string;
-  profitability: ProfitabilitySnapshot | null;
-  nextBestActions: BrandNextBestAction[];
-  dataStatus: BrandPortalReadModelInput["dataStatus"];
-  readiness: {
-    availableSections: number;
-    partialSections: number;
-    unavailableSections: number;
+  dataStatus: Omit<BrandPortalDataStatusMap, "affiliatePerformance"> & {
+    affiliatePerformance?: BrandPortalDataStatus;
   };
 };
 
@@ -49,6 +36,10 @@ export function buildBrandPortalReadModel(
 ): BrandPortalReadModel {
   assertNonEmpty(input.organizationId, "organizationId");
   assertNonEmpty(input.asOf, "asOf");
+
+  if (input.performance && input.performance.scope.organizationId !== input.organizationId) {
+    throw new Error("BRAND_PERFORMANCE_ORGANIZATION_MISMATCH");
+  }
 
   const profitability = input.profitability
     ? calculateProfitabilitySnapshot(input.profitability)
@@ -67,14 +58,19 @@ export function buildBrandPortalReadModel(
   };
 
   const nextBestActions = recommendNextBestActions(signals, input.policy);
-  const statuses = Object.values(input.dataStatus);
+  const dataStatus: BrandPortalDataStatusMap = {
+    ...input.dataStatus,
+    affiliatePerformance: input.dataStatus.affiliatePerformance ?? "unavailable",
+  };
+  const statuses = Object.values(dataStatus);
 
   return {
     organizationId: input.organizationId,
     asOf: input.asOf,
     profitability,
+    performance: input.performance ?? null,
     nextBestActions,
-    dataStatus: input.dataStatus,
+    dataStatus,
     readiness: {
       availableSections: statuses.filter((status) => status === "ready").length,
       partialSections: statuses.filter((status) => status === "partial").length,
