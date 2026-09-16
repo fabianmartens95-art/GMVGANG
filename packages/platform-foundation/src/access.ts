@@ -28,6 +28,8 @@ const ROLE_CAPABILITIES: Record<PlatformUserRole, readonly PlatformCapability[]>
     "platform.manage",
     "users.manage",
     "team.workspace.read",
+    "creator.portal.access",
+    "brand.portal.access",
     "brands.read_all",
     "brands.manage",
     "creators.read_all",
@@ -48,6 +50,8 @@ const ROLE_CAPABILITIES: Record<PlatformUserRole, readonly PlatformCapability[]>
   admin: [
     "users.manage",
     "team.workspace.read",
+    "creator.portal.access",
+    "brand.portal.access",
     "brands.read_all",
     "brands.manage",
     "creators.read_all",
