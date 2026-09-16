@@ -68,9 +68,15 @@ function finiteNumber(value: string | undefined, code: string): number {
   return parsed;
 }
 
-function positiveInteger(value: string | undefined, code: string): number {
+function positiveInteger(value: string | undefined, code: string, maximum?: number): number {
   const parsed = finiteNumber(value, code);
-  if (!Number.isInteger(parsed) || parsed <= 0) throw new Error(code);
+  if (!Number.isInteger(parsed) || parsed <= 0 || (maximum !== undefined && parsed > maximum)) throw new Error(code);
+  return parsed;
+}
+
+function positiveNumber(value: string | undefined, code: string): number {
+  const parsed = finiteNumber(value, code);
+  if (parsed <= 0) throw new Error(code);
   return parsed;
 }
 
@@ -110,13 +116,15 @@ function affiliatePerformanceRead(env: NodeJS.ProcessEnv): PlatformServerConfig[
     lookbackDays: positiveInteger(
       env.AFFILIATE_PERFORMANCE_LOOKBACK_DAYS,
       "AFFILIATE_PERFORMANCE_LOOKBACK_DAYS_INVALID",
+      3650,
     ),
     maxRecords: positiveInteger(
       env.AFFILIATE_PERFORMANCE_MAX_RECORDS,
       "AFFILIATE_PERFORMANCE_MAX_RECORDS_INVALID",
+      1000,
     ),
     minimumCoverageRatio: coverageRatio(env.AFFILIATE_PERFORMANCE_MIN_COVERAGE_RATIO),
-    maxSourceAgeMinutes: finiteNumber(
+    maxSourceAgeMinutes: positiveNumber(
       env.AFFILIATE_PERFORMANCE_MAX_SOURCE_AGE_MINUTES,
       "AFFILIATE_PERFORMANCE_MAX_SOURCE_AGE_MINUTES_INVALID",
     ),
