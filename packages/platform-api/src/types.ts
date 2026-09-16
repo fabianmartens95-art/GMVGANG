@@ -24,6 +24,10 @@ export interface PlatformRateLimitPort {
   }): boolean | Promise<boolean>;
 }
 
+export interface CreatorOperationsSyncPort {
+  syncCreatorProfile(profile: CreatorProfile): Promise<{ creatorMasterId?: string }>;
+}
+
 export interface PlatformApiServices {
   resolveSessionContext(input: {
     accessToken: string;
