@@ -35,6 +35,31 @@ export interface PlatformRateLimitPort {
   }): boolean | Promise<boolean>;
 }
 
+export type PlatformIdempotencyBeginResult =
+  | { status: "started" }
+  | { status: "in_progress" }
+  | { status: "conflict" }
+  | { status: "replay"; responseStatus: number; responseBody: unknown };
+
+export interface PlatformIdempotencyPort {
+  begin(input: {
+    scope: PlatformRateLimitAction;
+    subject: string;
+    key: string;
+    requestHash: string;
+    now: string;
+  }): Promise<PlatformIdempotencyBeginResult>;
+  complete(input: {
+    scope: PlatformRateLimitAction;
+    subject: string;
+    key: string;
+    requestHash: string;
+    responseStatus: number;
+    responseBody: unknown;
+    now: string;
+  }): Promise<void>;
+}
+
 export interface CreatorOperationsSyncPort {
   syncCreatorProfile(profile: CreatorProfile): Promise<{ creatorMasterId?: string }>;
 }
@@ -185,4 +210,5 @@ export type PlatformApiDependencies = {
   clock: PlatformApiClock;
   privacyNoticeVersion: string;
   rateLimits?: PlatformRateLimitPort;
+  idempotency?: PlatformIdempotencyPort;
 };
