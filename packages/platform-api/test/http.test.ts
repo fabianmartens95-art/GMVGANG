@@ -30,6 +30,7 @@ const completedCreatorProfile: CreatorProfile = {
 type Captures = {
   sessions: Array<{ accessToken: string; requestedOrganizationId?: string; now: string }>;
   registrations: Array<{ userId: string; tiktokHandle: string; privacyNoticeVersion: string }>;
+  profileReads: Array<{ userId: string; now: string }>;
   profileCompletions: Array<{ userId: string; tiktokHandle: string; displayName: string }>;
 };
 
@@ -38,8 +39,9 @@ function setup(options?: {
   authenticated?: boolean;
   privacyNoticeVersion?: string;
   serviceError?: Error;
+  creatorProfileResult?: CreatorProfile | null;
 }): { handler: (request: Request) => Promise<Response>; captures: Captures } {
-  const captures: Captures = { sessions: [], registrations: [], profileCompletions: [] };
+  const captures: Captures = { sessions: [], registrations: [], profileReads: [], profileCompletions: [] };
   const authenticated = options?.authenticated ?? true;
 
   const services: PlatformApiServices = {
@@ -58,6 +60,10 @@ function setup(options?: {
           },
         ],
       };
+    },
+    async getCreatorProfile(input) {
+      captures.profileReads.push(input);
+      return options?.creatorProfileResult === undefined ? creatorProfile : options.creatorProfileResult;
     },
     async registerCreator(input, context) {
       captures.registrations.push({
@@ -256,6 +262,47 @@ describe("platform API Creator Registration", () => {
 });
 
 describe("platform API Creator Profile", () => {
+  it("reads only the profile belonging to the authenticated server identity", async () => {
+    const { handler, captures } = setup({ creatorProfileResult: completedCreatorProfile });
+    const response = await handler(new Request(`${ORIGIN}/api/creator/profile`));
+
+    expect(response.status).toBe(200);
+    expect(captures.profileReads).toEqual([{ userId: "verified-user", now: NOW }]);
+    const payload = await body(response);
+    expect(payload).toEqual({
+      ok: true,
+      creatorProfile: {
+        id: "creator-profile-1",
+        tiktokHandle: "creator.one",
+        displayName: "Creator One",
+        market: "DE",
+        language: "de",
+        niche: ["beauty"],
+        networkStatus: "profile_complete",
+        profileCompletionPercent: 100,
+        referralCode: "GMVABC123",
+      },
+    });
+    expect(JSON.stringify(payload)).not.toContain("verified-user");
+  });
+
+  it("returns 404 when the authenticated account has no Creator profile", async () => {
+    const { handler, captures } = setup({ creatorProfileResult: null });
+    const response = await handler(new Request(`${ORIGIN}/api/creator/profile`));
+
+    expect(response.status).toBe(404);
+    await expect(body(response)).resolves.toEqual({ ok: false, errors: ["creator_profile_not_found"] });
+    expect(captures.profileReads).toEqual([{ userId: "verified-user", now: NOW }]);
+  });
+
+  it("requires authentication for Creator profile reads", async () => {
+    const { handler, captures } = setup({ token: null });
+    const response = await handler(new Request(`${ORIGIN}/api/creator/profile`));
+
+    expect(response.status).toBe(401);
+    expect(captures.profileReads).toEqual([]);
+  });
+
   it("completes the authenticated Creator profile without accepting a client user id", async () => {
     const { handler, captures } = setup();
     const response = await handler(
