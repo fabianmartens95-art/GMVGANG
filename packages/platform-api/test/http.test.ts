@@ -17,9 +17,20 @@ const creatorProfile: CreatorProfile = {
   updatedAt: NOW,
 };
 
+const completedCreatorProfile: CreatorProfile = {
+  ...creatorProfile,
+  displayName: "Creator One",
+  market: "DE",
+  language: "de",
+  niche: ["beauty"],
+  networkStatus: "profile_complete",
+  profileCompletionPercent: 100,
+};
+
 type Captures = {
   sessions: Array<{ accessToken: string; requestedOrganizationId?: string; now: string }>;
   registrations: Array<{ userId: string; tiktokHandle: string; privacyNoticeVersion: string }>;
+  profileCompletions: Array<{ userId: string; tiktokHandle: string; displayName: string }>;
 };
 
 function setup(options?: {
@@ -28,7 +39,7 @@ function setup(options?: {
   privacyNoticeVersion?: string;
   serviceError?: Error;
 }): { handler: (request: Request) => Promise<Response>; captures: Captures } {
-  const captures: Captures = { sessions: [], registrations: [] };
+  const captures: Captures = { sessions: [], registrations: [], profileCompletions: [] };
   const authenticated = options?.authenticated ?? true;
 
   const services: PlatformApiServices = {
@@ -60,6 +71,14 @@ function setup(options?: {
         creatorProfile,
         referral: { status: "none" },
       };
+    },
+    async completeCreatorProfile(input, context) {
+      captures.profileCompletions.push({
+        userId: context.userId,
+        tiktokHandle: input.tiktokHandle,
+        displayName: input.displayName,
+      });
+      return completedCreatorProfile;
     },
   };
 
@@ -233,6 +252,68 @@ describe("platform API Creator Registration", () => {
 
     expect(response.status).toBe(401);
     expect(captures.registrations).toEqual([]);
+  });
+});
+
+describe("platform API Creator Profile", () => {
+  it("completes the authenticated Creator profile without accepting a client user id", async () => {
+    const { handler, captures } = setup();
+    const response = await handler(
+      new Request(`${ORIGIN}/api/creator/profile`, {
+        method: "POST",
+        headers: {
+          Origin: ORIGIN,
+          "Sec-Fetch-Site": "same-origin",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: "attacker-controlled-user",
+          tiktokHandle: "@creator.one",
+          displayName: "Creator One",
+          market: "DE",
+          language: "de",
+          niche: ["beauty"],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(captures.profileCompletions).toEqual([
+      {
+        userId: "verified-user",
+        tiktokHandle: "@creator.one",
+        displayName: "Creator One",
+      },
+    ]);
+    await expect(body(response)).resolves.toEqual({
+      ok: true,
+      creatorProfile: {
+        id: "creator-profile-1",
+        tiktokHandle: "creator.one",
+        displayName: "Creator One",
+        market: "DE",
+        language: "de",
+        niche: ["beauty"],
+        networkStatus: "profile_complete",
+        profileCompletionPercent: 100,
+        referralCode: "GMVABC123",
+      },
+    });
+  });
+
+  it("rejects cross-origin profile completion before session resolution", async () => {
+    const { handler, captures } = setup();
+    const response = await handler(
+      new Request(`${ORIGIN}/api/creator/profile`, {
+        method: "POST",
+        headers: { Origin: "https://evil.example", "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(captures.sessions).toEqual([]);
+    expect(captures.profileCompletions).toEqual([]);
   });
 });
 
