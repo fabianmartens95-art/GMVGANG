@@ -46,6 +46,24 @@ function json(payload: unknown, status = 200, headers?: HeadersInit): Response {
   });
 }
 
+function sameOrigin(request: Request): boolean {
+  const origin = request.headers.get("origin");
+  if (!origin) return false;
+  try {
+    if (new URL(origin).origin !== new URL(request.url).origin) return false;
+  } catch {
+    return false;
+  }
+  const fetchSite = request.headers.get("sec-fetch-site");
+  return !fetchSite || fetchSite === "same-origin";
+}
+
+function validEmail(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const cleaned = value.trim();
+  return cleaned.length >= 5 && cleaned.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleaned);
+}
+
 export function safeNextPath(value: unknown): string {
   if (typeof value !== "string") return "/";
   const cleaned = value.trim();
@@ -64,24 +82,6 @@ export function safeNextPath(value: unknown): string {
   } catch {
     return "/";
   }
-}
-
-function sameOrigin(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return false;
-  try {
-    if (new URL(origin).origin !== new URL(request.url).origin) return false;
-  } catch {
-    return false;
-  }
-  const fetchSite = request.headers.get("sec-fetch-site");
-  return !fetchSite || fetchSite === "same-origin";
-}
-
-function validEmail(value: unknown): value is string {
-  if (typeof value !== "string") return false;
-  const cleaned = value.trim();
-  return cleaned.length >= 5 && cleaned.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleaned);
 }
 
 async function authResponse(
@@ -267,7 +267,12 @@ export function createPlatformServer(config: PlatformServerConfig) {
       url: config.supabaseUrl,
       serviceRoleKey: config.supabaseServiceRoleKey,
     },
-    creatorOperationsSync ? { creatorOperationsSync } : {},
+    {
+      ...(creatorOperationsSync ? { creatorOperationsSync } : {}),
+      ...(config.affiliatePerformanceRead
+        ? { affiliatePerformancePolicy: config.affiliatePerformanceRead }
+        : {}),
+    },
   );
   const mutationRateLimits = createPlatformMutationRateLimitPort();
   const signInRateLimit = createFixedWindowRateLimiter({ limit: 5, windowMs: 15 * 60 * 1000 });
@@ -282,6 +287,7 @@ export function createPlatformServer(config: PlatformServerConfig) {
           ok: true,
           service: "gmvgang-platform",
           creatorOperationsSync: creatorOperationsSync ? "configured" : "not_configured",
+          affiliatePerformanceRead: config.affiliatePerformanceRead ? "configured" : "disabled",
         }), outgoing);
         return;
       }

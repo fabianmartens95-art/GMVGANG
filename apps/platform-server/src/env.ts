@@ -1,4 +1,6 @@
 import { resolve } from "node:path";
+import { PERFORMANCE_METRIC_FIELDS, type PerformanceMetricField } from "@gmvgang/affiliate-performance";
+import type { BrandAffiliatePerformancePolicy } from "@gmvgang/platform-api";
 
 export type PlatformServerConfig = {
   port: number;
@@ -12,8 +14,18 @@ export type PlatformServerConfig = {
     token: string;
     dataSourceId: string;
   } | null;
+  affiliatePerformanceRead: BrandAffiliatePerformancePolicy | null;
   production: boolean;
 };
+
+const AFFILIATE_POLICY_ENV = [
+  "AFFILIATE_PERFORMANCE_SCHEMA_VERIFIED",
+  "AFFILIATE_PERFORMANCE_LOOKBACK_DAYS",
+  "AFFILIATE_PERFORMANCE_MAX_RECORDS",
+  "AFFILIATE_PERFORMANCE_MIN_COVERAGE_RATIO",
+  "AFFILIATE_PERFORMANCE_MAX_SOURCE_AGE_MINUTES",
+  "AFFILIATE_PERFORMANCE_REQUIRED_METRICS",
+] as const;
 
 function required(value: string | undefined, code: string): string {
   const cleaned = value?.trim();
@@ -43,6 +55,83 @@ function notionCreatorSync(env: NodeJS.ProcessEnv): PlatformServerConfig["notion
   return { token, dataSourceId };
 }
 
+function explicitFeatureFlag(value: string | undefined): boolean {
+  const cleaned = value?.trim() ?? "";
+  if (!cleaned || cleaned === "0") return false;
+  if (cleaned === "1") return true;
+  throw new Error("AFFILIATE_PERFORMANCE_READ_ENABLED_INVALID");
+}
+
+function finiteNumber(value: string | undefined, code: string): number {
+  const parsed = Number(required(value, code));
+  if (!Number.isFinite(parsed)) throw new Error(code);
+  return parsed;
+}
+
+function positiveInteger(value: string | undefined, code: string, maximum?: number): number {
+  const parsed = finiteNumber(value, code);
+  if (!Number.isInteger(parsed) || parsed <= 0 || (maximum !== undefined && parsed > maximum)) throw new Error(code);
+  return parsed;
+}
+
+function positiveNumber(value: string | undefined, code: string): number {
+  const parsed = finiteNumber(value, code);
+  if (parsed <= 0) throw new Error(code);
+  return parsed;
+}
+
+function coverageRatio(value: string | undefined): number {
+  const parsed = finiteNumber(value, "AFFILIATE_PERFORMANCE_MIN_COVERAGE_RATIO_INVALID");
+  if (parsed <= 0 || parsed > 1) throw new Error("AFFILIATE_PERFORMANCE_MIN_COVERAGE_RATIO_INVALID");
+  return parsed;
+}
+
+function requiredMetrics(value: string | undefined): PerformanceMetricField[] {
+  const raw = required(value, "AFFILIATE_PERFORMANCE_REQUIRED_METRICS_REQUIRED");
+  const values = [...new Set(raw.split(",").map((item) => item.trim()).filter(Boolean))];
+  if (values.length === 0) throw new Error("AFFILIATE_PERFORMANCE_REQUIRED_METRICS_REQUIRED");
+
+  for (const metric of values) {
+    if (!PERFORMANCE_METRIC_FIELDS.includes(metric as PerformanceMetricField)) {
+      throw new Error("AFFILIATE_PERFORMANCE_REQUIRED_METRICS_INVALID");
+    }
+  }
+  return values as PerformanceMetricField[];
+}
+
+function affiliatePerformanceRead(env: NodeJS.ProcessEnv): PlatformServerConfig["affiliatePerformanceRead"] {
+  const enabled = explicitFeatureFlag(env.AFFILIATE_PERFORMANCE_READ_ENABLED);
+  const hasPolicyValues = AFFILIATE_POLICY_ENV.some((key) => Boolean(env[key]?.trim()));
+
+  if (!enabled) {
+    if (hasPolicyValues) throw new Error("AFFILIATE_PERFORMANCE_READ_DISABLED_WITH_CONFIG");
+    return null;
+  }
+
+  if (env.AFFILIATE_PERFORMANCE_SCHEMA_VERIFIED?.trim() !== "1") {
+    throw new Error("AFFILIATE_PERFORMANCE_SCHEMA_NOT_VERIFIED");
+  }
+
+  return {
+    lookbackDays: positiveInteger(
+      env.AFFILIATE_PERFORMANCE_LOOKBACK_DAYS,
+      "AFFILIATE_PERFORMANCE_LOOKBACK_DAYS_INVALID",
+      3650,
+    ),
+    maxRecords: positiveInteger(
+      env.AFFILIATE_PERFORMANCE_MAX_RECORDS,
+      "AFFILIATE_PERFORMANCE_MAX_RECORDS_INVALID",
+      1000,
+    ),
+    minimumCoverageRatio: coverageRatio(env.AFFILIATE_PERFORMANCE_MIN_COVERAGE_RATIO),
+    maxSourceAgeMinutes: positiveNumber(
+      env.AFFILIATE_PERFORMANCE_MAX_SOURCE_AGE_MINUTES,
+      "AFFILIATE_PERFORMANCE_MAX_SOURCE_AGE_MINUTES_INVALID",
+    ),
+    requiredMetrics: requiredMetrics(env.AFFILIATE_PERFORMANCE_REQUIRED_METRICS),
+  };
+}
+
 export function loadPlatformServerConfig(env: NodeJS.ProcessEnv = process.env): PlatformServerConfig {
   const production = env.NODE_ENV === "production";
   const publicOrigin = validOrigin(required(env.PLATFORM_PUBLIC_ORIGIN, "PLATFORM_PUBLIC_ORIGIN_REQUIRED"));
@@ -56,6 +145,7 @@ export function loadPlatformServerConfig(env: NodeJS.ProcessEnv = process.env): 
     supabaseServiceRoleKey: required(env.SUPABASE_SERVICE_ROLE_KEY, "SUPABASE_SERVICE_ROLE_KEY_REQUIRED"),
     privacyNoticeVersion: required(env.CREATOR_PRIVACY_NOTICE_VERSION, "CREATOR_PRIVACY_NOTICE_VERSION_REQUIRED"),
     notionCreatorSync: notionCreatorSync(env),
+    affiliatePerformanceRead: affiliatePerformanceRead(env),
     production,
   };
 }
