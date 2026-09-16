@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@gmvgang/platform-api": "workspace:*",
-    "@supabase/ssr": "^0.10.0",
+    "@supabase/ssr": "0.12.0",
     "@supabase/supabase-js": "2.116.0",
     "cookie": "^1.0.2",
     "tsx": "^4.20.6"
