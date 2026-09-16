@@ -2,6 +2,7 @@ import "./styles.css";
 import "./module-navigation.css";
 
 import type { PlatformWorkspaceAccess } from "@gmvgang/platform-foundation";
+import { renderLogin, signOut, wireLogin } from "./auth-client.js";
 import { createBrandOverviewPort, loadBrandOverview, renderBrandOverview } from "./brand-workspace.js";
 import { HttpCreatorRegistrationAdapter, renderCreatorJoin, wireCreatorJoin } from "./creator-join.js";
 import {
@@ -81,6 +82,9 @@ function navigation(): string {
   const currentWorkspace = currentOrganizationId
     ? workspaces.find((workspace) => workspace.organizationId === currentOrganizationId)
     : undefined;
+  const primaryRoutes = PRIMARY_PORTAL_ROUTES.filter(
+    (route) => route.path !== "/login" || session.status !== "authenticated",
+  );
 
   return `
     <header class="topbar">
@@ -90,7 +94,7 @@ function navigation(): string {
         <small>PLATFORM</small>
       </a>
       <nav class="nav" aria-label="Portal Navigation">
-        ${PRIMARY_PORTAL_ROUTES.map((route) => {
+        ${primaryRoutes.map((route) => {
           const accessible = canAccessArea(session, route.area);
           const active = route.area === "public"
             ? currentRoute.path === route.path
@@ -104,8 +108,9 @@ function navigation(): string {
           <span class="session-dot ${session.status === "authenticated" ? "is-authenticated" : ""}"></span>
           ${session.status === "authenticated"
             ? `${currentWorkspace ? escapeHtml(currentWorkspace.name) : "authenticated"} · ${session.roles.join(", ") || "workspace required"}`
-            : `Auth ausstehend · Default ${defaultArea}`}
+            : `Nicht eingeloggt · Default ${defaultArea}`}
         </div>
+        ${session.status === "authenticated" ? '<button id="sign-out" class="session-action" type="button">Abmelden</button>' : ""}
       </div>
     </header>`;
 }
@@ -119,17 +124,17 @@ function publicView(): string {
           <h1>Ein System.<br><span>Getrennte Zugänge.</span></h1>
           <p>Die gemeinsame Portal-Schicht für Creator, Brands und das interne GMVGANG-Team. Business-Logik bleibt zentral, Rollen und Tenant-Grenzen sind explizit.</p>
           <div class="hero__badges">
-            ${statusPill("Domain Foundation · live on main")}
-            ${statusPill("Server Session Boundary · ready")}
-            ${statusPill("Creator Registration Core · ready")}
-            ${statusPill("Provider + Persistence · next", "next")}
+            ${statusPill("Domain Foundation · ready")}
+            ${statusPill("Supabase Persistence · ready")}
+            ${statusPill("Cookie Auth Runtime · ready")}
+            ${statusPill("Production Deployment · next", "next")}
           </div>
         </div>
         <aside class="architecture-card">
           <div class="architecture-card__label">CURRENT ARCHITECTURE</div>
           <div class="stack-item"><strong>Creator Portal</strong><span>Registration · Profile · Referrals · Matches</span></div>
           <div class="connector"></div>
-          <div class="stack-item stack-item--core"><strong>GMVGANG Core</strong><span>RBAC · Matching · Campaigns · Economics</span></div>
+          <div class="stack-item stack-item--core"><strong>GMVGANG Core</strong><span>Auth · RBAC · Matching · Campaigns · Economics</span></div>
           <div class="connector"></div>
           <div class="stack-item"><strong>Brand + Team</strong><span>Profitability · Actions · Operations</span></div>
         </aside>
@@ -142,7 +147,7 @@ function publicView(): string {
       </section>
 
       <section class="foundation-strip">
-        <div><span>01</span><strong>Identity</strong><small>User · Organization · Membership</small></div>
+        <div><span>01</span><strong>Identity</strong><small>Supabase Auth · Cookie Session</small></div>
         <div><span>02</span><strong>RBAC</strong><small>Deny by default · scoped access</small></div>
         <div><span>03</span><strong>Growth</strong><small>Immutable Referral Attribution</small></div>
         <div><span>04</span><strong>Connections</strong><small>Seller / Creator API boundaries</small></div>
@@ -200,14 +205,15 @@ function modulePlaceholder(route: PortalRoute): string {
 async function protectedView(area: Exclude<PortalArea, "public">, route: PortalRoute): Promise<string> {
   const copy = areaCopy[area];
   if (!canAccessArea(session, area)) {
+    const loginTarget = `/login?next=${encodeURIComponent(route.path)}`;
     return `
       <main class="locked-view">
         <div class="locked-view__box">
           ${statusPill("PROTECTED AREA", "locked")}
           <div class="lock-icon">↗</div>
           <h1>${copy.title}</h1>
-          <p>Dieser Bereich ist rollenbasiert geschützt. Production akzeptiert nur serverseitig aufgelöste Sessions; ohne gültigen Provider-/Persistence-Adapter bleibt der Zugriff fail-closed.</p>
-          <a href="/" data-nav class="button">Zur Platform Übersicht</a>
+          <p>Dieser Bereich ist rollenbasiert geschützt. Melde dich mit deinem GMVGANG-Account an; Organization und Rollen werden anschließend ausschließlich serverseitig aus der verifizierten Session geladen.</p>
+          <a href="${loginTarget}" data-nav class="button">Einloggen</a>
         </div>
       </main>`;
   }
@@ -259,7 +265,7 @@ function wireNavigation(): void {
       event.preventDefault();
       const url = new URL(link.href);
       const workspaceId = selectedWorkspaceId();
-      if (workspaceId) url.searchParams.set("workspace", workspaceId);
+      if (workspaceId && url.pathname !== "/login") url.searchParams.set("workspace", workspaceId);
       window.history.pushState({}, "", `${url.pathname}${url.search}`);
       void render();
     });
@@ -278,6 +284,20 @@ function wireWorkspaceSelector(): void {
   });
 }
 
+function wireSignOut(): void {
+  const button = document.querySelector<HTMLButtonElement>("#sign-out");
+  button?.addEventListener("click", async () => {
+    button.disabled = true;
+    const result = await signOut();
+    if (!result.ok) {
+      button.disabled = false;
+      return;
+    }
+    window.history.pushState({}, "", "/");
+    await render();
+  });
+}
+
 async function render(): Promise<void> {
   const requestedWorkspaceId = selectedWorkspaceId();
   session = await createSessionPort(requestedWorkspaceId).getSession();
@@ -286,15 +306,19 @@ async function render(): Promise<void> {
   const route = resolvePortalRoute(window.location.pathname);
   const referralCode = new URLSearchParams(window.location.search).get("ref") ?? undefined;
   const privacyNoticeVersion = String(import.meta.env.VITE_CREATOR_PRIVACY_NOTICE_VERSION ?? "").trim();
-  const body = route.path === "/join"
-    ? renderCreatorJoin(session, { privacyNoticeVersion, ...(referralCode ? { referralCode } : {}) })
-    : route.area === "public"
-      ? publicView()
-      : await protectedView(route.area, route);
+  const body = route.path === "/login"
+    ? renderLogin(session.status === "authenticated")
+    : route.path === "/join"
+      ? renderCreatorJoin(session, { privacyNoticeVersion, ...(referralCode ? { referralCode } : {}) })
+      : route.area === "public"
+        ? publicView()
+        : await protectedView(route.area, route);
 
   app.innerHTML = `${navigation()}${body}<footer><span>GMVGANG PLATFORM</span><span>Notion remains operational SSOT · Platform code on GitHub</span></footer>`;
   wireNavigation();
   wireWorkspaceSelector();
+  wireSignOut();
+  if (route.path === "/login") wireLogin();
   if (route.path === "/join") wireCreatorJoin(new HttpCreatorRegistrationAdapter());
 }
 
