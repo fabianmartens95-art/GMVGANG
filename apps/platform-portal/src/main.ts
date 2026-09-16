@@ -1,9 +1,18 @@
 import "./styles.css";
+import "./module-navigation.css";
 
 import type { PlatformWorkspaceAccess } from "@gmvgang/platform-foundation";
 import { createBrandOverviewPort, loadBrandOverview, renderBrandOverview } from "./brand-workspace.js";
 import { HttpCreatorRegistrationAdapter, renderCreatorJoin, wireCreatorJoin } from "./creator-join.js";
-import { canAccessArea, defaultAreaForSession, PORTAL_ROUTES, resolvePortalRoute, type PortalArea } from "./routing.js";
+import {
+  canAccessArea,
+  defaultAreaForSession,
+  moduleRoutesForArea,
+  PRIMARY_PORTAL_ROUTES,
+  resolvePortalRoute,
+  type PortalArea,
+  type PortalRoute,
+} from "./routing.js";
 import { createSessionPort, type PortalSession } from "./session.js";
 import { createWorkspacePort } from "./workspaces.js";
 
@@ -12,24 +21,21 @@ const app = document.querySelector<HTMLDivElement>("#app") ?? (() => { throw new
 let session: PortalSession = { status: "anonymous", roles: [] };
 let workspaces: readonly PlatformWorkspaceAccess[] = [];
 
-const areaCopy: Record<Exclude<PortalArea, "public">, { eyebrow: string; title: string; description: string; modules: string[] }> = {
+const areaCopy: Record<Exclude<PortalArea, "public">, { eyebrow: string; title: string; description: string }> = {
   creator: {
     eyebrow: "Creator Network",
     title: "Creator Portal",
     description: "Profil, Netzwerkstatus, Referral-Wachstum und spätere Campaign-Aktivierung in einer Oberfläche.",
-    modules: ["Profil & Completion", "Network Status", "Referral Hub", "Matches", "Samples & Briefings", "Performance"],
   },
   brand: {
     eyebrow: "Brand Growth",
     title: "Brand Portal",
     description: "Profitability, priorisierte Maßnahmen, Campaigns, Creator Intelligence und Freigaben ohne interne Company-OS-Strukturen.",
-    modules: ["TikTok Shop Connections", "Campaigns", "Creator Shortlists", "Approvals", "Economics & Guardrails", "Reporting"],
   },
   team: {
     eyebrow: "Internal Operations",
     title: "Team Workspace",
     description: "Rollenbasierte Arbeitsbereiche für Founder, Creator Manager, Brand Manager und Closer.",
-    modules: ["Creator Operations", "Brand Operations", "Campaign Control", "Approval Center", "Risk & Stale Alerts", "Activity Trail"],
   },
 };
 
@@ -84,9 +90,11 @@ function navigation(): string {
         <small>PLATFORM</small>
       </a>
       <nav class="nav" aria-label="Portal Navigation">
-        ${PORTAL_ROUTES.map((route) => {
+        ${PRIMARY_PORTAL_ROUTES.map((route) => {
           const accessible = canAccessArea(session, route.area);
-          const active = currentRoute.path === route.path;
+          const active = route.area === "public"
+            ? currentRoute.path === route.path
+            : currentRoute.area === route.area;
           return `<a href="${route.path}" data-nav class="nav__link${active ? " is-active" : ""}${accessible ? "" : " is-locked"}" aria-disabled="${accessible ? "false" : "true"}">${route.label}</a>`;
         }).join("")}
       </nav>
@@ -153,7 +161,43 @@ function portalEntry(area: Exclude<PortalArea, "public">, label: string, text: s
     </article>`;
 }
 
-async function protectedView(area: Exclude<PortalArea, "public">): Promise<string> {
+function moduleNavigation(area: Exclude<PortalArea, "public">, currentRoute: PortalRoute): string {
+  const copy = areaCopy[area];
+  const routes = moduleRoutesForArea(area);
+  return `
+    <nav class="module-nav" aria-label="${escapeHtml(copy.title)} Module">
+      <a href="/${area}" data-nav class="module-nav__link${currentRoute.moduleId === "overview" ? " is-active" : ""}">Übersicht</a>
+      ${routes.map((route) => `
+        <a href="${route.path}" data-nav class="module-nav__link${currentRoute.path === route.path ? " is-active" : ""}">${escapeHtml(route.label)}</a>
+      `).join("")}
+    </nav>`;
+}
+
+function moduleOverview(area: Exclude<PortalArea, "public">): string {
+  return `
+    <section class="module-grid">
+      ${moduleRoutesForArea(area).map((route, index) => `
+        <a href="${route.path}" data-nav class="module-card module-card--link">
+          <span class="module-card__number">${String(index + 1).padStart(2, "0")}</span>
+          <h2>${escapeHtml(route.label)}</h2>
+          <p>Eigener Portalpfad ist vorbereitet und nutzt dieselbe rollen- und tenant-geschützte Platform Shell.</p>
+          ${statusPill(index < 3 ? "FOUNDATION" : "NEXT", index < 3 ? "ready" : "next")}
+        </a>
+      `).join("")}
+    </section>`;
+}
+
+function modulePlaceholder(route: PortalRoute): string {
+  return `
+    <section class="module-detail">
+      <div class="eyebrow">MODULE ROUTE</div>
+      <h2>${escapeHtml(route.label)}</h2>
+      <p>Dieser Bereich hat jetzt einen stabilen, geschützten Portalpfad. Die Fachlogik wird in diesem Modul weiter ausgebaut, ohne eine separate App oder zweite Datenhaltung anzulegen.</p>
+      ${statusPill("ROUTE READY")}
+    </section>`;
+}
+
+async function protectedView(area: Exclude<PortalArea, "public">, route: PortalRoute): Promise<string> {
   const copy = areaCopy[area];
   if (!canAccessArea(session, area)) {
     return `
@@ -168,18 +212,28 @@ async function protectedView(area: Exclude<PortalArea, "public">): Promise<strin
       </main>`;
   }
 
-  if (area === "brand" && session.status === "authenticated" && session.organizationId) {
+  const heading = route.navigation === "module" ? route.label : copy.title;
+  const intro = `
+    <section class="workspace__intro">
+      <div>
+        <div class="eyebrow">${copy.eyebrow}</div>
+        <h1>${escapeHtml(heading)}</h1>
+        <p>${copy.description}</p>
+      </div>
+      ${statusPill(area === "brand" ? "TENANT BOUND" : "ROLE BOUNDARY ACTIVE")}
+    </section>
+    ${moduleNavigation(area, route)}`;
+
+  if (
+    area === "brand" &&
+    session.status === "authenticated" &&
+    session.organizationId &&
+    ["overview", "profitability", "actions"].includes(route.moduleId ?? "")
+  ) {
     const overview = await loadBrandOverview(session.organizationId, createBrandOverviewPort(session.organizationId));
     return `
       <main class="workspace">
-        <section class="workspace__intro">
-          <div>
-            <div class="eyebrow">${copy.eyebrow}</div>
-            <h1>${copy.title}</h1>
-            <p>${copy.description}</p>
-          </div>
-          ${statusPill("TENANT BOUND")}
-        </section>
+        ${intro}
         ${renderBrandOverview(overview)}
         <section class="boundary-note">
           <strong>Tenant boundary</strong>
@@ -190,26 +244,11 @@ async function protectedView(area: Exclude<PortalArea, "public">): Promise<strin
 
   return `
     <main class="workspace">
-      <section class="workspace__intro">
-        <div>
-          <div class="eyebrow">${copy.eyebrow}</div>
-          <h1>${copy.title}</h1>
-          <p>${copy.description}</p>
-        </div>
-        ${statusPill("ROLE BOUNDARY ACTIVE")}
-      </section>
-      <section class="module-grid">
-        ${copy.modules.map((module, index) => `
-          <article class="module-card">
-            <span class="module-card__number">0${index + 1}</span>
-            <h2>${module}</h2>
-            <p>${index < 3 ? "Foundation contract ready." : "Scheduled for portal MVP."}</p>
-            ${statusPill(index < 3 ? "FOUNDATION" : "NEXT", index < 3 ? "ready" : "next")}
-          </article>`).join("")}
-      </section>
+      ${intro}
+      ${route.moduleId === "overview" ? moduleOverview(area) : modulePlaceholder(route)}
       <section class="boundary-note">
         <strong>Security boundary</strong>
-        <span>UI access is derived from the shared Platform Foundation roles. Production sessions come from the same-origin server boundary.</span>
+        <span>Jeder Modulpfad erbt dieselbe Role- und Tenant-Grenze der gemeinsamen Platform Shell; URL-Pfade selbst verleihen keine Berechtigung.</span>
       </section>
     </main>`;
 }
@@ -251,7 +290,7 @@ async function render(): Promise<void> {
     ? renderCreatorJoin(session, { privacyNoticeVersion, ...(referralCode ? { referralCode } : {}) })
     : route.area === "public"
       ? publicView()
-      : await protectedView(route.area);
+      : await protectedView(route.area, route);
 
   app.innerHTML = `${navigation()}${body}<footer><span>GMVGANG PLATFORM</span><span>Notion remains operational SSOT · Platform code on GitHub</span></footer>`;
   wireNavigation();
