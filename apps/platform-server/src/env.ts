@@ -14,6 +14,10 @@ export type PlatformServerConfig = {
     token: string;
     dataSourceId: string;
   } | null;
+  notionCreatorWorkspace: {
+    token: string;
+    assignmentDataSourceId: string;
+  } | null;
   affiliatePerformanceRead: BrandAffiliatePerformancePolicy | null;
   production: boolean;
 };
@@ -53,6 +57,14 @@ function notionCreatorSync(env: NodeJS.ProcessEnv): PlatformServerConfig["notion
   if (!token && !dataSourceId) return null;
   if (!token || !dataSourceId) throw new Error("NOTION_CREATOR_SYNC_CONFIG_INCOMPLETE");
   return { token, dataSourceId };
+}
+
+function notionCreatorWorkspace(env: NodeJS.ProcessEnv): PlatformServerConfig["notionCreatorWorkspace"] {
+  const assignmentDataSourceId = env.NOTION_ASSIGNMENT_DATA_SOURCE_ID?.trim() ?? "";
+  if (!assignmentDataSourceId) return null;
+  const token = env.NOTION_TOKEN?.trim() ?? "";
+  if (!token) throw new Error("NOTION_CREATOR_WORKSPACE_CONFIG_INCOMPLETE");
+  return { token, assignmentDataSourceId };
 }
 
 function explicitFeatureFlag(value: string | undefined): boolean {
@@ -145,6 +157,7 @@ export function loadPlatformServerConfig(env: NodeJS.ProcessEnv = process.env): 
     supabaseServiceRoleKey: required(env.SUPABASE_SERVICE_ROLE_KEY, "SUPABASE_SERVICE_ROLE_KEY_REQUIRED"),
     privacyNoticeVersion: required(env.CREATOR_PRIVACY_NOTICE_VERSION, "CREATOR_PRIVACY_NOTICE_VERSION_REQUIRED"),
     notionCreatorSync: notionCreatorSync(env),
+    notionCreatorWorkspace: notionCreatorWorkspace(env),
     affiliatePerformanceRead: affiliatePerformanceRead(env),
     production,
   };
