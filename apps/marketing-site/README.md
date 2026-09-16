@@ -13,7 +13,8 @@ Production flow is intentionally gated:
 ## Cloudflare Pages settings
 
 - Repository: `fabianmartens95-art/GMVGANG`
-- Production branch: `main`
+- Production branch after migration cutover: `main`
+- Temporary migration branch on Cloudflare: `website/marketing-site-migration`
 - Build command: `pnpm --filter @gmvgang/marketing-site build`
 - Build output directory: `apps/marketing-site/dist`
 - Root directory: repository root
@@ -21,7 +22,7 @@ Production flow is intentionally gated:
 - Production domains after cutover: `gmvgang.de` and `www.gmvgang.de`
 - Reserved separately for the product portal: `app.gmvgang.de`
 
-## Migration gates before domain cutover
+## Safety gates
 
 1. Visual parity / intentional improvements for all public pages.
 2. Mobile and keyboard QA.
@@ -32,6 +33,26 @@ Production flow is intentionally gated:
 7. Cloudflare preview accepted.
 8. Founder approval for merge to `main` and DNS cutover.
 
-## Current migration state
+Additional hardening:
 
-The initial static architecture and page shell are implemented on the migration branch. The Potenzialanalyse and legal pages deliberately remain gated and must not be treated as production-ready until the corresponding QA steps pass.
+- All pages remain `noindex,nofollow` during the migration preview.
+- Real Potential Check submissions are allowlisted to `gmvgang.de` and `www.gmvgang.de`. `*.pages.dev`, localhost, mirrors and other hosts cannot submit to the production Make webhook through the site UI.
+- The public form writes only to the append-only Website Intake Log through the existing Make webhook. It does not directly update verified `Brands & Leads` records.
+- No analytics or advertising pixels are enabled in this migration.
+- `app.gmvgang.de` must not be modified by the marketing-site deployment.
+
+## Verified QA state · 2026-09-16
+
+- Controlled synthetic integration E2E passed: Make webhook → Website Intake Log → `saved:true`; `Brands & Leads` remained unchanged.
+- Live Cloudflare route smoke test passed for `/`, `/brands/`, `/creator/`, `/ueber-gmvgang/`, `/potenzialanalyse/`, `/analyse-erhalten/`, `/impressum/`, `/datenschutz/`, `robots.txt` and `sitemap.xml`.
+- Security headers are present on Cloudflare responses.
+- Mobile navigation supports Escape-to-close and returns focus to the menu control.
+- GitHub CI covers typecheck, tests and production build.
+
+## Remaining launch gates
+
+- final visual/browser QA on the current mobile and desktop preview
+- final indexability/sitemap decision; `/potenzialanalyse/` is currently excluded from indexing even after the global launch flag is enabled and should be reviewed before cutover
+- recheck legal copy against current business/entity/address status
+- Cloudflare preview final acceptance
+- Founder approval for merge and DNS cutover
