@@ -1,9 +1,11 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import {
+  accessibleWorkspacesForUser,
   resolvePlatformSession,
   type Membership,
   type Organization,
   type PlatformSession,
+  type PlatformSessionContext,
   type PlatformUser,
   type PlatformUserRole,
 } from "@gmvgang/platform-foundation";
@@ -139,10 +141,10 @@ async function fetchSessionRows(client: SupabaseClient, userId: string): Promise
   };
 }
 
-export async function resolveSupabasePlatformSession(
+export async function resolveSupabasePlatformSessionContext(
   client: SupabaseClient,
   input: SupabaseSessionInput,
-): Promise<PlatformSession> {
+): Promise<PlatformSessionContext> {
   const accessToken = required(input.accessToken, "SUPABASE_ACCESS_TOKEN_REQUIRED");
   const now = assertTimestamp(input.now, "SESSION_NOW_INVALID");
 
@@ -152,10 +154,10 @@ export async function resolveSupabasePlatformSession(
   ]);
 
   if (userResult.error || !userResult.data.user) {
-    return { status: "anonymous", roles: [] };
+    return { session: { status: "anonymous", roles: [] }, workspaces: [] };
   }
   if (claimsResult.error || !claimsResult.data?.claims) {
-    return { status: "anonymous", roles: [] };
+    return { session: { status: "anonymous", roles: [] }, workspaces: [] };
   }
 
   const user = userResult.data.user;
@@ -165,7 +167,7 @@ export async function resolveSupabasePlatformSession(
   }
 
   const rows = await fetchSessionRows(client, user.id);
-  return resolvePlatformSession({
+  const session = resolvePlatformSession({
     identity: {
       userId: user.id,
       emailVerified: emailVerified(user),
@@ -177,4 +179,16 @@ export async function resolveSupabasePlatformSession(
     ...(input.requestedOrganizationId?.trim() ? { requestedOrganizationId: input.requestedOrganizationId.trim() } : {}),
     now,
   });
+
+  return {
+    session,
+    workspaces: accessibleWorkspacesForUser(user.id, rows.memberships, rows.organizations),
+  };
+}
+
+export async function resolveSupabasePlatformSession(
+  client: SupabaseClient,
+  input: SupabaseSessionInput,
+): Promise<PlatformSession> {
+  return (await resolveSupabasePlatformSessionContext(client, input)).session;
 }
