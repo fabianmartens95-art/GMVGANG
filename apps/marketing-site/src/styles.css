@@ -21,6 +21,7 @@ body {
 }
 a { color: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
+button, input, select, textarea { font: inherit; }
 .shell { width: min(calc(100% - 40px), var(--shell)); margin: 0 auto; }
 .skip-link { position: absolute; left: -9999px; top: 0; }
 .skip-link:focus { left: 16px; top: 16px; z-index: 1000; background: #fff; padding: 10px 14px; border-radius: 8px; }
@@ -46,8 +47,10 @@ p { margin: 0 0 18px; }
 .microcopy { margin-top: 10px; opacity: .72; font-size: 12px; letter-spacing: .02em; }
 
 .action-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
-.button { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 20px; border-radius: 999px; font-size: 14px; font-weight: 800; text-decoration: none; border: 1px solid var(--ink); transition: transform .15s ease, background .15s ease, color .15s ease; }
+.button { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 20px; border-radius: 999px; font-size: 14px; font-weight: 800; text-decoration: none; border: 1px solid var(--ink); transition: transform .15s ease, background .15s ease, color .15s ease; cursor: pointer; }
 .button:hover { transform: translateY(-1px); }
+.button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .menu-button:focus-visible, a:focus-visible { outline: 3px solid rgba(17,17,17,.28); outline-offset: 3px; }
+.button:disabled { opacity: .58; cursor: wait; transform: none; }
 .button-primary { background: var(--ink); color: #fff; }
 .button-secondary { background: transparent; color: var(--ink); }
 
@@ -62,6 +65,40 @@ p { margin: 0 0 18px; }
 .score-panel strong { font-size: 52px; line-height: 1; letter-spacing: -.06em; }
 .score-panel p { grid-column: 1 / -1; margin: 10px 0 0; color: var(--muted); }
 
+.potential-intro .method-grid .card-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.potential-intro .card { min-height: 160px; }
+.form-note { max-width: 780px; color: var(--muted) !important; font-size: 14px !important; }
+.potential-form-section { max-width: 860px; }
+.form-progress { display: grid; gap: 10px; max-width: 760px; margin: 30px 0; font-size: 14px; font-weight: 750; }
+.progress-track { height: 8px; border-radius: 999px; overflow: hidden; background: #dfdbd2; }
+.progress-track span { display: block; width: 25%; height: 100%; border-radius: inherit; background: var(--ink); transition: width .2s ease; }
+.potential-form { max-width: 760px; }
+.pc-step { display: none; }
+.pc-step.pc-step-active { display: block; }
+.pc-step h3 { margin-top: 4px; font-size: clamp(30px, 4vw, 44px); line-height: 1.05; letter-spacing: -.04em; }
+.pc-step > p:not(.step-label):not(.field-help):not(.form-note) { max-width: 680px; color: #3b3b3b; }
+.step-label { margin: 0 0 10px; text-transform: uppercase; letter-spacing: .12em; font-size: 12px; font-weight: 850; }
+.field { display: grid; gap: 8px; margin: 22px 0; }
+.field > span { font-size: 14px; font-weight: 800; }
+.field input, .field select, .field textarea { width: 100%; min-height: 52px; border: 1px solid #aaa59c; border-radius: 12px; background: var(--paper); color: var(--ink); padding: 12px 14px; }
+.field textarea { min-height: 120px; resize: vertical; }
+.field-help { margin: -10px 0 20px; max-width: 720px; color: var(--muted); font-size: 13px; }
+.form-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+.form-message { max-width: 760px; margin: 24px 0; padding: 16px 18px; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); }
+.form-error { border-color: #9f4242; }
+.form-success { border-color: #376b49; }
+.form-score { margin: 24px 0 28px; }
+.result-copy { max-width: 700px; font-size: 18px; }
+.result-list { display: grid; gap: 10px; margin: 0 0 36px; }
+.result-list p { margin: 0; padding: 14px 16px; border-left: 3px solid var(--ink); background: rgba(255,255,255,.58); }
+
+.legal-copy { max-width: 860px; }
+.legal-copy h2 { margin-top: 44px; font-size: clamp(24px, 2.7vw, 32px); line-height: 1.15; letter-spacing: -.03em; }
+.legal-copy h2:first-child { margin-top: 0; }
+.legal-copy p { max-width: 800px; font-size: 17px; color: #333; }
+.legal-copy a { text-underline-offset: 3px; }
+.legal-note { margin-top: 44px !important; font-size: 13px !important; color: var(--muted) !important; }
+
 .site-footer { margin-top: 60px; padding: 56px 0; background: var(--dark); color: white; }
 .footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 32px; }
 .footer-grid p { color: var(--dark-muted); }
@@ -73,6 +110,7 @@ p { margin: 0 0 18px; }
   .hero-grid { grid-template-columns: 1fr; gap: 32px; }
   .hero-panel { min-height: auto; grid-template-columns: repeat(7, auto); justify-content: start; align-items: center; overflow-x: auto; font-size: 18px; }
   .card-grid { grid-template-columns: 1fr 1fr; }
+  .potential-intro .method-grid .card-grid { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 720px) {
@@ -93,13 +131,18 @@ p { margin: 0 0 18px; }
   .hero-panel { display: flex; justify-content: space-between; min-height: 0; padding: 16px 18px; gap: 8px; overflow: visible; font-size: 16px; border-radius: 18px; }
   .section { padding: 48px 0; }
   .section-dark { margin: 8px 0 48px; padding: 28px 22px; border-radius: 20px; }
-  .card-grid { grid-template-columns: 1fr; gap: 14px; margin-top: 26px; }
+  .card-grid, .potential-intro .method-grid .card-grid { grid-template-columns: 1fr; gap: 14px; margin-top: 26px; }
   .card { min-height: 0; padding: 22px; }
   .card p { font-size: 16px; line-height: 1.5; }
   .action-row { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 24px; }
   .button { width: 100%; min-height: 48px; }
   .score-panel { width: 100%; }
   .score-panel strong { font-size: 44px; }
+  .form-actions { display: grid; grid-template-columns: 1fr; }
+  .field { margin: 18px 0; }
+  .field input, .field select, .field textarea { font-size: 16px; }
+  .legal-copy h2 { margin-top: 36px; font-size: 25px; }
+  .legal-copy p { font-size: 16px; }
   .site-footer { margin-top: 40px; padding: 44px 0; }
   .footer-grid { grid-template-columns: 1fr; gap: 26px; }
 }
