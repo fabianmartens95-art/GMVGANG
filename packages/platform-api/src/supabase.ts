@@ -69,6 +69,9 @@ export function createSupabasePlatformApiServices(
       if (brandOverview) return brandOverview.getOverview(input);
       return unavailableBrandPortalReadModel(input.organizationId, input.now);
     },
+    async getCreatorProfile(input) {
+      return registrationPorts.profiles.findByUserId(input.userId);
+    },
     async registerCreator(input, context) {
       const result = await registerCreator(input, context, registrationPorts);
       if (!result.ok) return result;
