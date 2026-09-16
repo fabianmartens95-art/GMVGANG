@@ -234,7 +234,15 @@ async function handleCreatorRegistration(request: Request, dependencies: Platfor
 }
 
 async function handleCreatorProfile(request: Request, dependencies: PlatformApiDependencies): Promise<Response> {
-  if (request.method !== "POST") return methodNotAllowed(["POST"]);
+  if (request.method === "GET") {
+    const trustedContext = await authenticatedCreatorContext(request, dependencies);
+    if (!trustedContext) return jsonResponse({ ok: false, errors: ["authentication_required"] }, 401);
+    const profile = await dependencies.services.getCreatorProfile(trustedContext);
+    if (!profile) return jsonResponse({ ok: false, errors: ["creator_profile_not_found"] }, 404);
+    return jsonResponse({ ok: true, creatorProfile: publicCreatorProfile(profile) });
+  }
+
+  if (request.method !== "POST") return methodNotAllowed(["GET", "POST"]);
   if (!sameOriginMutation(request)) return jsonResponse({ ok: false, errors: ["same_origin_required"] }, 403);
   if (!request.headers.get("Content-Type")?.toLowerCase().includes("application/json")) {
     return jsonResponse({ ok: false, errors: ["json_required"] }, 415);

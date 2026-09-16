@@ -1,10 +1,12 @@
 import "./styles.css";
 import "./module-navigation.css";
+import "./creator-profile.css";
 
 import type { PlatformWorkspaceAccess } from "@gmvgang/platform-foundation";
 import { renderLogin, signOut, wireLogin } from "./auth-client.js";
 import { createBrandOverviewPort, loadBrandOverview, renderBrandOverview } from "./brand-workspace.js";
 import { HttpCreatorRegistrationAdapter, renderCreatorJoin, wireCreatorJoin } from "./creator-join.js";
+import { HttpCreatorProfileAdapter, renderCreatorProfile, wireCreatorProfile } from "./creator-profile.js";
 import {
   canAccessArea,
   defaultAreaForSession,
@@ -248,6 +250,15 @@ async function protectedView(area: Exclude<PortalArea, "public">, route: PortalR
       </main>`;
   }
 
+  if (area === "creator" && route.moduleId === "profile") {
+    const creatorProfile = await new HttpCreatorProfileAdapter().getProfile();
+    return `
+      <main class="workspace">
+        ${intro}
+        ${renderCreatorProfile(creatorProfile)}
+      </main>`;
+  }
+
   return `
     <main class="workspace">
       ${intro}
@@ -320,6 +331,7 @@ async function render(): Promise<void> {
   wireSignOut();
   if (route.path === "/login") wireLogin();
   if (route.path === "/join") wireCreatorJoin(new HttpCreatorRegistrationAdapter());
+  if (route.path === "/creator/profile") wireCreatorProfile(new HttpCreatorProfileAdapter());
 }
 
 window.addEventListener("popstate", () => void render());

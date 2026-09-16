@@ -48,6 +48,10 @@ export interface PlatformApiServices {
     userId: string;
     now: string;
   }): Promise<BrandPortalReadModel>;
+  getCreatorProfile(input: {
+    userId: string;
+    now: string;
+  }): Promise<CreatorProfile | null>;
   registerCreator(
     input: PublicCreatorRegistrationInput,
     context: TrustedCreatorRegistrationContext,
