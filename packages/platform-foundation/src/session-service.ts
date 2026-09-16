@@ -22,6 +22,10 @@ function uniqueOrganizationIds(memberships: readonly Membership[]): string[] {
   return [...new Set(memberships.map((membership) => membership.organizationId))];
 }
 
+function requestedOrganization(input: LoadPlatformSessionInput): { requestedOrganizationId: string } | Record<string, never> {
+  return input.requestedOrganizationId ? { requestedOrganizationId: input.requestedOrganizationId } : {};
+}
+
 export async function loadPlatformSession(input: LoadPlatformSessionInput): Promise<PlatformSession> {
   const verifiedIdentity = await input.identity.verifyIdentity();
   if (!verifiedIdentity) {
@@ -35,7 +39,7 @@ export async function loadPlatformSession(input: LoadPlatformSessionInput): Prom
       user: null,
       memberships: [],
       organizations: [],
-      requestedOrganizationId: input.requestedOrganizationId,
+      ...requestedOrganization(input),
       now: input.now,
     });
   }
@@ -51,7 +55,7 @@ export async function loadPlatformSession(input: LoadPlatformSessionInput): Prom
     user,
     memberships,
     organizations,
-    requestedOrganizationId: input.requestedOrganizationId,
+    ...requestedOrganization(input),
     now: input.now,
   });
 }
