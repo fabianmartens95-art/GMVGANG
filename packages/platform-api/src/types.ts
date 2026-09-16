@@ -72,7 +72,7 @@ export interface PlatformApiServices {
     userId: string;
     now: string;
   }): Promise<CreatorProfile | null>;
-  getCreatorReferralHub(input: {
+  getCreatorReferralHub?(input: {
     userId: string;
     now: string;
   }): Promise<CreatorReferralHubReadModel | null>;
