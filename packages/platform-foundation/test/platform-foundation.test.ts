@@ -30,6 +30,14 @@ describe("platform foundation", () => {
     expect(roleHasCapability("brand_member", "platform.manage")).toBe(false);
   });
 
+  it("allows founder and admin to enter both customer portal surfaces", () => {
+    for (const role of ["founder", "admin"] as const) {
+      expect(roleHasCapability(role, "creator.portal.access")).toBe(true);
+      expect(roleHasCapability(role, "brand.portal.access")).toBe(true);
+      expect(roleHasCapability(role, "team.workspace.read")).toBe(true);
+    }
+  });
+
   it("calculates profile completion from required profile groups", () => {
     expect(
       creatorProfileCompletionPercent({
