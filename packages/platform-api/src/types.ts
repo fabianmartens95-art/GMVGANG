@@ -14,6 +14,16 @@ export interface PlatformApiClock {
   now(): string;
 }
 
+export type PlatformRateLimitAction = "creator_registration" | "creator_profile_completion";
+
+export interface PlatformRateLimitPort {
+  consume(input: {
+    action: PlatformRateLimitAction;
+    subject: string;
+    now: string;
+  }): boolean | Promise<boolean>;
+}
+
 export interface PlatformApiServices {
   resolveSessionContext(input: {
     accessToken: string;
@@ -35,4 +45,5 @@ export type PlatformApiDependencies = {
   services: PlatformApiServices;
   clock: PlatformApiClock;
   privacyNoticeVersion: string;
+  rateLimits?: PlatformRateLimitPort;
 };
