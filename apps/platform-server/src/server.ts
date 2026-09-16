@@ -11,6 +11,11 @@ import {
   type ResponseMutations,
 } from "./auth.js";
 import { loadPlatformServerConfig, type PlatformServerConfig } from "./env.js";
+import {
+  createFixedWindowRateLimiter,
+  createPlatformMutationRateLimitPort,
+  type FixedWindowRateLimiter,
+} from "./rate-limit.js";
 
 const MAX_REQUEST_BYTES = 1024 * 1024;
 const MIME: Record<string, string> = {
@@ -29,12 +34,13 @@ const MIME: Record<string, string> = {
   ".woff2": "font/woff2",
 };
 
-function json(payload: unknown, status = 200): Response {
+function json(payload: unknown, status = 200, headers?: HeadersInit): Response {
   return new Response(JSON.stringify(payload), {
     status,
     headers: {
       "Cache-Control": "no-store",
       "Content-Type": "application/json; charset=utf-8",
+      ...headers,
     },
   });
 }
@@ -81,6 +87,7 @@ async function authResponse(
   request: Request,
   client: ReturnType<typeof createRequestSupabaseClient>,
   config: PlatformServerConfig,
+  signInRateLimit: FixedWindowRateLimiter,
 ): Promise<Response | null> {
   const url = new URL(request.url);
 
@@ -102,12 +109,17 @@ async function authResponse(
       : null;
     if (!record || !validEmail(record.email)) return json({ ok: false, error: "invalid_email" }, 400);
 
+    const email = record.email.trim().toLowerCase();
+    if (!signInRateLimit.consume(email)) {
+      return json({ ok: false, error: "rate_limited" }, 429, { "Retry-After": "900" });
+    }
+
     const next = safeNextPath(record.next);
     const redirectUrl = new URL("/auth/callback", config.publicOrigin);
     redirectUrl.searchParams.set("next", next);
 
     const { error } = await client.auth.signInWithOtp({
-      email: record.email.trim().toLowerCase(),
+      email,
       options: {
         emailRedirectTo: redirectUrl.toString(),
         shouldCreateUser: true,
@@ -250,6 +262,8 @@ export function createPlatformServer(config: PlatformServerConfig) {
     url: config.supabaseUrl,
     serviceRoleKey: config.supabaseServiceRoleKey,
   });
+  const mutationRateLimits = createPlatformMutationRateLimitPort();
+  const signInRateLimit = createFixedWindowRateLimiter({ limit: 5, windowMs: 15 * 60 * 1000 });
 
   return createServer(async (incoming, outgoing) => {
     try {
@@ -268,7 +282,7 @@ export function createPlatformServer(config: PlatformServerConfig) {
         production: config.production,
       });
 
-      const auth = await authResponse(request, authClient, config);
+      const auth = await authResponse(request, authClient, config, signInRateLimit);
       if (auth) {
         await writeNodeResponse(applyResponseMutations(auth, mutations), outgoing);
         return;
@@ -280,6 +294,7 @@ export function createPlatformServer(config: PlatformServerConfig) {
           services,
           clock: { now: () => new Date().toISOString() },
           privacyNoticeVersion: config.privacyNoticeVersion,
+          rateLimits: mutationRateLimits,
         });
         const response = await handler(request);
         await writeNodeResponse(applyResponseMutations(response, mutations), outgoing);
