@@ -1,4 +1,4 @@
-import type { PlatformApiRateLimitPort, PlatformRateLimitAction } from "@gmvgang/platform-api";
+import type { PlatformRateLimitAction, PlatformRateLimitPort } from "@gmvgang/platform-api";
 
 type FixedWindowEntry = {
   count: number;
@@ -43,7 +43,7 @@ const MUTATION_RULES: Record<PlatformRateLimitAction, FixedWindowOptions> = {
   creator_profile_completion: { limit: 20, windowMs: 10 * 60 * 1000 },
 };
 
-export function createPlatformMutationRateLimitPort(): PlatformApiRateLimitPort {
+export function createPlatformMutationRateLimitPort(): PlatformRateLimitPort {
   const limiters: Record<PlatformRateLimitAction, FixedWindowRateLimiter> = {
     creator_registration: createFixedWindowRateLimiter(MUTATION_RULES.creator_registration),
     creator_profile_completion: createFixedWindowRateLimiter(MUTATION_RULES.creator_profile_completion),
