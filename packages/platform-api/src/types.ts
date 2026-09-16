@@ -4,6 +4,7 @@ import type {
   PublicCreatorRegistrationInput,
   TrustedCreatorRegistrationContext,
 } from "@gmvgang/creator-registration";
+import type { BrandPortalReadModel } from "@gmvgang/brand-intelligence/portal";
 import type { CreatorProfile, PlatformSessionContext } from "@gmvgang/platform-foundation";
 
 export interface PlatformAccessTokenPort {
@@ -28,12 +29,25 @@ export interface CreatorOperationsSyncPort {
   syncCreatorProfile(profile: CreatorProfile): Promise<{ creatorMasterId?: string }>;
 }
 
+export interface BrandOverviewReadPort {
+  getOverview(input: {
+    organizationId: string;
+    userId: string;
+    now: string;
+  }): Promise<BrandPortalReadModel>;
+}
+
 export interface PlatformApiServices {
   resolveSessionContext(input: {
     accessToken: string;
     requestedOrganizationId?: string;
     now: string;
   }): Promise<PlatformSessionContext>;
+  getBrandOverview?(input: {
+    organizationId: string;
+    userId: string;
+    now: string;
+  }): Promise<BrandPortalReadModel>;
   registerCreator(
     input: PublicCreatorRegistrationInput,
     context: TrustedCreatorRegistrationContext,

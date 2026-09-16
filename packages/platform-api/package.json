@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@gmvgang/brand-intelligence": "workspace:*",
     "@gmvgang/creator-registration": "workspace:*",
     "@gmvgang/platform-foundation": "workspace:*",
     "@gmvgang/platform-supabase": "workspace:*"

@@ -1,4 +1,5 @@
 import { completeCreatorProfile, registerCreator } from "@gmvgang/creator-registration";
+import { unavailableBrandPortalReadModel } from "@gmvgang/brand-intelligence/portal";
 import type { CreatorProfile } from "@gmvgang/platform-foundation";
 import {
   createPlatformAdminClient,
@@ -7,10 +8,11 @@ import {
   resolveSupabasePlatformSessionContext,
   type PlatformSupabaseConfig,
 } from "@gmvgang/platform-supabase";
-import type { CreatorOperationsSyncPort, PlatformApiServices } from "./types.js";
+import type { BrandOverviewReadPort, CreatorOperationsSyncPort, PlatformApiServices } from "./types.js";
 
 export type SupabasePlatformApiOptions = {
   creatorOperationsSync?: CreatorOperationsSyncPort;
+  brandOverview?: BrandOverviewReadPort;
 };
 
 export function createSupabasePlatformApiServices(
@@ -48,6 +50,10 @@ export function createSupabasePlatformApiServices(
   return {
     resolveSessionContext(input) {
       return resolveSupabasePlatformSessionContext(client, input);
+    },
+    async getBrandOverview(input) {
+      if (options.brandOverview) return options.brandOverview.getOverview(input);
+      return unavailableBrandPortalReadModel(input.organizationId, input.now);
     },
     async registerCreator(input, context) {
       const result = await registerCreator(input, context, registrationPorts);

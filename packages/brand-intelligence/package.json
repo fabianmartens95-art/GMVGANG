@@ -4,12 +4,16 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./portal": "./src/portal.ts"
   },
   "types": "./src/index.ts",
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@gmvgang/affiliate-performance": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.6.3",

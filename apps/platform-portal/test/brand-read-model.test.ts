@@ -38,6 +38,8 @@ describe("buildBrandPortalReadModel", () => {
 
     expect(model.organizationId).toBe("brand-org-1");
     expect(model.profitability?.contribution).toBe(903.36);
+    expect(model.performance).toBeNull();
+    expect(model.dataStatus.affiliatePerformance).toBe("unavailable");
     expect(model.nextBestActions.map((action) => action.id)).toEqual([
       "inventory-below-minimum",
       "profitability-below-target",
@@ -46,7 +48,7 @@ describe("buildBrandPortalReadModel", () => {
     expect(model.readiness).toEqual({
       availableSections: 3,
       partialSections: 1,
-      unavailableSections: 1,
+      unavailableSections: 2,
     });
   });
 
@@ -68,6 +70,7 @@ describe("buildBrandPortalReadModel", () => {
     });
 
     expect(model.profitability).toBeNull();
+    expect(model.performance).toBeNull();
     expect(model.nextBestActions.map((action) => action.id)).toEqual([
       "creator-activations-stalled",
     ]);

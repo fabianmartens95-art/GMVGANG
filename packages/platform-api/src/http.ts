@@ -2,7 +2,7 @@ import type {
   CreatorProfileCompletionCommand,
   PublicCreatorRegistrationInput,
 } from "@gmvgang/creator-registration";
-import type { CreatorProfile } from "@gmvgang/platform-foundation";
+import { anyRoleHasCapability, type CreatorProfile } from "@gmvgang/platform-foundation";
 import type { PlatformApiDependencies, PlatformRateLimitAction } from "./types.js";
 
 const JSON_HEADERS = {
@@ -13,10 +13,7 @@ const JSON_HEADERS = {
 function jsonResponse(payload: unknown, status = 200, headers?: HeadersInit): Response {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: {
-      ...JSON_HEADERS,
-      ...headers,
-    },
+    headers: { ...JSON_HEADERS, ...headers },
   });
 }
 
@@ -39,13 +36,11 @@ function requestedOrganizationId(request: Request): string | undefined {
 function sameOriginMutation(request: Request): boolean {
   const origin = request.headers.get("Origin");
   if (!origin) return false;
-
   try {
     if (new URL(origin).origin !== new URL(request.url).origin) return false;
   } catch {
     return false;
   }
-
   const fetchSite = request.headers.get("Sec-Fetch-Site");
   return !fetchSite || fetchSite === "same-origin";
 }
@@ -70,9 +65,7 @@ function parseCreatorRegistrationInput(value: unknown): PublicCreatorRegistratio
     !optionalString(value.language) ||
     !optionalString(value.referralCode) ||
     (value.niche !== undefined && (!Array.isArray(value.niche) || !value.niche.every((item) => typeof item === "string")))
-  ) {
-    return null;
-  }
+  ) return null;
 
   const displayName = value.displayName?.trim();
   const market = value.market?.trim();
@@ -102,10 +95,7 @@ function parseCreatorProfileCompletionInput(value: unknown): CreatorProfileCompl
     typeof value.language !== "string" ||
     !Array.isArray(value.niche) ||
     !value.niche.every((item) => typeof item === "string")
-  ) {
-    return null;
-  }
-
+  ) return null;
   return {
     tiktokHandle: value.tiktokHandle,
     displayName: value.displayName,
@@ -146,11 +136,9 @@ async function accessToken(request: Request, dependencies: PlatformApiDependenci
 async function authenticatedCreatorContext(request: Request, dependencies: PlatformApiDependencies) {
   const token = await accessToken(request, dependencies);
   if (!token) return null;
-
   const now = dependencies.clock.now();
   const context = await dependencies.services.resolveSessionContext({ accessToken: token, now });
   if (context.session.status !== "authenticated") return null;
-
   return { userId: context.session.userId, now };
 }
 
@@ -168,7 +156,6 @@ async function handleSession(request: Request, dependencies: PlatformApiDependen
   if (request.method !== "GET") return methodNotAllowed(["GET"]);
   const token = await accessToken(request, dependencies);
   if (!token) return jsonResponse({ status: "anonymous", roles: [] });
-
   const organizationId = requestedOrganizationId(request);
   const context = await dependencies.services.resolveSessionContext({
     accessToken: token,
@@ -182,84 +169,86 @@ async function handleWorkspaces(request: Request, dependencies: PlatformApiDepen
   if (request.method !== "GET") return methodNotAllowed(["GET"]);
   const token = await accessToken(request, dependencies);
   if (!token) return jsonResponse([]);
+  const context = await dependencies.services.resolveSessionContext({ accessToken: token, now: dependencies.clock.now() });
+  return jsonResponse(context.session.status === "authenticated" ? context.workspaces : []);
+}
 
+async function handleBrandOverview(request: Request, dependencies: PlatformApiDependencies): Promise<Response> {
+  if (request.method !== "GET") return methodNotAllowed(["GET"]);
+  const token = await accessToken(request, dependencies);
+  if (!token) return jsonResponse({ error: "authentication_required" }, 401);
+
+  const selectedOrganizationId = requestedOrganizationId(request);
+  const now = dependencies.clock.now();
   const context = await dependencies.services.resolveSessionContext({
     accessToken: token,
-    now: dependencies.clock.now(),
+    ...(selectedOrganizationId ? { requestedOrganizationId: selectedOrganizationId } : {}),
+    now,
   });
-  return jsonResponse(context.session.status === "authenticated" ? context.workspaces : []);
+  if (context.session.status !== "authenticated") return jsonResponse({ error: "authentication_required" }, 401);
+
+  const organizationId = context.session.organizationId;
+  if (!organizationId) return jsonResponse({ error: "organization_required" }, 400);
+  const workspace = context.workspaces.find((candidate) => candidate.organizationId === organizationId);
+  if (!workspace || workspace.organizationType !== "brand") return jsonResponse({ error: "brand_access_denied" }, 403);
+  if (!anyRoleHasCapability(context.session.roles, "brand.portal.access")) {
+    return jsonResponse({ error: "brand_access_denied" }, 403);
+  }
+  if (!dependencies.services.getBrandOverview) {
+    return jsonResponse({ error: "brand_overview_unavailable" }, 503);
+  }
+
+  const model = await dependencies.services.getBrandOverview({
+    organizationId,
+    userId: context.session.userId,
+    now,
+  });
+  if (model.organizationId !== organizationId) throw new Error("BRAND_OVERVIEW_TENANT_MISMATCH");
+  return jsonResponse({ model, source: "production" });
 }
 
 async function handleCreatorRegistration(request: Request, dependencies: PlatformApiDependencies): Promise<Response> {
   if (request.method !== "POST") return methodNotAllowed(["POST"]);
-  if (!sameOriginMutation(request)) {
-    return jsonResponse({ ok: false, errors: ["same_origin_required"] }, 403);
-  }
+  if (!sameOriginMutation(request)) return jsonResponse({ ok: false, errors: ["same_origin_required"] }, 403);
   if (!request.headers.get("Content-Type")?.toLowerCase().includes("application/json")) {
     return jsonResponse({ ok: false, errors: ["json_required"] }, 415);
   }
-
   const configuredPrivacyVersion = dependencies.privacyNoticeVersion.trim();
-  if (!configuredPrivacyVersion) {
-    return jsonResponse({ ok: false, errors: ["registration_unavailable"] }, 503);
-  }
+  if (!configuredPrivacyVersion) return jsonResponse({ ok: false, errors: ["registration_unavailable"] }, 503);
 
   let payload: unknown;
-  try {
-    payload = await request.json();
-  } catch {
-    return jsonResponse({ ok: false, errors: ["invalid_json"] }, 400);
-  }
-
+  try { payload = await request.json(); } catch { return jsonResponse({ ok: false, errors: ["invalid_json"] }, 400); }
   const input = parseCreatorRegistrationInput(payload);
-  if (!input) {
-    return jsonResponse({ ok: false, errors: ["invalid_request"] }, 400);
-  }
+  if (!input) return jsonResponse({ ok: false, errors: ["invalid_request"] }, 400);
   if (input.privacyNoticeVersion.trim() !== configuredPrivacyVersion) {
     return jsonResponse({ ok: false, errors: ["privacy_notice_version_outdated"] }, 409);
   }
 
   const trustedContext = await authenticatedCreatorContext(request, dependencies);
-  if (!trustedContext) {
-    return jsonResponse({ ok: false, errors: ["authentication_required"] }, 401);
-  }
+  if (!trustedContext) return jsonResponse({ ok: false, errors: ["authentication_required"] }, 401);
   if (!await mutationAllowed(dependencies, "creator_registration", trustedContext.userId, trustedContext.now)) {
     return jsonResponse({ ok: false, errors: ["rate_limited"] }, 429, { "Retry-After": "600" });
   }
-
   const result = await dependencies.services.registerCreator(input, trustedContext);
   return jsonResponse(publicRegistrationResult(result), result.ok ? 200 : 400);
 }
 
 async function handleCreatorProfile(request: Request, dependencies: PlatformApiDependencies): Promise<Response> {
   if (request.method !== "POST") return methodNotAllowed(["POST"]);
-  if (!sameOriginMutation(request)) {
-    return jsonResponse({ ok: false, errors: ["same_origin_required"] }, 403);
-  }
+  if (!sameOriginMutation(request)) return jsonResponse({ ok: false, errors: ["same_origin_required"] }, 403);
   if (!request.headers.get("Content-Type")?.toLowerCase().includes("application/json")) {
     return jsonResponse({ ok: false, errors: ["json_required"] }, 415);
   }
-
   let payload: unknown;
-  try {
-    payload = await request.json();
-  } catch {
-    return jsonResponse({ ok: false, errors: ["invalid_json"] }, 400);
-  }
-
+  try { payload = await request.json(); } catch { return jsonResponse({ ok: false, errors: ["invalid_json"] }, 400); }
   const input = parseCreatorProfileCompletionInput(payload);
-  if (!input) {
-    return jsonResponse({ ok: false, errors: ["invalid_request"] }, 400);
-  }
+  if (!input) return jsonResponse({ ok: false, errors: ["invalid_request"] }, 400);
 
   const trustedContext = await authenticatedCreatorContext(request, dependencies);
-  if (!trustedContext) {
-    return jsonResponse({ ok: false, errors: ["authentication_required"] }, 401);
-  }
+  if (!trustedContext) return jsonResponse({ ok: false, errors: ["authentication_required"] }, 401);
   if (!await mutationAllowed(dependencies, "creator_profile_completion", trustedContext.userId, trustedContext.now)) {
     return jsonResponse({ ok: false, errors: ["rate_limited"] }, 429, { "Retry-After": "600" });
   }
-
   const profile = await dependencies.services.completeCreatorProfile(input, trustedContext);
   return jsonResponse({ ok: true, creatorProfile: publicCreatorProfile(profile) });
 }
@@ -267,33 +256,16 @@ async function handleCreatorProfile(request: Request, dependencies: PlatformApiD
 function publicError(error: unknown): Response {
   const code = error instanceof Error ? error.message.split(":", 1)[0] : "";
   if (
-    code === "SESSION_EMAIL_NOT_VERIFIED" ||
-    code === "SESSION_EXPIRED" ||
-    code === "ACCOUNT_ACCESS_DENIED" ||
-    code === "ORGANIZATION_ACCESS_DENIED" ||
-    code === "SUPABASE_IDENTITY_MISMATCH" ||
-    code === "PLATFORM_USER_NOT_PROVISIONED"
-  ) {
-    return jsonResponse({ error: "access_denied" }, 403);
-  }
-  if (code === "CREATOR_PROFILE_NOT_FOUND") {
-    return jsonResponse({ ok: false, errors: ["creator_profile_not_found"] }, 404);
-  }
-  if (code === "TIKTOK_HANDLE_ALREADY_REGISTERED") {
-    return jsonResponse({ ok: false, errors: ["tiktok_handle_already_registered"] }, 409);
-  }
+    code === "SESSION_EMAIL_NOT_VERIFIED" || code === "SESSION_EXPIRED" || code === "ACCOUNT_ACCESS_DENIED" ||
+    code === "ORGANIZATION_ACCESS_DENIED" || code === "SUPABASE_IDENTITY_MISMATCH" || code === "PLATFORM_USER_NOT_PROVISIONED"
+  ) return jsonResponse({ error: "access_denied" }, 403);
+  if (code === "CREATOR_PROFILE_NOT_FOUND") return jsonResponse({ ok: false, errors: ["creator_profile_not_found"] }, 404);
+  if (code === "TIKTOK_HANDLE_ALREADY_REGISTERED") return jsonResponse({ ok: false, errors: ["tiktok_handle_already_registered"] }, 409);
   if (
-    code === "INVALID_TIKTOK_HANDLE" ||
-    code === "DISPLAY_NAME_REQUIRED" ||
-    code === "MARKET_REQUIRED" ||
-    code === "LANGUAGE_REQUIRED" ||
-    code === "NICHE_REQUIRED"
-  ) {
-    return jsonResponse({ ok: false, errors: [code.toLowerCase()] }, 400);
-  }
-  if (code === "ORGANIZATION_SELECTOR_INVALID") {
-    return jsonResponse({ error: "invalid_organization_selector" }, 400);
-  }
+    code === "INVALID_TIKTOK_HANDLE" || code === "DISPLAY_NAME_REQUIRED" || code === "MARKET_REQUIRED" ||
+    code === "LANGUAGE_REQUIRED" || code === "NICHE_REQUIRED"
+  ) return jsonResponse({ ok: false, errors: [code.toLowerCase()] }, 400);
+  if (code === "ORGANIZATION_SELECTOR_INVALID") return jsonResponse({ error: "invalid_organization_selector" }, 400);
   return jsonResponse({ error: "internal_error" }, 500);
 }
 
@@ -303,6 +275,7 @@ export function createPlatformApiHandler(dependencies: PlatformApiDependencies):
       const pathname = new URL(request.url).pathname;
       if (pathname === "/api/session") return await handleSession(request, dependencies);
       if (pathname === "/api/workspaces") return await handleWorkspaces(request, dependencies);
+      if (pathname === "/api/brand/overview") return await handleBrandOverview(request, dependencies);
       if (pathname === "/api/creator/registration") return await handleCreatorRegistration(request, dependencies);
       if (pathname === "/api/creator/profile") return await handleCreatorProfile(request, dependencies);
       return jsonResponse({ error: "not_found" }, 404);
