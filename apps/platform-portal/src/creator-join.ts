@@ -113,8 +113,15 @@ export class HttpCreatorRegistrationAdapter implements CreatorRegistrationPort {
         headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      if (!response.ok) return { ok: false, errors: ["registration_unavailable"] };
-      return parseCreatorRegistrationResult(await response.json());
+      const payload = await response.json();
+      if (!response.ok) {
+        try {
+          return parseCreatorRegistrationResult(payload);
+        } catch {
+          return { ok: false, errors: ["registration_unavailable"] };
+        }
+      }
+      return parseCreatorRegistrationResult(payload);
     } catch {
       return { ok: false, errors: ["registration_unavailable"] };
     }
@@ -134,14 +141,18 @@ export function renderCreatorJoin(
   session: PortalSession,
   options: { privacyNoticeVersion: string; referralCode?: string },
 ): string {
+  const referralCode = options.referralCode?.trim().toUpperCase() ?? "";
   if (session.status !== "authenticated") {
+    const nextPath = referralCode ? `/join?ref=${encodeURIComponent(referralCode)}` : "/join";
+    const loginHref = `/login?next=${encodeURIComponent(nextPath)}`;
     return `
       <main class="join-page">
         <section class="join-shell join-shell--gate">
           <div class="eyebrow">CREATOR REGISTRATION</div>
           <h1>Creator Account erforderlich</h1>
-          <p>Die öffentliche Registrierung ist vorbereitet. Bevor Daten angenommen werden, muss eine serverseitig verifizierte Account-Session bestehen. Der konkrete Production-Auth-Adapter ist noch nicht angeschlossen.</p>
-          <div class="join-gate__status"><span></span>AUTH BOUNDARY READY · PROVIDER NEXT</div>
+          <p>Vor der Registrierung wird dein GMVGANG Account serverseitig verifiziert. Danach kannst du dein Creator-Profil anlegen; ein vorhandener Referral-Code bleibt beim Login erhalten.</p>
+          <a href="${escapeHtml(loginHref)}" data-nav class="button">Einloggen oder Account erstellen</a>
+          <div class="join-gate__status"><span></span>SECURE ACCOUNT GATE</div>
         </section>
       </main>`;
   }
@@ -157,7 +168,6 @@ export function renderCreatorJoin(
       </main>`;
   }
 
-  const referralCode = options.referralCode?.trim().toUpperCase() ?? "";
   return `
     <main class="join-page">
       <section class="join-shell">
@@ -203,6 +213,9 @@ function errorMessage(code: string): string {
     tiktok_handle_already_registered: "Dieser TikTok-Account ist bereits registriert.",
     creator_account_already_registered: "Für diesen Account besteht bereits ein Creator-Profil.",
     invalid_referral_code: "Der Referral-Code ist ungültig.",
+    authentication_required: "Deine Session ist abgelaufen. Bitte logge dich erneut ein.",
+    privacy_notice_version_stale: "Der Datenschutzhinweis wurde aktualisiert. Bitte lade die Seite neu.",
+    creator_portal_access_revoked: "Der Creator-Portal-Zugang ist für diesen Account deaktiviert.",
     registration_unavailable: "Die Registrierung ist aktuell noch nicht serverseitig verfügbar.",
   };
   return labels[code] ?? "Die Registrierung konnte nicht abgeschlossen werden.";
