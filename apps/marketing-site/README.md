@@ -41,4 +41,5 @@ Production flow is intentionally gated:
 - Controlled Make/Notion integration E2E passed separately with a synthetic record and no promotion into `Brands & Leads`.
 - Real form writes are allowlisted to `gmvgang.de` and `www.gmvgang.de` only.
 - `/potenzialanalyse/` is eligible for production indexing and is included in the sitemap scope; global indexing stays off until `SITE_INDEXABLE=true` is explicitly configured for launch.
-- Desktop visual QA and final legal/company-status verification remain open before merge/domain cutover.
+- Desktop visual QA remains open.
+- Legal launch verification remains open: immediately before cutover confirm the actual provider/company status, provider address, contact details and the final privacy information for the then-active processing stack.
