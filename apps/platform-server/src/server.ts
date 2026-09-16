@@ -291,7 +291,7 @@ export function createPlatformServer(config: PlatformServerConfig) {
     outgoing.once("finish", () => {
       console.log(JSON.stringify(requestLogEntry({
         requestId,
-        method: incoming.method,
+        method: incoming.method ?? "GET",
         path,
         status: outgoing.statusCode,
         durationMs: Date.now() - startedAt,
