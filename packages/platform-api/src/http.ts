@@ -3,7 +3,7 @@ import type {
   PublicCreatorRegistrationInput,
 } from "@gmvgang/creator-registration";
 import type { CreatorProfile } from "@gmvgang/platform-foundation";
-import type { PlatformApiDependencies } from "./types.js";
+import type { PlatformApiDependencies, PlatformRateLimitAction } from "./types.js";
 
 const JSON_HEADERS = {
   "Cache-Control": "no-store",
@@ -154,6 +154,16 @@ async function authenticatedCreatorContext(request: Request, dependencies: Platf
   return { userId: context.session.userId, now };
 }
 
+async function mutationAllowed(
+  dependencies: PlatformApiDependencies,
+  action: PlatformRateLimitAction,
+  subject: string,
+  now: string,
+): Promise<boolean> {
+  if (!dependencies.rateLimits) return true;
+  return dependencies.rateLimits.consume({ action, subject, now });
+}
+
 async function handleSession(request: Request, dependencies: PlatformApiDependencies): Promise<Response> {
   if (request.method !== "GET") return methodNotAllowed(["GET"]);
   const token = await accessToken(request, dependencies);
@@ -213,6 +223,9 @@ async function handleCreatorRegistration(request: Request, dependencies: Platfor
   if (!trustedContext) {
     return jsonResponse({ ok: false, errors: ["authentication_required"] }, 401);
   }
+  if (!await mutationAllowed(dependencies, "creator_registration", trustedContext.userId, trustedContext.now)) {
+    return jsonResponse({ ok: false, errors: ["rate_limited"] }, 429, { "Retry-After": "600" });
+  }
 
   const result = await dependencies.services.registerCreator(input, trustedContext);
   return jsonResponse(publicRegistrationResult(result), result.ok ? 200 : 400);
@@ -242,6 +255,9 @@ async function handleCreatorProfile(request: Request, dependencies: PlatformApiD
   const trustedContext = await authenticatedCreatorContext(request, dependencies);
   if (!trustedContext) {
     return jsonResponse({ ok: false, errors: ["authentication_required"] }, 401);
+  }
+  if (!await mutationAllowed(dependencies, "creator_profile_completion", trustedContext.userId, trustedContext.now)) {
+    return jsonResponse({ ok: false, errors: ["rate_limited"] }, 429, { "Retry-After": "600" });
   }
 
   const profile = await dependencies.services.completeCreatorProfile(input, trustedContext);
