@@ -91,18 +91,20 @@ export type CreatorRegistrationPorts = {
   audit: CreatorRegistrationAuditSink;
 };
 
+export type CreatorReferralCaptureResult =
+  | { status: "none" }
+  | { status: "attributed" }
+  | { status: "review"; flags: string[] }
+  | { status: "duplicate" }
+  | { status: "rejected"; reason: string };
+
 export type CreatorRegistrationResult =
   | { ok: false; errors: string[] }
   | {
       ok: true;
       creatorProfile: CreatorProfile;
       created: boolean;
-      referral:
-        | { status: "none" }
-        | { status: "attributed" }
-        | { status: "review"; flags: string[] }
-        | { status: "duplicate" }
-        | { status: "rejected"; reason: string };
+      referral: CreatorReferralCaptureResult;
     };
 
 const HANDLE_PATTERN = /^[a-z0-9._]{2,24}$/;
@@ -177,7 +179,7 @@ async function captureReferral(
   allowNewAttribution: boolean,
   context: TrustedCreatorRegistrationContext,
   ports: CreatorRegistrationPorts,
-): Promise<CreatorRegistrationResult extends { ok: true; referral: infer T } ? T : never> {
+): Promise<CreatorReferralCaptureResult> {
   if (!requestedReferralCode) return { status: "none" };
 
   const existing = await ports.referrals.findByReferredCreatorProfileId(creatorProfile.id);
@@ -281,22 +283,28 @@ export async function registerCreator(
     return { ok: true, creatorProfile: existingByUser, created: false, referral };
   }
 
+  const displayName = cleanOptional(input.displayName);
+  const market = cleanOptional(input.market);
+  const language = cleanOptional(input.language);
+  const niche = cleanNiche(input.niche);
+  const completionInput = {
+    tiktokHandle: validation.handle,
+    ...(displayName ? { displayName } : {}),
+    ...(market ? { market } : {}),
+    ...(language ? { language } : {}),
+    ...(niche ? { niche } : {}),
+  };
+
   const draft: CreatorProfile = {
     id: ports.ids.nextCreatorProfileId(),
     userId: context.userId,
     tiktokHandle: validation.handle,
-    ...(cleanOptional(input.displayName) ? { displayName: cleanOptional(input.displayName) } : {}),
-    ...(cleanOptional(input.market) ? { market: cleanOptional(input.market) } : {}),
-    ...(cleanOptional(input.language) ? { language: cleanOptional(input.language) } : {}),
-    ...(cleanNiche(input.niche) ? { niche: cleanNiche(input.niche) } : {}),
+    ...(displayName ? { displayName } : {}),
+    ...(market ? { market } : {}),
+    ...(language ? { language } : {}),
+    ...(niche ? { niche } : {}),
     networkStatus: "registered",
-    profileCompletionPercent: creatorProfileCompletionPercent({
-      tiktokHandle: validation.handle,
-      displayName: cleanOptional(input.displayName),
-      market: cleanOptional(input.market),
-      language: cleanOptional(input.language),
-      niche: cleanNiche(input.niche),
-    }),
+    profileCompletionPercent: creatorProfileCompletionPercent(completionInput),
     referralCode: await generateUniqueReferralCode(ports),
     createdAt: context.now,
     updatedAt: context.now,
