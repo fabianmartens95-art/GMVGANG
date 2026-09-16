@@ -2,6 +2,11 @@ const menuButton = document.querySelector('.menu-button');
 const nav = document.querySelector('#main-nav');
 
 if (menuButton && nav) {
+  const closeMenu = () => {
+    menuButton.setAttribute('aria-expanded', 'false');
+    nav.dataset.open = 'false';
+  };
+
   menuButton.addEventListener('click', () => {
     const isOpen = menuButton.getAttribute('aria-expanded') === 'true';
     menuButton.setAttribute('aria-expanded', String(!isOpen));
@@ -9,9 +14,13 @@ if (menuButton && nav) {
   });
 
   nav.addEventListener('click', (event) => {
-    if (event.target instanceof HTMLAnchorElement) {
-      menuButton.setAttribute('aria-expanded', 'false');
-      nav.dataset.open = 'false';
+    if (event.target instanceof HTMLAnchorElement) closeMenu();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && menuButton.getAttribute('aria-expanded') === 'true') {
+      closeMenu();
+      menuButton.focus();
     }
   });
 }
@@ -38,7 +47,8 @@ if (form instanceof HTMLFormElement) {
   const failure = document.querySelector('#pc-failure');
   const stepNow = document.querySelector('#pc-step-now');
   const progress = document.querySelector('#pc-progress-fill');
-  const previewHost = window.location.hostname.endsWith('.pages.dev');
+  const productionHosts = new Set(['gmvgang.de', 'www.gmvgang.de']);
+  const productionHost = productionHosts.has(window.location.hostname.toLowerCase());
   let current = 1;
   let busy = false;
 
@@ -195,10 +205,10 @@ if (form instanceof HTMLFormElement) {
     }
 
     const resultState = calculate();
-    if (previewHost) {
+    if (!productionHost) {
       setMessage(
         failure,
-        'Preview-Modus: Der echte Formularversand ist bis zum kontrollierten Ende-zu-Ende-Test gesperrt. Ihre Eingaben wurden nicht übertragen.',
+        'Vorschau-/Testmodus: Der echte Formularversand ist nur auf gmvgang.de freigeschaltet. Ihre Eingaben wurden nicht übertragen.',
         true,
       );
       return;
