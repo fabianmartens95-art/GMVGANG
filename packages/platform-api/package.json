@@ -12,6 +12,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@gmvgang/affiliate-performance": "workspace:*",
+    "@gmvgang/affiliate-performance-supabase": "workspace:*",
     "@gmvgang/brand-intelligence": "workspace:*",
     "@gmvgang/creator-registration": "workspace:*",
     "@gmvgang/platform-foundation": "workspace:*",
