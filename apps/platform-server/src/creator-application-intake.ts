@@ -2,12 +2,13 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import { createFixedWindowRateLimiter } from "./rate-limit.js";
 
-const FOLLOWER_BANDS = new Set(["0-1k", "1k-10k", "10k-50k", "50k-100k", "100k+"]);
 const SHOP_EXPERIENCE = new Set(["none", "affiliate", "live", "affiliate_and_live"]);
 const ACTIVE_APPLICATION_STATUSES = ["new", "screening", "detail_requested", "accepted"] as const;
 const IDEMPOTENCY_PATTERN = /^[A-Za-z0-9._:-]{16,128}$/;
 const HANDLE_PATTERN = /^[a-z0-9._]{2,24}$/;
 const REFERRAL_PATTERN = /^[A-Z0-9]{6,24}$/;
+const LEGACY_R1_FORM_ID = "68BbAO";
+const WEBSITE_R1_FORM_NAME = "GMVGANG Website Creator Application";
 
 export type CreatorApplicationIntakeConfig = {
   supabaseUrl: string;
@@ -23,6 +24,7 @@ type CreatorApplicationPayload = {
   email: string;
   phone?: string;
   tiktokHandle: string;
+  followerCount: number;
   followerBand: string;
   contentCategories: string[];
   tiktokShopExperience: string;
@@ -45,6 +47,7 @@ type ApplicationRecord = {
   email: string;
   phone: string | null;
   tiktok_handle: string;
+  follower_count: number;
   follower_band: string;
   content_categories: string[];
   tiktok_shop_experience: string;
@@ -124,6 +127,24 @@ function cleanPhone(value: unknown): string | null | undefined {
   return cleaned;
 }
 
+function cleanFollowerCount(value: unknown): number | null {
+  const parsed = typeof value === "number"
+    ? value
+    : typeof value === "string" && /^\d+$/.test(value.trim())
+      ? Number(value.trim())
+      : Number.NaN;
+  if (!Number.isSafeInteger(parsed) || parsed < 0 || parsed > 2_000_000_000) return null;
+  return parsed;
+}
+
+function followerBand(count: number): string {
+  if (count < 1_000) return "0-1k";
+  if (count < 10_000) return "1k-10k";
+  if (count < 50_000) return "10k-50k";
+  if (count < 100_000) return "50k-100k";
+  return "100k+";
+}
+
 function cleanCategories(value: unknown): string[] | null {
   if (!Array.isArray(value) || value.length < 1 || value.length > 5) return null;
   const cleaned = [...new Set(value.map((item) => typeof item === "string" ? item.trim() : "").filter(Boolean))];
@@ -147,7 +168,7 @@ function parsePayload(value: unknown, privacyNoticeVersion: string): { ok: true;
   const email = normalizeEmail(input.email);
   const phone = cleanPhone(input.phone);
   const tiktokHandle = normalizeHandle(input.tiktokHandle);
-  const followerBand = typeof input.followerBand === "string" && FOLLOWER_BANDS.has(input.followerBand) ? input.followerBand : null;
+  const followerCount = cleanFollowerCount(input.followerCount);
   const contentCategories = cleanCategories(input.contentCategories);
   const tiktokShopExperience = typeof input.tiktokShopExperience === "string" && SHOP_EXPERIENCE.has(input.tiktokShopExperience)
     ? input.tiktokShopExperience
@@ -158,7 +179,7 @@ function parsePayload(value: unknown, privacyNoticeVersion: string): { ok: true;
   if (!email) errors.push("invalid_email");
   if (phone === null) errors.push("invalid_phone");
   if (!tiktokHandle) errors.push("invalid_tiktok_handle");
-  if (!followerBand) errors.push("invalid_follower_band");
+  if (followerCount === null) errors.push("invalid_follower_count");
   if (!contentCategories) errors.push("invalid_content_categories");
   if (!tiktokShopExperience) errors.push("invalid_tiktok_shop_experience");
   if (referralCode === null) errors.push("invalid_referral_code");
@@ -166,7 +187,7 @@ function parsePayload(value: unknown, privacyNoticeVersion: string): { ok: true;
   if (input.privacyAccepted !== true) errors.push("privacy_acceptance_required");
   if (input.privacyNoticeVersion !== privacyNoticeVersion) errors.push("privacy_notice_version_outdated");
 
-  if (errors.length || !displayName || !email || phone === null || !tiktokHandle || !followerBand || !contentCategories || !tiktokShopExperience || referralCode === null) {
+  if (errors.length || !displayName || !email || phone === null || !tiktokHandle || followerCount === null || !contentCategories || !tiktokShopExperience || referralCode === null) {
     return { ok: false, errors };
   }
 
@@ -177,7 +198,8 @@ function parsePayload(value: unknown, privacyNoticeVersion: string): { ok: true;
       email,
       ...(phone ? { phone } : {}),
       tiktokHandle,
-      followerBand,
+      followerCount,
+      followerBand: followerBand(followerCount),
       contentCategories,
       tiktokShopExperience,
       ...(referralCode ? { referralCode } : {}),
@@ -242,6 +264,36 @@ async function updateSyncState(
   }
 }
 
+function legacyR1WebhookPayload(application: StoredApplication, payload: CreatorApplicationPayload, submittedAt: string) {
+  const firstName = payload.displayName.trim().split(/\s+/, 1)[0] || payload.displayName;
+  return {
+    eventId: application.id,
+    eventType: "FORM_RESPONSE",
+    createdAt: submittedAt,
+    data: {
+      responseId: application.id,
+      submissionId: application.id,
+      respondentId: application.id,
+      formId: LEGACY_R1_FORM_ID,
+      formName: WEBSITE_R1_FORM_NAME,
+      createdAt: submittedAt,
+      fields: [
+        { key: "question_9ExMoG", label: "email", type: "INPUT_TEXT", value: payload.email },
+        { key: "question_ZzWD10", label: "tiktok_handle", type: "INPUT_TEXT", value: `@${payload.tiktokHandle}` },
+        { key: "question_j7gvJR", label: "first_name", type: "INPUT_TEXT", value: firstName },
+        { key: "question_NJEdbG", label: "follower_count", type: "INPUT_NUMBER", value: payload.followerCount },
+      ],
+      gmvgang: {
+        source: "website",
+        applicationId: application.id,
+        contentCategories: payload.contentCategories,
+        tiktokShopExperience: payload.tiktokShopExperience,
+        referralCode: payload.referralCode ?? null,
+      },
+    },
+  };
+}
+
 async function syncToMake(
   config: CreatorApplicationIntakeConfig,
   client: SupabaseClient,
@@ -261,27 +313,7 @@ async function syncToMake(
     const response = await fetch(config.makeWebhookUrl, {
       method: "POST",
       headers,
-      body: JSON.stringify({
-        event: "creator.application.submitted",
-        applicationId: application.id,
-        submittedAt,
-        source: "website",
-        creator: {
-          displayName: payload.displayName,
-          email: payload.email,
-          phone: payload.phone ?? null,
-          tiktokHandle: payload.tiktokHandle,
-          followerBand: payload.followerBand,
-          contentCategories: payload.contentCategories,
-          tiktokShopExperience: payload.tiktokShopExperience,
-          referralCode: payload.referralCode ?? null,
-        },
-        consent: {
-          ageConfirmed: true,
-          privacyAccepted: true,
-          privacyNoticeVersion: payload.privacyNoticeVersion,
-        },
-      }),
+      body: JSON.stringify(legacyR1WebhookPayload(application, payload, submittedAt)),
       signal: AbortSignal.timeout(5000),
     });
 
@@ -387,6 +419,7 @@ export function createCreatorApplicationIntakeHandler(config: CreatorApplication
       email: parsed.value.email,
       phone: parsed.value.phone ?? null,
       tiktok_handle: parsed.value.tiktokHandle,
+      follower_count: parsed.value.followerCount,
       follower_band: parsed.value.followerBand,
       content_categories: parsed.value.contentCategories,
       tiktok_shop_experience: parsed.value.tiktokShopExperience,
