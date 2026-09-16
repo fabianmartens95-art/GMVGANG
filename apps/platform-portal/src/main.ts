@@ -1,5 +1,6 @@
 import "./styles.css";
 
+import { createBrandOverviewPort, loadBrandOverview, renderBrandOverview } from "./brand-workspace.js";
 import { canAccessArea, defaultAreaForSession, PORTAL_ROUTES, resolvePortalRoute, type PortalArea } from "./routing.js";
 import { EnvironmentSessionAdapter, type PortalSession } from "./session.js";
 
@@ -18,7 +19,7 @@ const areaCopy: Record<Exclude<PortalArea, "public">, { eyebrow: string; title: 
   brand: {
     eyebrow: "Brand Growth",
     title: "Brand Portal",
-    description: "Shop-Verbindungen, Kampagnen, Creator-Shortlists, Freigaben und Economics ohne interne Company-OS-Strukturen.",
+    description: "Profitability, priorisierte Maßnahmen, Campaigns, Creator Intelligence und Freigaben ohne interne Company-OS-Strukturen.",
     modules: ["TikTok Shop Connections", "Campaigns", "Creator Shortlists", "Approvals", "Economics & Guardrails", "Reporting"],
   },
   team: {
@@ -51,7 +52,7 @@ function navigation(): string {
       </nav>
       <div class="session-chip">
         <span class="session-dot ${session.status === "authenticated" ? "is-authenticated" : ""}"></span>
-        ${session.status === "authenticated" ? session.roles.join(", ") : `Auth ausstehend · Default ${defaultArea}`}
+        ${session.status === "authenticated" ? session.roles.join(", ") || "authenticated" : `Auth ausstehend · Default ${defaultArea}`}
       </div>
     </header>`;
 }
@@ -66,8 +67,8 @@ function publicView(): string {
           <p>Die gemeinsame Portal-Schicht für Creator, Brands und das interne GMVGANG-Team. Business-Logik bleibt zentral, Rollen und Tenant-Grenzen sind explizit.</p>
           <div class="hero__badges">
             ${statusPill("Domain Foundation · live on main")}
-            ${statusPill("App Shell · in build", "next")}
-            ${statusPill("Auth/Persistence Adapter · next", "locked")}
+            ${statusPill("Server Session Boundary · ready")}
+            ${statusPill("Provider + Persistence · next", "next")}
           </div>
         </div>
         <aside class="architecture-card">
@@ -76,13 +77,13 @@ function publicView(): string {
           <div class="connector"></div>
           <div class="stack-item stack-item--core"><strong>GMVGANG Core</strong><span>RBAC · Matching · Campaigns · Economics</span></div>
           <div class="connector"></div>
-          <div class="stack-item"><strong>Brand + Team</strong><span>Shops · Approvals · Operations</span></div>
+          <div class="stack-item"><strong>Brand + Team</strong><span>Profitability · Actions · Operations</span></div>
         </aside>
       </section>
 
       <section class="portal-grid" aria-label="Portal Bereiche">
         ${portalEntry("creator", "CREATOR", "Offene Registrierung, Creator-Profil, Referral Hub und später TikTok-Shop-Connect.")}
-        ${portalEntry("brand", "BRAND", "Brand Accounts, TikTok-Shop-Seller-Connect, Campaigns, Shortlists und Reports.")}
+        ${portalEntry("brand", "BRAND", "Profitability Center, Next Best Actions, Campaigns, Creator Intelligence und Reports.")}
         ${portalEntry("team", "TEAM", "Founder, Admin, Creator Manager, Brand Manager und Closer mit getrennten Rechten.")}
       </section>
 
@@ -106,7 +107,7 @@ function portalEntry(area: Exclude<PortalArea, "public">, label: string, text: s
     </article>`;
 }
 
-function protectedView(area: Exclude<PortalArea, "public">): string {
+async function protectedView(area: Exclude<PortalArea, "public">): Promise<string> {
   const copy = areaCopy[area];
   if (!canAccessArea(session, area)) {
     return `
@@ -115,9 +116,29 @@ function protectedView(area: Exclude<PortalArea, "public">): string {
           ${statusPill("PROTECTED AREA", "locked")}
           <div class="lock-icon">↗</div>
           <h1>${copy.title}</h1>
-          <p>Dieser Bereich ist rollenbasiert geschützt. Der produktive Auth-/Persistence-Adapter wird als nächste technische Schicht angeschlossen; bis dahin bleibt Production fail-closed.</p>
+          <p>Dieser Bereich ist rollenbasiert geschützt. Production akzeptiert nur serverseitig aufgelöste Sessions; ohne gültigen Provider-/Persistence-Adapter bleibt der Zugriff fail-closed.</p>
           <a href="/" data-nav class="button">Zur Platform Übersicht</a>
         </div>
+      </main>`;
+  }
+
+  if (area === "brand" && session.status === "authenticated" && session.organizationId) {
+    const overview = await loadBrandOverview(session.organizationId, createBrandOverviewPort(session.organizationId));
+    return `
+      <main class="workspace">
+        <section class="workspace__intro">
+          <div>
+            <div class="eyebrow">${copy.eyebrow}</div>
+            <h1>${copy.title}</h1>
+            <p>${copy.description}</p>
+          </div>
+          ${statusPill("TENANT BOUND")}
+        </section>
+        ${renderBrandOverview(overview)}
+        <section class="boundary-note">
+          <strong>Tenant boundary</strong>
+          <span>Brand-Daten werden nur akzeptiert, wenn die serverseitige Overview dieselbe Organization-ID wie die verifizierte Portal-Session trägt.</span>
+        </section>
       </main>`;
   }
 
@@ -142,7 +163,7 @@ function protectedView(area: Exclude<PortalArea, "public">): string {
       </section>
       <section class="boundary-note">
         <strong>Security boundary</strong>
-        <span>UI access is derived from the shared Platform Foundation roles. Production remains anonymous until a real authentication adapter is configured.</span>
+        <span>UI access is derived from the shared Platform Foundation roles. Production sessions come from the same-origin server boundary.</span>
       </section>
     </main>`;
 }
@@ -161,7 +182,7 @@ function wireNavigation(): void {
 async function render(): Promise<void> {
   session = await sessionPort.getSession();
   const route = resolvePortalRoute(window.location.pathname);
-  const body = route.area === "public" ? publicView() : protectedView(route.area);
+  const body = route.area === "public" ? publicView() : await protectedView(route.area);
   app.innerHTML = `${navigation()}${body}<footer><span>GMVGANG PLATFORM</span><span>Notion remains operational SSOT · Platform code on GitHub</span></footer>`;
   wireNavigation();
 }
