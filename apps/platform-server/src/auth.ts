@@ -16,7 +16,9 @@ export type SupabaseCookieAuthOptions = {
 
 function requestCookies(request: Request): Array<{ name: string; value: string }> {
   const parsed = parseCookie(request.headers.get("cookie") ?? "");
-  return Object.entries(parsed).map(([name, value]) => ({ name, value }));
+  return Object.entries(parsed).flatMap(([name, value]) =>
+    value === undefined ? [] : [{ name, value }],
+  );
 }
 
 function cookieHeader(
@@ -34,9 +36,15 @@ function cookieHeader(
   });
 }
 
-function mergeRefreshHeaders(target: Headers, source: Headers | undefined): void {
+function mergeRefreshHeaders(
+  target: Headers,
+  source: Headers | Record<string, string> | undefined,
+): void {
   if (!source) return;
-  for (const [key, value] of source.entries()) {
+  const entries: Iterable<[string, string]> = source instanceof Headers
+    ? source.entries()
+    : Object.entries(source);
+  for (const [key, value] of entries) {
     if (key.toLowerCase() === "set-cookie") continue;
     target.set(key, value);
   }
