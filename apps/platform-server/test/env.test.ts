@@ -19,6 +19,30 @@ describe("loadPlatformServerConfig", () => {
     expect(config.publicOrigin).toBe("https://app.gmvgang.de");
     expect(config.production).toBe(true);
     expect(config.portalDistDir.endsWith("apps/platform-portal/dist")).toBe(true);
+    expect(config.notionCreatorSync).toBeNull();
+  });
+
+  it("loads the Notion Creator sync only when both server-side values exist", () => {
+    const config = loadPlatformServerConfig({
+      ...BASE_ENV,
+      NOTION_TOKEN: "secret-test-token",
+      NOTION_CREATOR_DATA_SOURCE_ID: "8a6eb54f-cefc-4f5b-bda6-57998fd09904",
+    });
+
+    expect(config.notionCreatorSync).toEqual({
+      token: "secret-test-token",
+      dataSourceId: "8a6eb54f-cefc-4f5b-bda6-57998fd09904",
+    });
+  });
+
+  it("fails closed on a partially configured Notion Creator sync", () => {
+    expect(() => loadPlatformServerConfig({ ...BASE_ENV, NOTION_TOKEN: "secret-test-token" })).toThrow(
+      "NOTION_CREATOR_SYNC_CONFIG_INCOMPLETE",
+    );
+    expect(() => loadPlatformServerConfig({
+      ...BASE_ENV,
+      NOTION_CREATOR_DATA_SOURCE_ID: "8a6eb54f-cefc-4f5b-bda6-57998fd09904",
+    })).toThrow("NOTION_CREATOR_SYNC_CONFIG_INCOMPLETE");
   });
 
   it("fails closed when required Supabase or privacy settings are missing", () => {
