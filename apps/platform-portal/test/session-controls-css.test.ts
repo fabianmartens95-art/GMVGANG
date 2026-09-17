@@ -1,9 +1,5 @@
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-
-const cssPath = fileURLToPath(new URL("../src/session-controls.css", import.meta.url));
-const css = readFileSync(cssPath, "utf8");
+import css from "../src/session-controls.css?raw";
 
 describe("session controls responsive contract", () => {
   it("keeps the logout action non-shrinking while account copy may truncate", () => {
