@@ -1,0 +1,72 @@
+name: One-shot remove Make legacy website refs
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/one-shot-remove-make-legacy.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Patch source and regression tests
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          site_path = Path('apps/marketing-site/src/site.mjs')
+          site = site_path.read_text()
+
+          old_form = '<form id="pc-form" class="potential-form" action="https://hook.eu1.make.com/pxnd9dc4dd9egwjsjerlxwbo2jpfam9t" method="post" novalidate>'
+          new_form = '<form id="pc-form" class="potential-form" method="post" novalidate>'
+          assert site.count(old_form) == 1, 'legacy Make form action not found exactly once'
+          site = site.replace(old_form, new_form)
+
+          old_privacy = 'Zur technischen Verarbeitung setzen wir insbesondere Cloudflare für Hosting und Auslieferung der Website, Make für die automatisierte Übermittlung und Verarbeitung von Anfragen sowie Notion für unser internes Brand- und Lead-Management ein. Diese Anbieter verarbeiten Daten im Rahmen der jeweils vereinbarten datenschutzrechtlichen Regelungen und nur soweit dies für die genannten Zwecke erforderlich ist.'
+          new_privacy = 'Zur technischen Verarbeitung setzen wir insbesondere Cloudflare für Hosting und Auslieferung der Website sowie Supabase für die technische Verarbeitung und Speicherung von Kontakt- und Potenzialanfragen ein. Soweit eine Anfrage nach interner Prüfung in unsere operativen Brand- und Lead-Prozesse übernommen wird, kann Notion für das interne Brand- und Lead-Management eingesetzt werden. Diese Anbieter verarbeiten Daten im Rahmen der jeweils vereinbarten datenschutzrechtlichen Regelungen und nur soweit dies für die genannten Zwecke erforderlich ist.'
+          assert site.count(old_privacy) == 1, 'legacy Make privacy copy not found exactly once'
+          site = site.replace(old_privacy, new_privacy)
+
+          old_note = 'Stand: 16. September 2026 · Hosting-Stack auf Cloudflare Pages angepasst; vor Domain-Cutover erneut rechtlich/operativ prüfen.'
+          new_note = 'Stand: 17. September 2026 · Website-Intake auf native Supabase-Verarbeitung umgestellt.'
+          assert site.count(old_note) == 1, 'privacy legal note not found exactly once'
+          site = site.replace(old_note, new_note)
+          site_path.write_text(site)
+
+          test_path = Path('apps/marketing-site/test/site.test.mjs')
+          test = test_path.read_text()
+
+          old_boundary = '''test('potential check preserves secure intake boundary', () => {\n  const html = renderPage(byPath('/potenzialanalyse/'));\n  assert.match(html, /id=\"pc-form\"/);\n  assert.match(html, /hook\\.eu1\\.make\\.com\\/pxnd9dc4dd9egwjsjerlxwbo2jpfam9t/);'''
+          new_boundary = '''test('potential check preserves native intake boundary without Make fallback', () => {\n  const html = renderPage(byPath('/potenzialanalyse/'));\n  assert.match(html, /id=\"pc-form\"/);\n  assert.doesNotMatch(html, /hook\\.eu1\\.make\\.com/);\n  assert.doesNotMatch(html, /make\\.com/i);'''
+          assert test.count(old_boundary) == 1, 'intake boundary test block not found exactly once'
+          test = test.replace(old_boundary, new_boundary)
+
+          test = test.replace("test('client only routes to result after confirmed Make save and only transfers score/band', async () => {", "test('client only routes to result after confirmed native save and only transfers score/band', async () => {")
+
+          old_privacy_test = '''test('privacy copy reflects Cloudflare migration and no longer describes Webflow as hosting', () => {\n  const html = renderPage(byPath('/datenschutz/'));\n  assert.match(html, /Cloudflare Pages/);\n  assert.match(html, /Make/);\n  assert.match(html, /Notion/);\n  assert.doesNotMatch(html, /Website wird mit Webflow bereitgestellt/);\n});'''
+          new_privacy_test = '''test('privacy copy reflects the current Cloudflare and Supabase intake stack', () => {\n  const html = renderPage(byPath('/datenschutz/'));\n  assert.match(html, /Cloudflare Pages/);\n  assert.match(html, /Supabase/);\n  assert.match(html, /Notion/);\n  assert.doesNotMatch(html, /Make/);\n  assert.doesNotMatch(html, /Website wird mit Webflow bereitgestellt/);\n});'''
+          assert test.count(old_privacy_test) == 1, 'privacy test block not found exactly once'
+          test = test.replace(old_privacy_test, new_privacy_test)
+          test_path.write_text(test)
+          PY
+
+      - name: Remove one-shot workflow and commit patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/one-shot-remove-make-legacy.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/marketing-site/src/site.mjs apps/marketing-site/test/site.test.mjs .github/workflows/one-shot-remove-make-legacy.yml
+          git commit -m 'fix: remove Make from website intake surface'
+          git push origin HEAD:${{ github.head_ref }}
