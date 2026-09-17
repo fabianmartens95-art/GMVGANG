@@ -81,12 +81,13 @@ async function jsonRequest(
     headers.set("Sec-Fetch-Site", "same-origin");
   }
 
-  const response = await fetch(new URL(path, base), {
+  const init: RequestInit = {
     method: input.method ?? "GET",
     headers,
-    body: input.body === undefined ? undefined : JSON.stringify(input.body),
     redirect: "error",
-  });
+    ...(input.body === undefined ? {} : { body: JSON.stringify(input.body) }),
+  };
+  const response = await fetch(new URL(path, base), init);
   const body = await response.json().catch(() => null);
   return { status: response.status, body };
 }
