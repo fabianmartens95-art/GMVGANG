@@ -7,6 +7,7 @@ import {
   createSupabaseCreatorReferralReadPort,
   createSupabaseCreatorRegistrationPorts,
   ensureSupabaseCreatorMembership,
+  manageSupabaseMembership,
   resolveSupabasePlatformSessionContext,
   type PlatformSupabaseConfig,
 } from "@gmvgang/platform-supabase";
@@ -77,6 +78,9 @@ export function createSupabasePlatformApiServices(
   return {
     resolveSessionContext(input) {
       return resolveSupabasePlatformSessionContext(client, input);
+    },
+    manageMembership(input) {
+      return manageSupabaseMembership(client, input);
     },
     async getBrandOverview(input) {
       if (brandOverview) return brandOverview.getOverview(input);

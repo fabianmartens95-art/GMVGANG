@@ -5,6 +5,7 @@ import type {
 import { anyRoleHasCapability, type CreatorProfile } from "@gmvgang/platform-foundation";
 import { handleCreatorReferralHub } from "./creator-referral-http.js";
 import { handleCreatorWorkspace } from "./creator-workspace-http.js";
+import { handleMembershipMutation } from "./membership-http.js";
 import type { PlatformApiDependencies, PlatformRateLimitAction } from "./types.js";
 
 const JSON_HEADERS = {
@@ -401,6 +402,7 @@ export function createPlatformApiHandler(dependencies: PlatformApiDependencies):
       const pathname = new URL(request.url).pathname;
       if (pathname === "/api/session") return await handleSession(request, dependencies);
       if (pathname === "/api/workspaces") return await handleWorkspaces(request, dependencies);
+      if (pathname === "/api/memberships") return await handleMembershipMutation(request, dependencies);
       if (pathname === "/api/brand/overview") return await handleBrandOverview(request, dependencies);
       if (pathname === "/api/creator/registration") return await handleCreatorRegistration(request, dependencies);
       if (pathname === "/api/creator/profile") return await handleCreatorProfile(request, dependencies);

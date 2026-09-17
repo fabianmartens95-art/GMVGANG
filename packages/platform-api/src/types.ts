@@ -13,7 +13,9 @@ import type {
 } from "@gmvgang/creator-registration";
 import type {
   CreatorProfile,
+  Membership,
   PlatformSessionContext,
+  PlatformUserRole,
   ReferralStatus,
 } from "@gmvgang/platform-foundation";
 
@@ -71,6 +73,15 @@ export interface BrandOverviewReadPort {
     now: string;
   }): Promise<BrandPortalReadModel>;
 }
+
+export type PlatformMembershipMutationInput = {
+  actorUserId: string;
+  targetUserId: string;
+  organizationId: string;
+  role: PlatformUserRole;
+  status: Membership["status"];
+  now: string;
+};
 
 export type CreatorReferralHubItem = {
   status: ReferralStatus;
@@ -177,6 +188,7 @@ export interface PlatformApiServices {
     requestedOrganizationId?: string;
     now: string;
   }): Promise<PlatformSessionContext>;
+  manageMembership?(input: PlatformMembershipMutationInput): Promise<Membership>;
   getBrandOverview?(input: {
     organizationId: string;
     userId: string;
