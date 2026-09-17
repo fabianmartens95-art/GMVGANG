@@ -42,6 +42,26 @@
   color: var(--muted);
 }
 
+
+.creator-profile-progress {
+  width: 100%;
+  height: 9px;
+  border: 0;
+  background: var(--surface-raised);
+}
+
+.creator-profile-progress::-webkit-progress-bar {
+  background: var(--surface-raised);
+}
+
+.creator-profile-progress::-webkit-progress-value {
+  background: var(--yellow);
+}
+
+.creator-profile-progress::-moz-progress-bar {
+  background: var(--yellow);
+}
+
 .creator-profile-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
