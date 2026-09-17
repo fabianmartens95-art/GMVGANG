@@ -9,7 +9,7 @@ const INTERNAL_ROLES = new Set(["founder", "admin", "creator_manager", "brand_ma
 const CREATOR_EVENT_PREFIX = "creator.";
 
 export type TeamCreatorFunnelSource = {
-  users: Array<{ id: string; email: string | null; created_at: string; updated_at: string }>;
+  users: Array<{ id: string; email: string | null; is_test_account: boolean; created_at: string; updated_at: string }>;
   profiles: Array<{
     id: string;
     user_id: string;
@@ -103,6 +103,8 @@ export function buildTeamCreatorFunnelReadModel(
 
   const creators: TeamCreatorFunnelItem[] = [];
   for (const user of source.users) {
+    if (user.is_test_account) continue;
+
     const memberships = membershipsByUser.get(user.id) ?? [];
     const activeRoles = memberships.filter((membership) => membership.status === "active").map((membership) => membership.role);
     if (activeRoles.some((role) => INTERNAL_ROLES.has(role))) continue;
