@@ -1,0 +1,46 @@
+name: Native Brand Intake Full Submit Once
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/native-brand-intake-full-submit-once.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  full-submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      ENDPOINT: https://wikctgtgesmnezeufxsu.supabase.co/functions/v1/brand-intake
+      PUBLISHABLE_KEY: sb_publishable_oF9bK81-MMmBzp-h-8Kx8w_NC53y22v
+    steps:
+      - name: Submit synthetic brand intake
+        shell: bash
+        run: |
+          set -euo pipefail
+          submission_id="$(python - <<'PY'
+          import uuid
+          print(uuid.uuid4())
+          PY
+          )"
+          email="qa-native-intake-${GITHUB_RUN_ID}@gmvgang.invalid"
+          payload="$(jq -n \
+            --arg submissionId "$submission_id" \
+            --arg email "$email" \
+            '{submissionId:$submissionId,payload:{data:{brand:"GMVGANG QA Synthetic",website:"https://example.com",category:"Beauty",shop_status:"10",demo_fit:"25",creator_fit:"25",content_depth:"15",creator_history:"10",margin:"15",samples:"10",ops:"10",goal:"Shop aufbauen",contact_name:"GMVGANG QA",email:$email,note:"Synthetic E2E test; delete after verification.",source_url:"https://gmvgang.de/potenzialanalyse/"}}}')"
+
+          body="$(mktemp)"
+          status="$(curl --silent --show-error --output "$body" --write-out '%{http_code}' \
+            --request POST "$ENDPOINT" \
+            --header 'Origin: https://gmvgang.de' \
+            --header 'Content-Type: application/json' \
+            --header "apikey: $PUBLISHABLE_KEY" \
+            --data "$payload")"
+
+          cat "$body"
+          test "$status" = "201"
+          jq -e '.saved == true and .score == 100 and .band == "SEHR HOHES POTENZIAL"' "$body" >/dev/null
+          echo "QA_EMAIL=$email"
+          echo "SUBMISSION_ID=$submission_id"
