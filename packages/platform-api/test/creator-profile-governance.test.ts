@@ -55,7 +55,8 @@ describe("governCreatorSelfServiceProfileInput", () => {
   });
 
   it("fails closed when a completed profile is missing governed source fields", () => {
-    const invalid: CreatorProfile = { ...COMPLETE_PROFILE, niche: undefined };
+    const { niche: _niche, ...withoutNiche } = COMPLETE_PROFILE;
+    const invalid: CreatorProfile = withoutNiche;
     expect(() => governCreatorSelfServiceProfileInput(invalid, {
       tiktokHandle: "petrus.lives",
       displayName: "PetrusLives",
