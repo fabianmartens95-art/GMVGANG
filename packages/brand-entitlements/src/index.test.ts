@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  brandPlanHasCapability,
   canMutateBrandWorkspace,
+  capabilitiesForBrandPlan,
   createBrandTrial,
   DEFAULT_BRAND_TRIAL_DAYS,
   resolveBrandEntitlement,
@@ -94,5 +96,36 @@ describe("Brand entitlements", () => {
       startsAt: "2026-09-01T00:00:00.000Z",
       endsAt: "2026-09-10T00:00:00.000Z",
     }, "2026-09-18T00:00:00.000Z").mode).toBe("read_only");
+  });
+});
+
+describe("Brand plan capabilities", () => {
+  it("keeps Brand Core focused on self-service essentials", () => {
+    expect(capabilitiesForBrandPlan("brand_core")).toEqual([
+      "workspace.write",
+      "products.manage",
+      "campaigns.manage",
+      "creator_discovery.read",
+      "analytics.basic",
+    ]);
+    expect(brandPlanHasCapability("brand_core", "profitability.read")).toBe(false);
+  });
+
+  it("adds profitability, automation and priority support in Brand Growth", () => {
+    expect(brandPlanHasCapability("brand_growth", "profitability.read")).toBe(true);
+    expect(brandPlanHasCapability("brand_growth", "automations.use")).toBe(true);
+    expect(brandPlanHasCapability("brand_growth", "priority_support")).toBe(true);
+    expect(brandPlanHasCapability("brand_growth", "managed_operations")).toBe(false);
+  });
+
+  it("adds managed operations only to Managed Growth", () => {
+    expect(brandPlanHasCapability("managed_growth", "managed_operations")).toBe(true);
+    expect(brandPlanHasCapability("brand_core", "managed_operations")).toBe(false);
+  });
+
+  it("keeps Enterprise-specific team, integration and SLA capabilities explicit", () => {
+    expect(brandPlanHasCapability("enterprise", "teams.advanced")).toBe(true);
+    expect(brandPlanHasCapability("enterprise", "integrations.custom")).toBe(true);
+    expect(brandPlanHasCapability("enterprise", "sla")).toBe(true);
   });
 });
