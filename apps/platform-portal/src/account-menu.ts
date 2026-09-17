@@ -36,6 +36,12 @@ function enhanceAccountMenu(): void {
     label.className = "account-menu__label";
     label.textContent = "Account";
 
+    const password = document.createElement("a");
+    password.className = "account-menu__item";
+    password.href = "/account/password";
+    password.setAttribute("role", "menuitem");
+    password.textContent = "Passwort";
+
     const logout = document.createElement("button");
     logout.className = "account-menu__logout";
     logout.type = "button";
@@ -50,7 +56,7 @@ function enhanceAccountMenu(): void {
     signOut.setAttribute("aria-hidden", "true");
     signOut.tabIndex = -1;
 
-    panel.append(label, logout);
+    panel.append(label, password, logout);
     menu.append(trigger, panel);
     controls.append(menu);
     controls.dataset.accountMenuEnhanced = "true";
