@@ -9,6 +9,8 @@
 .session-chip {
   min-width: 0;
   max-width: 360px;
+  flex: 1 1 auto;
+  overflow: hidden;
   text-align: left;
 }
 
@@ -42,6 +44,9 @@
 }
 
 .session-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, .035);
@@ -49,6 +54,7 @@
   padding: 9px 11px;
   font-size: 11px;
   font-weight: 800;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -60,6 +66,18 @@
 .session-action:disabled {
   cursor: wait;
   opacity: .55;
+}
+
+@media (max-width: 1050px) {
+  .session-controls {
+    width: min(360px, 44vw);
+    max-width: 100%;
+  }
+
+  .session-chip {
+    flex-basis: 0;
+    max-width: none;
+  }
 }
 
 @media (max-width: 700px) {
@@ -76,14 +94,21 @@
     grid-column: 1;
     grid-row: 2;
     width: 100%;
+    max-width: none;
     justify-content: space-between;
     padding: 10px 0 2px;
   }
 
   .session-chip {
     display: flex;
-    max-width: calc(100% - 92px);
+    flex: 1 1 0;
+    max-width: none;
+    overflow: hidden;
     text-align: left;
+  }
+
+  .session-action {
+    min-height: 36px;
   }
 
   .nav {
