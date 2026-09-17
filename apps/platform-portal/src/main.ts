@@ -5,6 +5,7 @@ import "./creator-profile.css";
 import "./creator-qualification.css";
 import "./creator-referrals.css";
 import "./creator-workspace.css";
+import "./team-creator-funnel.css";
 
 import type { PlatformWorkspaceAccess } from "@gmvgang/platform-foundation";
 import { renderLogin, signOut, wireLogin } from "./auth-client.js";
@@ -32,6 +33,11 @@ import {
   type PortalRoute,
 } from "./routing.js";
 import { createSessionPort, type PortalSession } from "./session.js";
+import {
+  HttpTeamCreatorFunnelAdapter,
+  renderTeamActivityTrail,
+  renderTeamCreatorOperations,
+} from "./team-creator-funnel.js";
 import { createWorkspacePort } from "./workspaces.js";
 
 const app = document.querySelector<HTMLDivElement>("#app") ?? (() => { throw new Error("APP_ROOT_NOT_FOUND"); })();
@@ -319,6 +325,22 @@ async function protectedView(area: Exclude<PortalArea, "public">, route: PortalR
         <section class="boundary-note">
           <strong>Creator-safe read boundary</strong>
           <span>Nur dein serverseitig verknüpfter Creator-Datensatz wird gelesen. Nicht freigegebene Campaigns, interne Matching-Scores und operative Blocker werden nicht an den Browser übertragen.</span>
+        </section>
+      </main>`;
+  }
+
+  if (area === "team" && ["creators", "activity"].includes(route.moduleId ?? "")) {
+    const funnel = await new HttpTeamCreatorFunnelAdapter().getFunnel();
+    const content = route.moduleId === "activity"
+      ? renderTeamActivityTrail(funnel)
+      : renderTeamCreatorOperations(funnel);
+    return `
+      <main class="workspace">
+        ${intro}
+        ${content}
+        <section class="boundary-note">
+          <strong>Internal data boundary</strong>
+          <span>Creator-Funnel und Activity Trail werden ausschließlich über die serverseitige Capability creators.read_all ausgeliefert. URL-Zugriff allein reicht nicht.</span>
         </section>
       </main>`;
   }
