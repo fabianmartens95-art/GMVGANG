@@ -19,6 +19,7 @@ export const PORTAL_ROUTES: readonly PortalRoute[] = [
 
   { path: "/creator", area: "creator", label: "Creator Portal", navigation: "primary", moduleId: "overview" },
   { path: "/creator/profile", area: "creator", label: "Profil", navigation: "module", moduleId: "profile" },
+  { path: "/creator/qualification", area: "creator", label: "Qualifizierung", navigation: "module", moduleId: "qualification" },
   { path: "/creator/referrals", area: "creator", label: "Referral Hub", navigation: "module", moduleId: "referrals" },
   { path: "/creator/matches", area: "creator", label: "Matches", navigation: "module", moduleId: "matches" },
   { path: "/creator/campaigns", area: "creator", label: "Campaigns", navigation: "module", moduleId: "campaigns" },
