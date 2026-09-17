@@ -1,5 +1,16 @@
 import type { CreatorProfileCompletionCommand } from "@gmvgang/creator-registration";
 
+export type CreatorPortalNetworkStatus =
+  | "registered"
+  | "profile_complete"
+  | "qualified"
+  | "invited"
+  | "contracted"
+  | "active"
+  | "performing"
+  | "rejected"
+  | "paused";
+
 export type CreatorPortalProfile = {
   id: string;
   tiktokHandle: string;
@@ -7,7 +18,7 @@ export type CreatorPortalProfile = {
   market?: string;
   language?: string;
   niche?: string[];
-  networkStatus: "registered" | "profile_complete";
+  networkStatus: CreatorPortalNetworkStatus;
   profileCompletionPercent: number;
   referralCode: string;
 };
@@ -49,6 +60,18 @@ function optionalText(value: unknown): string | undefined {
   return cleaned || undefined;
 }
 
+const CREATOR_NETWORK_STATUSES: readonly CreatorPortalNetworkStatus[] = [
+  "registered",
+  "profile_complete",
+  "qualified",
+  "invited",
+  "contracted",
+  "active",
+  "performing",
+  "rejected",
+  "paused",
+];
+
 export function parseCreatorProfileResult(payload: unknown): CreatorProfileResult {
   if (!isRecord(payload) || typeof payload.ok !== "boolean") throw new Error("CREATOR_PROFILE_PAYLOAD_INVALID");
   if (!payload.ok) {
@@ -63,7 +86,7 @@ export function parseCreatorProfileResult(payload: unknown): CreatorProfileResul
   if (
     typeof profile.id !== "string" || !profile.id.trim() ||
     typeof profile.tiktokHandle !== "string" || !profile.tiktokHandle.trim() ||
-    !["registered", "profile_complete"].includes(String(profile.networkStatus)) ||
+    !CREATOR_NETWORK_STATUSES.includes(String(profile.networkStatus) as CreatorPortalNetworkStatus) ||
     typeof profile.profileCompletionPercent !== "number" || !Number.isFinite(profile.profileCompletionPercent) ||
     profile.profileCompletionPercent < 0 || profile.profileCompletionPercent > 100 ||
     typeof profile.referralCode !== "string" || !profile.referralCode.trim() ||
@@ -84,7 +107,7 @@ export function parseCreatorProfileResult(payload: unknown): CreatorProfileResul
       ...(market ? { market } : {}),
       ...(language ? { language } : {}),
       ...(niche ? { niche } : {}),
-      networkStatus: profile.networkStatus as "registered" | "profile_complete",
+      networkStatus: profile.networkStatus as CreatorPortalNetworkStatus,
       profileCompletionPercent: profile.profileCompletionPercent,
       referralCode: profile.referralCode,
     },
@@ -177,7 +200,7 @@ export function renderCreatorProfile(result: CreatorProfileResult): string {
   }
 
   const profile = result.creatorProfile;
-  const verified = profile.networkStatus === "profile_complete";
+  const verified = profile.networkStatus !== "registered";
   const locked = verified ? ' readonly aria-readonly="true"' : "";
   const verifiedHint = verified ? '<small>Verifiziert · Änderung nur über GMVGANG Review.</small>' : "";
 
