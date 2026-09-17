@@ -35,8 +35,8 @@ describe("safeConfirmationNextPath", () => {
     expect(safeConfirmationNextPath("https://app.gmvgang.de/creator", origin)).toBe("/creator");
   });
 
-  it("rejects external and malformed destinations", () => {
+  it("rejects external and oversized destinations", () => {
     expect(safeConfirmationNextPath("https://evil.example/steal", origin)).toBe("/");
-    expect(safeConfirmationNextPath("not a url", origin)).toBe("/");
+    expect(safeConfirmationNextPath(`/${"a".repeat(1100)}`, origin)).toBe("/");
   });
 });
