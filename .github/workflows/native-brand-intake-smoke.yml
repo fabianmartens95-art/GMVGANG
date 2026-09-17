@@ -1,0 +1,56 @@
+name: Native Brand Intake Smoke
+
+on:
+  pull_request:
+    paths:
+      - "apps/marketing-site/src/client.js"
+      - "supabase/functions/brand-intake/**"
+      - ".github/workflows/native-brand-intake-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      ENDPOINT: https://wikctgtgesmnezeufxsu.supabase.co/functions/v1/brand-intake
+      PUBLISHABLE_KEY: sb_publishable_oF9bK81-MMmBzp-h-8Kx8w_NC53y22v
+    steps:
+      - name: Verify CORS preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          headers="$(mktemp)"
+          body="$(mktemp)"
+          status="$(curl --silent --show-error --output "$body" --dump-header "$headers" --write-out '%{http_code}' \
+            --request OPTIONS "$ENDPOINT" \
+            --header 'Origin: https://gmvgang.de' \
+            --header 'Access-Control-Request-Method: POST' \
+            --header 'Access-Control-Request-Headers: content-type, apikey')"
+          cat "$headers"
+          cat "$body"
+          test "$status" = "204"
+          grep -iq '^access-control-allow-origin: https://gmvgang.de' "$headers"
+          grep -iq '^access-control-allow-methods: POST, OPTIONS' "$headers"
+          grep -iq 'access-control-allow-headers:.*apikey' "$headers"
+
+      - name: Verify authenticated validation path
+        shell: bash
+        run: |
+          set -euo pipefail
+          headers="$(mktemp)"
+          body="$(mktemp)"
+          status="$(curl --silent --show-error --output "$body" --dump-header "$headers" --write-out '%{http_code}' \
+            --request POST "$ENDPOINT" \
+            --header 'Origin: https://gmvgang.de' \
+            --header 'Content-Type: application/json' \
+            --header "apikey: $PUBLISHABLE_KEY" \
+            --data '{"submissionId":"invalid","payload":{"data":{}}}')"
+          cat "$headers"
+          cat "$body"
+          test "$status" = "400"
+          grep -q '"error":"invalid_request"' "$body"
+          grep -iq '^access-control-allow-origin: https://gmvgang.de' "$headers"
