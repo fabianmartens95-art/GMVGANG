@@ -3,44 +3,64 @@ import { test } from 'node:test';
 
 import {
   enhanceCreatorApplicationPage,
+  LEGACY_CREATOR_CTA_URL,
   PORTAL_JOIN_URL,
   PORTAL_LOGIN_URL,
-  TALLY_FALLBACK_URL,
 } from '../src/creator-application-page.mjs';
 import { pages, renderPage } from '../src/site.mjs';
 
 const creatorPage = pages.find((page) => page.path === '/creator/');
 
-test('Creator primary CTA is routed from Tally to the portal join flow', () => {
+function creatorHtml() {
   assert.ok(creatorPage);
-  const html = enhanceCreatorApplicationPage(renderPage(creatorPage));
+  return enhanceCreatorApplicationPage(renderPage(creatorPage));
+}
 
-  assert.match(html, /href="https:\/\/app\.gmvgang\.de\/join"[^>]*>Kostenlos als Creator starten<\/a>/);
-  assert.match(html, /id="creator-portal"/);
+test('Creator hero positions the Portal as the primary product', () => {
+  const html = creatorHtml();
+
+  assert.match(html, /<title>Creator Portal \| GMVGANG<\/title>/);
   assert.match(html, /GMVGANG Creator Portal/);
+  assert.match(html, /Dein TikTok Shop Creator Hub\./);
+  assert.match(html, /persönlichen GMVGANG Creator Workspace/);
+  assert.match(html, /href="https:\/\/app\.gmvgang\.de\/join"[^>]*>Kostenlos als Creator starten<\/a>/);
+  assert.match(html, /href="https:\/\/app\.gmvgang\.de\/login"[^>]*>Zum Portal-Login<\/a>/);
 });
 
-test('Creator page exposes both registration and returning-user portal access', () => {
-  const html = enhanceCreatorApplicationPage(renderPage(creatorPage));
+test('Creator page explains the live portal modules instead of the legacy application workflow', () => {
+  const html = creatorHtml();
+
+  for (const feature of [
+    'Creator-Profil',
+    'Qualifizierung',
+    'Brand Matches',
+    'Campaigns & Samples',
+    'Performance',
+    'Referral Hub',
+  ]) {
+    assert.match(html, new RegExp(feature.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+
+  assert.match(html, /operative GMV-, Order-, Commission- und Content-Werte/);
+  assert.match(html, /TikTok-verifizierte Datensynchronisierung wird separat weiter ausgebaut/);
+  assert.match(html, /Account statt Formular-Chaos/);
+  assert.doesNotMatch(html, /So läuft es ab/);
+  assert.doesNotMatch(html, /Schnellbewerbung/);
+  assert.doesNotMatch(html, /Vertrag & Match/);
+});
+
+test('Creator public journey no longer exposes Tally', () => {
+  const html = creatorHtml();
 
   assert.ok(html.includes(PORTAL_JOIN_URL));
   assert.ok(html.includes(PORTAL_LOGIN_URL));
-  assert.match(html, /Bereits registriert\? Zum Portal/);
-  assert.doesNotMatch(html, /id="creator-application-form"/);
-  assert.doesNotMatch(html, /src="\/creator-application\.js"/);
+  assert.doesNotMatch(html, new RegExp(LEGACY_CREATOR_CTA_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.doesNotMatch(html, /tally\.so/i);
 });
 
-test('Tally remains only as a technical fallback', () => {
-  const html = enhanceCreatorApplicationPage(renderPage(creatorPage));
-  const matches = html.match(new RegExp(TALLY_FALLBACK_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) ?? [];
-
-  assert.equal(matches.length, 1);
-  assert.match(html, /Schnellbewerbung als Fallback öffnen/);
-});
-
-test('Creator page enhancement fails closed if the expected migration CTA disappears', () => {
+test('Creator page enhancement fails closed if the legacy migration markers disappear', () => {
   assert.throws(
     () => enhanceCreatorApplicationPage('<html><head></head><body><main></main></body></html>'),
-    /CREATOR_TALLY_CTA_NOT_FOUND/,
+    /CREATOR_LEGACY_CTA_NOT_FOUND/,
   );
 });
