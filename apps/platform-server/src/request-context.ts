@@ -15,6 +15,12 @@ export function withRequestId(request: Request, requestId: string): Request {
   return new Request(request, { headers });
 }
 
+export function requestLogLevel(status: number): "info" | "warn" | "error" {
+  if (status >= 500) return "error";
+  if (status >= 400) return "warn";
+  return "info";
+}
+
 export function requestLogEntry(input: {
   requestId: string;
   method?: string;
@@ -24,6 +30,7 @@ export function requestLogEntry(input: {
 }) {
   return {
     scope: "gmvgang.platform.http",
+    level: requestLogLevel(input.status),
     requestId: input.requestId,
     method: input.method ?? "GET",
     path: input.path,
