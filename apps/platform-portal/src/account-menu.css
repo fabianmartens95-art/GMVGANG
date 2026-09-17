@@ -60,6 +60,7 @@
   text-transform: uppercase;
 }
 
+.account-menu__item,
 .account-menu__logout {
   appearance: none;
   -webkit-appearance: none;
@@ -69,7 +70,6 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  border: 1px solid rgba(255, 98, 87, .28);
   background: rgba(255, 255, 255, .025);
   color: var(--white);
   padding: 10px 12px;
@@ -79,6 +79,22 @@
   letter-spacing: .08em;
   text-transform: uppercase;
   cursor: pointer;
+  text-decoration: none;
+}
+
+.account-menu__item {
+  border: 1px solid var(--border);
+}
+
+.account-menu__item:hover,
+.account-menu__item:focus-visible {
+  border-color: var(--yellow);
+  background: rgba(200, 255, 61, .06);
+  outline: none;
+}
+
+.account-menu__logout {
+  border: 1px solid rgba(255, 98, 87, .28);
 }
 
 .account-menu__logout:hover,
