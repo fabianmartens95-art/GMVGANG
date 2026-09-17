@@ -1,0 +1,177 @@
+.gmv-panel {
+  border: 1px solid var(--gmv-color-border);
+  border-radius: var(--gmv-radius-md);
+  background: var(--gmv-color-surface);
+  padding: var(--gmv-space-6);
+}
+
+.gmv-panel + .gmv-panel { margin-top: var(--gmv-space-4); }
+
+.gmv-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--gmv-space-4);
+  margin-bottom: var(--gmv-space-5);
+}
+
+.gmv-panel__header h2,
+.gmv-panel__header h3 {
+  margin: 4px 0 0;
+  letter-spacing: -.03em;
+}
+
+.gmv-kicker {
+  color: var(--gmv-color-signal-lime);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.gmv-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gmv-space-4);
+}
+
+.gmv-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.gmv-form { display: grid; gap: var(--gmv-space-4); }
+
+.gmv-field { display: grid; gap: 7px; }
+
+.gmv-field > span {
+  color: var(--gmv-color-muted-strong);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.gmv-input,
+.gmv-select,
+.gmv-textarea {
+  width: 100%;
+  border: 1px solid var(--gmv-color-border);
+  border-radius: var(--gmv-radius-sm);
+  background: var(--gmv-color-surface-raised);
+  color: var(--gmv-color-off-white);
+  padding: 12px 13px;
+}
+
+.gmv-textarea { min-height: 120px; resize: vertical; }
+
+.gmv-button {
+  width: fit-content;
+  border: 1px solid var(--gmv-color-signal-lime);
+  border-radius: var(--gmv-radius-pill);
+  background: var(--gmv-color-signal-lime);
+  color: var(--gmv-color-carbon);
+  padding: 11px 16px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.gmv-button--secondary {
+  background: transparent;
+  color: var(--gmv-color-off-white);
+  border-color: var(--gmv-color-border);
+}
+
+.gmv-button--danger {
+  background: transparent;
+  color: var(--gmv-color-negative);
+  border-color: color-mix(in srgb, var(--gmv-color-negative) 45%, var(--gmv-color-border));
+}
+
+.gmv-button:disabled { opacity: .55; cursor: wait; }
+
+.gmv-actions { display: flex; flex-wrap: wrap; gap: var(--gmv-space-2); }
+
+.gmv-progress {
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--gmv-radius-pill);
+  background: var(--gmv-color-surface-soft);
+}
+
+.gmv-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--gmv-color-signal-lime);
+}
+
+.gmv-metric {
+  border: 1px solid var(--gmv-color-border);
+  border-radius: var(--gmv-radius-sm);
+  padding: var(--gmv-space-4);
+  background: var(--gmv-color-surface-raised);
+}
+
+.gmv-metric span {
+  display: block;
+  color: var(--gmv-color-muted);
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+
+.gmv-metric strong { font-size: 24px; letter-spacing: -.035em; }
+
+.gmv-table-wrap { overflow-x: auto; }
+
+.gmv-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.gmv-table th,
+.gmv-table td {
+  padding: 13px 12px;
+  border-bottom: 1px solid var(--gmv-color-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.gmv-table th {
+  color: var(--gmv-color-muted);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.gmv-empty {
+  color: var(--gmv-color-muted);
+  border: 1px dashed var(--gmv-color-border);
+  border-radius: var(--gmv-radius-sm);
+  padding: var(--gmv-space-6);
+}
+
+.gmv-activity {
+  display: grid;
+  gap: 1px;
+  background: var(--gmv-color-border);
+  border: 1px solid var(--gmv-color-border);
+  border-radius: var(--gmv-radius-md);
+  overflow: hidden;
+}
+
+.gmv-activity__item {
+  display: grid;
+  grid-template-columns: 150px 1fr auto;
+  gap: var(--gmv-space-4);
+  padding: 14px 16px;
+  background: var(--gmv-color-surface);
+}
+
+.gmv-activity__item span,
+.gmv-help,
+.gmv-result { color: var(--gmv-color-muted); font-size: 12px; }
+
+.gmv-result[data-tone="error"] { color: var(--gmv-color-negative); }
+.gmv-result[data-tone="success"] { color: var(--gmv-color-signal-lime); }
+
+@media (max-width: 780px) {
+  .gmv-grid,
+  .gmv-grid--3 { grid-template-columns: 1fr; }
+  .gmv-activity__item { grid-template-columns: 1fr; gap: 5px; }
+}
