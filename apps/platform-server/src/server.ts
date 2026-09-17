@@ -3,6 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
 
 import { createPlatformApiHandler, createSupabasePlatformApiServices } from "@gmvgang/platform-api";
+import { createClient } from "@supabase/supabase-js";
 
 import {
   createPlatformAuditLogger,
@@ -27,6 +28,7 @@ import {
   createPlatformMutationRateLimitPort,
   type FixedWindowRateLimiter,
 } from "./rate-limit.js";
+import { handleParallelV1 } from "./parallel-v1.js";
 import { requestIdFromHeader, requestLogEntry, withRequestId } from "./request-context.js";
 
 const MAX_REQUEST_BYTES = 1024 * 1024;
@@ -465,6 +467,9 @@ export function createPlatformServer(config: PlatformServerConfig) {
     url: config.supabaseUrl,
     serviceRoleKey: config.supabaseServiceRoleKey,
   });
+  const parallelAdminClient = createClient(config.supabaseUrl, config.supabaseServiceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
   const idempotency = new SupabasePlatformIdempotencyPort(createSupabaseIdempotencyClient({
     url: config.supabaseUrl,
     serviceRoleKey: config.supabaseServiceRoleKey,
@@ -519,6 +524,17 @@ export function createPlatformServer(config: PlatformServerConfig) {
       }
 
       if (url.pathname.startsWith("/api/")) {
+        const parallelV1 = await handleParallelV1(request, {
+          requestClient: authClient,
+          adminClient: parallelAdminClient,
+          now: new Date().toISOString(),
+          requestId,
+        });
+        if (parallelV1) {
+          await writeNodeResponse(applyResponseMutations(parallelV1, mutations), outgoing);
+          return;
+        }
+
         const handler = createPlatformApiHandler({
           accessTokens: createCookieAccessTokenPort(authClient),
           services,

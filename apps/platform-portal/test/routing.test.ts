@@ -69,12 +69,15 @@ describe("platform portal routing", () => {
 
   it("returns only module navigation for the requested protected area", () => {
     expect(moduleRoutesForArea("brand").map((route) => route.path)).toEqual([
+      "/brand/setup",
+      "/brand/products",
       "/brand/profitability",
       "/brand/actions",
       "/brand/campaigns",
       "/brand/creators",
       "/brand/approvals",
       "/brand/reporting",
+      "/brand/activity",
     ]);
     expect(moduleRoutesForArea("brand").every((route) => route.area === "brand")).toBe(true);
   });
