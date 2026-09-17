@@ -10,12 +10,12 @@ const repoRoot = join(root, '..', '..');
 const dist = join(root, 'dist');
 const src = join(root, 'src');
 const designSystemTokens = join(repoRoot, 'packages', 'design-system', 'tokens.css');
-const assetVersion = '20260917-ci-v1';
+const assetVersion = '20260917-creator-showcase-v1';
 
 function versionStaticAssets(html) {
   return html
     .replace('href="/styles.css"', `href="/styles.css?v=${assetVersion}"`)
-    .replace('src="/client.js"', `src="/client.js?v=${assetVersion}"`);
+    .replace('src="/client.js"', `src="/client.js?v=${assetVersion}` + '"');
 }
 
 await rm(dist, { recursive: true, force: true });
@@ -25,6 +25,7 @@ await cp(join(src, 'styles.css'), join(dist, 'styles.css'));
 await cp(join(src, 'client.js'), join(dist, 'client.js'));
 await cp(join(src, 'creator-application.css'), join(dist, 'creator-application.css'));
 await cp(join(src, 'creator-application.js'), join(dist, 'creator-application.js'));
+await cp(join(src, 'creator-portal-showcase.css'), join(dist, 'creator-portal-showcase.css'));
 
 for (const page of pages) {
   const targetDir = page.path === '/' ? dist : join(dist, page.path.replace(/^\//, ''));
@@ -48,7 +49,7 @@ await writeFile(join(dist, 'sitemap.xml'), sitemap, 'utf8');
 
 await writeFile(
   join(dist, '_headers'),
-  `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  X-Frame-Options: SAMEORIGIN\n  Permissions-Policy: camera=(), microphone=(), geolocation=()\n\n/styles.css\n  Cache-Control: no-cache\n/tokens.css\n  Cache-Control: no-cache\n`,
+  `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  X-Frame-Options: SAMEORIGIN\n  Permissions-Policy: camera=(), microphone=(), geolocation=()\n\n/styles.css\n  Cache-Control: no-cache\n/tokens.css\n  Cache-Control: no-cache\n/creator-portal-showcase.css\n  Cache-Control: no-cache\n`,
   'utf8',
 );
 
