@@ -143,8 +143,41 @@ footer {
 footer span:first-child { color: var(--purple); font-weight: 900; }
 
 @media (max-width: 1050px) {
-  .topbar { grid-template-columns: 1fr auto; }
-  .nav { grid-column: 1 / -1; grid-row: 2; justify-content: flex-start; padding-bottom: 14px; }
+  .topbar {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    padding-top: 12px;
+  }
+  .brand {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .session-controls {
+    grid-column: 1;
+    grid-row: 2;
+    width: 100%;
+    max-width: none;
+    justify-content: space-between;
+  }
+  .session-chip {
+    display: flex;
+    min-width: 0;
+    max-width: none;
+    flex: 1 1 0;
+    overflow: hidden;
+    text-align: left;
+  }
+  .session-action {
+    flex: 0 0 auto;
+    min-height: 40px;
+    white-space: nowrap;
+  }
+  .nav {
+    grid-column: 1;
+    grid-row: 3;
+    justify-content: flex-start;
+    padding-bottom: 14px;
+  }
   .hero { grid-template-columns: 1fr; gap: 40px; }
   .portal-grid, .module-grid { grid-template-columns: 1fr 1fr; }
   .foundation-strip { grid-template-columns: 1fr 1fr; }
@@ -153,8 +186,9 @@ footer span:first-child { color: var(--purple); font-weight: 900; }
 
 @media (max-width: 700px) {
   .topbar, main, footer { width: min(100% - 24px, 1500px); }
-  .topbar { gap: 14px; }
-  .session-chip { display: none; }
+  .session-controls { gap: 8px; }
+  .session-chip { display: flex; }
+  .session-action { min-height: 42px; padding: 10px 12px; }
   .nav { overflow-x: auto; flex-wrap: nowrap; }
   .nav__link { white-space: nowrap; }
   .hero { padding-top: 56px; min-height: unset; }
