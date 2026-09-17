@@ -18,6 +18,14 @@
   --border: var(--gmv-color-border);
   --negative: var(--gmv-color-negative);
   --positive: var(--gmv-color-signal-lime);
+
+  /* Compatibility aliases for existing portal modules. */
+  --background: var(--gmv-color-carbon);
+  --text: var(--gmv-color-off-white);
+  --surface: var(--gmv-color-surface);
+  --surface-raised: var(--gmv-color-surface-raised);
+  --line: var(--gmv-color-border);
+  --muted: var(--gmv-color-muted);
 }
 
 * { box-sizing: border-box; }
