@@ -209,13 +209,15 @@ export function renderCreatorProfile(result: CreatorProfileResult): string {
       <div>
         <div class="eyebrow">CREATOR IDENTITY</div>
         <h2>${escapeHtml(profile.displayName ?? `@${profile.tiktokHandle}`)}</h2>
-        <p>@${escapeHtml(profile.tiktokHandle)} · ${profile.profileCompletionPercent}% Profilvollständigkeit</p>
+        <p>@${escapeHtml(profile.tiktokHandle)} · <span id="creator-profile-completion">${profile.profileCompletionPercent}% Profilvollständigkeit</span></p>
       </div>
       <div class="creator-profile-state">
         <span>${escapeHtml(profile.networkStatus.toUpperCase())}</span>
         <code>${escapeHtml(profile.referralCode)}</code>
       </div>
     </div>
+
+    <progress id="creator-profile-progress" class="creator-profile-progress" value="${profile.profileCompletionPercent}" max="100">${profile.profileCompletionPercent}%</progress>
 
     <form id="creator-profile-form" class="creator-profile-form" novalidate>
       <label>
@@ -292,6 +294,10 @@ export function wireCreatorProfile(port: CreatorProfilePort): void {
     }
 
     result.textContent = `Gespeichert · ${response.creatorProfile.profileCompletionPercent}% vollständig`;
+    const progress = document.querySelector<HTMLProgressElement>("#creator-profile-progress");
+    const completion = document.querySelector<HTMLSpanElement>("#creator-profile-completion");
+    if (progress) progress.value = response.creatorProfile.profileCompletionPercent;
+    if (completion) completion.textContent = `${response.creatorProfile.profileCompletionPercent}% Profilvollständigkeit`;
     if (button) button.disabled = false;
   });
 }
