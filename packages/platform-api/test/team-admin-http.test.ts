@@ -24,10 +24,12 @@ function dependencies(options: {
   token?: string | null;
   roles?: Array<"founder" | "admin" | "creator_manager" | "creator">;
   includeService?: boolean;
+  onSessionInput?: (input: { accessToken: string; requestedOrganizationId?: string; now: string }) => void;
 } = {}): PlatformApiDependencies {
   const roles = options.roles ?? ["admin"];
   const services: PlatformApiServices = {
-    async resolveSessionContext() {
+    async resolveSessionContext(input) {
+      options.onSessionInput?.(input);
       return {
         session: { status: "authenticated", userId: "staff-user", roles },
         workspaces: [],
@@ -60,6 +62,23 @@ describe("team admin overview API", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     await expect(response.json()).resolves.toEqual({ model: MODEL, source: "production" });
+  });
+
+  it("passes the selected workspace into server-side session resolution", async () => {
+    const inputs: Array<{ accessToken: string; requestedOrganizationId?: string; now: string }> = [];
+    const response = await handleTeamAdminOverview(
+      new Request(`${ORIGIN}/api/team/admin`, {
+        headers: { "X-GMVGANG-Organization-Id": "gmvgang-org" },
+      }),
+      dependencies({ onSessionInput: (input) => inputs.push(input) }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(inputs).toEqual([{
+      accessToken: "access-token",
+      requestedOrganizationId: "gmvgang-org",
+      now: NOW,
+    }]);
   });
 
   it("rejects staff without users.manage and unauthenticated requests", async () => {
