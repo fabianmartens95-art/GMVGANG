@@ -9,6 +9,7 @@ export type PlatformSession =
   | {
       status: "authenticated";
       userId: string;
+      email?: string;
       organizationId?: string;
       roles: readonly PlatformUserRole[];
     };
@@ -80,6 +81,7 @@ export function resolvePlatformSession(input: ResolvePlatformSessionInput): Plat
     throw new Error("ACCOUNT_ACCESS_DENIED");
   }
 
+  const accountEmail = input.user.email.trim();
   const requestedOrganizationId = input.requestedOrganizationId?.trim();
   if (requestedOrganizationId) {
     const organization = input.organizations.find((candidate) => candidate.id === requestedOrganizationId);
@@ -95,6 +97,7 @@ export function resolvePlatformSession(input: ResolvePlatformSessionInput): Plat
     return {
       status: "authenticated",
       userId: input.user.id,
+      ...(accountEmail ? { email: accountEmail } : {}),
       organizationId: requestedOrganizationId,
       roles,
     };
@@ -106,6 +109,7 @@ export function resolvePlatformSession(input: ResolvePlatformSessionInput): Plat
     return {
       status: "authenticated",
       userId: input.user.id,
+      ...(accountEmail ? { email: accountEmail } : {}),
       organizationId,
       roles: uniqueRoles(activeRolesForUser(input.user.id, organizationId, input.memberships)),
     };
@@ -114,6 +118,7 @@ export function resolvePlatformSession(input: ResolvePlatformSessionInput): Plat
   return {
     status: "authenticated",
     userId: input.user.id,
+    ...(accountEmail ? { email: accountEmail } : {}),
     roles: [],
   };
 }
