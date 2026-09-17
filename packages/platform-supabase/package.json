@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@gmvgang/creator-activation": "workspace:*",
     "@gmvgang/creator-qualification": "workspace:*",
     "@gmvgang/creator-registration": "workspace:*",
     "@gmvgang/platform-foundation": "workspace:*",
