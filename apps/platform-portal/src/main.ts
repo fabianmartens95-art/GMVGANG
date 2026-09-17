@@ -333,7 +333,8 @@ async function protectedView(area: Exclude<PortalArea, "public">, route: PortalR
   }
 
   if (area === "team" && route.moduleId === "admin") {
-    const admin = await new HttpTeamAdminAdapter().getOverview();
+    const adminOrganizationId = session.status === "authenticated" ? session.organizationId : undefined;
+    const admin = await new HttpTeamAdminAdapter(adminOrganizationId).getOverview();
     return `
       <main class="workspace">
         ${intro}
@@ -441,7 +442,10 @@ async function render(): Promise<void> {
   if (route.path === "/creator/profile") wireCreatorProfile(new HttpCreatorProfileAdapter());
   if (route.path === "/creator/qualification") wireCreatorQualification(new HttpCreatorQualificationAdapter());
   if (route.path === "/creator/referrals") wireCreatorReferralHub();
-  if (route.path === "/team/admin") wireTeamAdmin(new HttpTeamAdminAdapter(), () => render());
+  if (route.path === "/team/admin") {
+    const adminOrganizationId = session.status === "authenticated" ? session.organizationId : undefined;
+    wireTeamAdmin(new HttpTeamAdminAdapter(adminOrganizationId), () => render());
+  }
 }
 
 window.addEventListener("popstate", () => void render());
