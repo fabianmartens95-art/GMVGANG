@@ -198,7 +198,7 @@ export function renderCreatorQualification(profile: CreatorProfile, qualificatio
               ["tech", "Technik"], ["fitness", "Fitness"], ["gaming", "Gaming"], ["family", "Familie"],
               ["entertainment", "Entertainment"], ["home_living", "Home & Living"], ["health_wellness", "Health & Wellness"],
               ["pet", "Pet"], ["other", "Sonstiges"],
-            ].map(([value, label]) => `<label><input type="checkbox" name="contentCategories" value="${value}"${checked(q?.contentCategories, value)}> ${label}</label>`).join("")}
+            ].map(([value, label]) => `<label><input type="checkbox" name="contentCategories" value="${value}"${checked(q?.contentCategories, value ?? "")}> ${label}</label>`).join("")}
           </div>
           <label>Optional: repräsentatives TikTok-Video
             <input name="representativeVideoUrl" type="url" inputmode="url" placeholder="https://www.tiktok.com/..." value="${escapeHtml(q?.representativeVideoUrl ?? "")}">
