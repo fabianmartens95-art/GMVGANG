@@ -25,7 +25,6 @@ import {
 } from "./creator-workspace.js";
 import {
   canAccessArea,
-  defaultAreaForSession,
   moduleRoutesForArea,
   PRIMARY_PORTAL_ROUTES,
   resolvePortalRoute,
@@ -94,7 +93,6 @@ function workspaceSelector(): string {
 }
 
 function navigation(): string {
-  const defaultArea = defaultAreaForSession(session);
   const currentRoute = resolvePortalRoute(window.location.pathname);
   const currentOrganizationId = session.status === "authenticated" ? session.organizationId : undefined;
   const currentWorkspace = currentOrganizationId
@@ -102,6 +100,7 @@ function navigation(): string {
     : undefined;
   const primaryRoutes = PRIMARY_PORTAL_ROUTES.filter(
     (route) =>
+      (route.area === "public" || canAccessArea(session, route.area)) &&
       (route.path !== "/login" || session.status !== "authenticated") &&
       (route.path !== "/join" || !canAccessArea(session, "creator")),
   );
@@ -110,7 +109,7 @@ function navigation(): string {
     : "Nicht eingeloggt";
   const accountContext = session.status === "authenticated"
     ? `${currentWorkspace ? escapeHtml(currentWorkspace.name) : "Kein Workspace"} · ${session.roles.join(", ") || "Keine Rolle"}`
-    : `Default ${defaultArea}`;
+    : "Portal";
 
   return `
     <header class="topbar">
@@ -147,37 +146,26 @@ function publicView(): string {
     <main>
       <section class="hero">
         <div class="hero__copy">
-          <div class="eyebrow">GMVGANG PLATFORM FOUNDATION</div>
-          <h1>Ein System.<br><span>Getrennte Zugänge.</span></h1>
-          <p>Die gemeinsame Portal-Schicht für Creator, Brands und das interne GMVGANG-Team. Business-Logik bleibt zentral, Rollen und Tenant-Grenzen sind explizit.</p>
+          <div class="eyebrow">GMVGANG PORTAL</div>
+          <h1>Willkommen bei<br><span>GMVGANG.</span></h1>
+          <p>Creator können direkt starten. Bestehende Creator-, Brand- und Team-Accounts melden sich über ihren GMVGANG-Zugang an.</p>
           <div class="hero__badges">
-            ${statusPill("Domain Foundation · ready")}
-            ${statusPill("Supabase Persistence · ready")}
-            ${statusPill("Cookie Auth Runtime · ready")}
-            ${statusPill("Production Deployment · next", "next")}
+            <a href="/join" data-nav class="button">Als Creator starten</a>
+            <a href="/login" data-nav class="button">Einloggen</a>
           </div>
         </div>
         <aside class="architecture-card">
-          <div class="architecture-card__label">CURRENT ARCHITECTURE</div>
-          <div class="stack-item"><strong>Creator Portal</strong><span>Registration · Profile · Qualification · Referrals · Matches</span></div>
+          <div class="architecture-card__label">DEIN ZUGANG</div>
+          <div class="stack-item">
+            <strong>Creator</strong>
+            <span>Profil anlegen, Qualifizierung abschließen und verfügbare Matches und Campaigns verwalten.</span>
+          </div>
           <div class="connector"></div>
-          <div class="stack-item stack-item--core"><strong>GMVGANG Core</strong><span>Auth · RBAC · Matching · Campaigns · Economics</span></div>
-          <div class="connector"></div>
-          <div class="stack-item"><strong>Brand + Team</strong><span>Profitability · Actions · Operations</span></div>
+          <div class="stack-item stack-item--core">
+            <strong>Bestehender Account</strong>
+            <span>Einloggen und direkt in den für deinen Account freigeschalteten Bereich wechseln.</span>
+          </div>
         </aside>
-      </section>
-
-      <section class="portal-grid" aria-label="Portal Bereiche">
-        ${portalEntry("creator", "CREATOR", "Offene Registrierung, Creator-Profil, native Qualifizierung, Referral Hub, Matches und persönlicher Campaign-Fortschritt.")}
-        ${portalEntry("brand", "BRAND", "Profitability Center, Next Best Actions, Campaigns, Creator Intelligence und Reports.")}
-        ${portalEntry("team", "TEAM", "Founder, Admin, Creator Manager, Brand Manager und Closer mit getrennten Rechten.")}
-      </section>
-
-      <section class="foundation-strip">
-        <div><span>01</span><strong>Identity</strong><small>Supabase Auth · Cookie Session</small></div>
-        <div><span>02</span><strong>RBAC</strong><small>Deny by default · scoped access</small></div>
-        <div><span>03</span><strong>Growth</strong><small>Immutable Referral Attribution</small></div>
-        <div><span>04</span><strong>Connections</strong><small>Seller / Creator API boundaries</small></div>
       </section>
     </main>`;
 }
@@ -406,7 +394,7 @@ async function render(): Promise<void> {
         ? publicView()
         : await protectedView(route.area, route);
 
-  app.innerHTML = `${navigation()}${body}<footer><span>GMVGANG PLATFORM</span><span>Notion remains operational SSOT · Platform code on GitHub</span></footer>`;
+  app.innerHTML = `${navigation()}${body}<footer><span>GMVGANG</span><span>Portal</span></footer>`;
   wireNavigation();
   wireWorkspaceSelector();
   wireSignOut();
