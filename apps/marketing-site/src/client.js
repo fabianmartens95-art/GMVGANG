@@ -52,6 +52,17 @@ if (form instanceof HTMLFormElement) {
   const progress = document.querySelector('#pc-progress-fill');
   const productionHosts = new Set(['gmvgang.de', 'www.gmvgang.de']);
   const productionHost = productionHosts.has(window.location.hostname.toLowerCase());
+  const nativeIntakeEndpoint = 'https://wikctgtgesmnezeufxsu.supabase.co/functions/v1/brand-intake';
+  const createSubmissionId = () => {
+    if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  };
+  const submissionId = createSubmissionId();
+  if (productionHost) form.action = nativeIntakeEndpoint;
   let current = 1;
   let busy = false;
 
@@ -229,10 +240,10 @@ if (form instanceof HTMLFormElement) {
 
     try {
       const data = Object.fromEntries(new FormData(form).entries());
-      const response = await fetch(form.action, {
+      const response = await fetch(nativeIntakeEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ payload: { data } }),
+        body: JSON.stringify({ submissionId, payload: { data } }),
       });
       const result = await response.json();
       if (!response.ok || result.saved !== true) throw new Error('save_not_confirmed');
@@ -240,8 +251,11 @@ if (form instanceof HTMLFormElement) {
       form.hidden = true;
       setMessage(success, 'Danke – Ihre Anfrage ist angekommen. Wir leiten Sie zur Ersteinschätzung weiter.', true);
       const query = new URLSearchParams();
-      if (!resultState.marginUnknown) query.set('score', String(resultState.score));
-      query.set('band', resultState.band);
+      if (!resultState.marginUnknown && Number.isInteger(result.score) && result.score >= 0 && result.score <= 100) {
+        query.set('score', String(result.score));
+      }
+      const confirmedBand = typeof result.band === 'string' && result.band.length <= 80 ? result.band : resultState.band;
+      query.set('band', confirmedBand);
       window.setTimeout(() => {
         window.location.assign(`/analyse-erhalten/${query.toString() ? `?${query.toString()}` : ''}`);
       }, 500);
