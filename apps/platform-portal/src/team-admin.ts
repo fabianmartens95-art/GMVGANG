@@ -189,17 +189,20 @@ export function parseTeamAdminResponse(payload: unknown): TeamAdminModel {
 
 export class HttpTeamAdminAdapter {
   constructor(
+    private readonly organizationId?: string,
     private readonly overviewEndpoint = "/api/team/admin",
     private readonly membershipEndpoint = "/api/memberships",
   ) {}
 
   async getOverview(): Promise<TeamAdminState> {
     try {
+      const headers: Record<string, string> = { Accept: "application/json" };
+      if (this.organizationId) headers["X-GMVGANG-Organization-Id"] = this.organizationId;
       const response = await fetch(this.overviewEndpoint, {
         method: "GET",
         credentials: "include",
         cache: "no-store",
-        headers: { Accept: "application/json" },
+        headers,
       });
       if (!response.ok) return { ok: false, error: response.status === 403 ? "access_denied" : "load_failed" };
       return { ok: true, model: parseTeamAdminResponse(await response.json()) };
