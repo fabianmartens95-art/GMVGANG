@@ -6,11 +6,14 @@ import { pages, renderPage } from '../src/site.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
+const repoRoot = join(root, '..', '..');
 const dist = join(root, 'dist');
 const src = join(root, 'src');
+const designSystemTokens = join(repoRoot, 'packages', 'design-system', 'tokens.css');
 
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
+await cp(designSystemTokens, join(dist, 'tokens.css'));
 await cp(join(src, 'styles.css'), join(dist, 'styles.css'));
 await cp(join(src, 'client.js'), join(dist, 'client.js'));
 await cp(join(src, 'creator-application.css'), join(dist, 'creator-application.css'));
