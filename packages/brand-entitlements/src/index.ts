@@ -4,6 +4,79 @@ export type BrandPlan =
   | "managed_growth"
   | "enterprise";
 
+export type BrandPlanCapability =
+  | "workspace.write"
+  | "products.manage"
+  | "campaigns.manage"
+  | "creator_discovery.read"
+  | "analytics.basic"
+  | "analytics.advanced"
+  | "profitability.read"
+  | "automations.use"
+  | "priority_support"
+  | "managed_operations"
+  | "teams.advanced"
+  | "integrations.custom"
+  | "sla";
+
+const PLAN_CAPABILITIES: Record<BrandPlan, readonly BrandPlanCapability[]> = {
+  brand_core: [
+    "workspace.write",
+    "products.manage",
+    "campaigns.manage",
+    "creator_discovery.read",
+    "analytics.basic",
+  ],
+  brand_growth: [
+    "workspace.write",
+    "products.manage",
+    "campaigns.manage",
+    "creator_discovery.read",
+    "analytics.basic",
+    "analytics.advanced",
+    "profitability.read",
+    "automations.use",
+    "priority_support",
+  ],
+  managed_growth: [
+    "workspace.write",
+    "products.manage",
+    "campaigns.manage",
+    "creator_discovery.read",
+    "analytics.basic",
+    "analytics.advanced",
+    "profitability.read",
+    "automations.use",
+    "priority_support",
+    "managed_operations",
+  ],
+  enterprise: [
+    "workspace.write",
+    "products.manage",
+    "campaigns.manage",
+    "creator_discovery.read",
+    "analytics.basic",
+    "analytics.advanced",
+    "profitability.read",
+    "automations.use",
+    "priority_support",
+    "teams.advanced",
+    "integrations.custom",
+    "sla",
+  ],
+};
+
+export function capabilitiesForBrandPlan(plan: BrandPlan): readonly BrandPlanCapability[] {
+  return PLAN_CAPABILITIES[plan];
+}
+
+export function brandPlanHasCapability(
+  plan: BrandPlan,
+  capability: BrandPlanCapability,
+): boolean {
+  return PLAN_CAPABILITIES[plan].includes(capability);
+}
+
 export type BrandEntitlementSource =
   | {
       kind: "trial";
