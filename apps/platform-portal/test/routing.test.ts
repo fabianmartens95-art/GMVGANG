@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   canAccessArea,
+  canAccessRoute,
   defaultAreaForSession,
   moduleRoutesForArea,
   PRIMARY_PORTAL_ROUTES,
@@ -48,6 +49,11 @@ describe("platform portal routing", () => {
       moduleId: "profitability",
     });
     expect(resolvePortalRoute("/team/activity")).toMatchObject({ area: "team", moduleId: "activity" });
+    expect(resolvePortalRoute("/team/admin")).toMatchObject({
+      area: "team",
+      moduleId: "admin",
+      requiredCapability: "users.manage",
+    });
   });
 
   it("does not infer protected access from unknown path prefixes", () => {
@@ -86,6 +92,19 @@ describe("platform portal routing", () => {
     expect(canAccessArea(brand, "team")).toBe(false);
     expect(canAccessArea(team, "team")).toBe(true);
     expect(canAccessArea(team, "creator")).toBe(false);
+  });
+
+  it("gates privileged module routes beyond the team-area boundary", () => {
+    const founder: PortalSession = {
+      status: "authenticated",
+      userId: "founder-1",
+      organizationId: "gmvgang-org",
+      roles: ["founder"],
+    };
+    const adminRoute = resolvePortalRoute("/team/admin");
+    expect(canAccessArea(team, "team")).toBe(true);
+    expect(canAccessRoute(team, adminRoute)).toBe(false);
+    expect(canAccessRoute(founder, adminRoute)).toBe(true);
   });
 
   it("denies protected areas to anonymous sessions", () => {

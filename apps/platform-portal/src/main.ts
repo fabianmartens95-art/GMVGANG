@@ -7,6 +7,7 @@ import "./creator-qualification.css";
 import "./creator-referrals.css";
 import "./creator-workspace.css";
 import "./team-creator-funnel.css";
+import "./team-admin.css";
 
 import type { PlatformWorkspaceAccess } from "@gmvgang/platform-foundation";
 import { renderLogin, signOut, wireLogin } from "./auth-client.js";
@@ -28,6 +29,7 @@ import {
 } from "./creator-workspace.js";
 import {
   canAccessArea,
+  canAccessRoute,
   moduleRoutesForArea,
   PRIMARY_PORTAL_ROUTES,
   resolvePortalRoute,
@@ -40,6 +42,7 @@ import {
   renderTeamActivityTrail,
   renderTeamCreatorOperations,
 } from "./team-creator-funnel.js";
+import { HttpTeamAdminAdapter, renderTeamAdmin, wireTeamAdmin } from "./team-admin.js";
 import { createWorkspacePort } from "./workspaces.js";
 
 const app = document.querySelector<HTMLDivElement>("#app") ?? (() => { throw new Error("APP_ROOT_NOT_FOUND"); })();
@@ -191,7 +194,7 @@ function portalEntry(area: Exclude<PortalArea, "public">, label: string, text: s
 
 function moduleNavigation(area: Exclude<PortalArea, "public">, currentRoute: PortalRoute): string {
   const copy = areaCopy[area];
-  const routes = moduleRoutesForArea(area);
+  const routes = moduleRoutesForArea(area).filter((route) => canAccessRoute(session, route));
   return `
     <nav class="module-nav" aria-label="${escapeHtml(copy.title)} Module">
       <a href="/${area}" data-nav class="module-nav__link${currentRoute.moduleId === "overview" ? " is-active" : ""}">Übersicht</a>
@@ -204,7 +207,7 @@ function moduleNavigation(area: Exclude<PortalArea, "public">, currentRoute: Por
 function moduleOverview(area: Exclude<PortalArea, "public">): string {
   return `
     <section class="module-grid">
-      ${moduleRoutesForArea(area).map((route, index) => `
+      ${moduleRoutesForArea(area).filter((route) => canAccessRoute(session, route)).map((route, index) => `
         <a href="${route.path}" data-nav class="module-card module-card--link">
           <span class="module-card__number">${String(index + 1).padStart(2, "0")}</span>
           <h2>${escapeHtml(route.label)}</h2>
@@ -227,7 +230,7 @@ function modulePlaceholder(route: PortalRoute): string {
 
 async function protectedView(area: Exclude<PortalArea, "public">, route: PortalRoute): Promise<string> {
   const copy = areaCopy[area];
-  if (!canAccessArea(session, area)) {
+  if (!canAccessRoute(session, route)) {
     const loginTarget = `/login?next=${encodeURIComponent(route.path)}`;
     return `
       <main class="locked-view">
@@ -354,6 +357,20 @@ async function protectedView(area: Exclude<PortalArea, "public">, route: PortalR
       </main>`;
   }
 
+  if (area === "team" && route.moduleId === "admin") {
+    const adminOrganizationId = session.status === "authenticated" ? session.organizationId : undefined;
+    const admin = await new HttpTeamAdminAdapter(adminOrganizationId).getOverview();
+    return `
+      <main class="workspace">
+        ${intro}
+        ${renderTeamAdmin(admin, session.status === "authenticated" ? session.roles : [])}
+        <section class="boundary-note">
+          <strong>Privileged boundary</strong>
+          <span>Benutzer, Memberships und Audit-Daten werden ausschließlich nach serverseitiger users.manage-Prüfung ausgeliefert. Änderungen laufen über die bestehende autorisierte Membership-Mutation.</span>
+        </section>
+      </main>`;
+  }
+
   if (area === "team" && ["creators", "activity"].includes(route.moduleId ?? "")) {
     const funnel = await new HttpTeamCreatorFunnelAdapter().getFunnel();
     const content = route.moduleId === "activity"
@@ -450,6 +467,10 @@ async function render(): Promise<void> {
   if (route.path === "/creator/profile") wireCreatorProfile(new HttpCreatorProfileAdapter());
   if (route.path === "/creator/qualification") wireCreatorQualification(new HttpCreatorQualificationAdapter());
   if (route.path === "/creator/referrals") wireCreatorReferralHub();
+  if (route.path === "/team/admin") {
+    const adminOrganizationId = session.status === "authenticated" ? session.organizationId : undefined;
+    wireTeamAdmin(new HttpTeamAdminAdapter(adminOrganizationId), () => render());
+  }
 }
 
 window.addEventListener("popstate", () => void render());

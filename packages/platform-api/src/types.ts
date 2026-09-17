@@ -16,8 +16,10 @@ import type {
   TrustedCreatorRegistrationContext,
 } from "@gmvgang/creator-registration";
 import type {
+  AccountStatus,
   CreatorProfile,
   Membership,
+  OrganizationType,
   PlatformSessionContext,
   PlatformUserRole,
   ReferralStatus,
@@ -90,6 +92,51 @@ export type TeamCreatorFunnelReadModel = {
     registrationsLast24h: number;
   };
   creators: TeamCreatorFunnelItem[];
+};
+
+export type TeamAdminMembership = {
+  id: string;
+  userId: string;
+  organizationId: string;
+  organizationName: string;
+  organizationType: OrganizationType;
+  role: PlatformUserRole;
+  status: Membership["status"];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TeamAdminUser = {
+  id: string;
+  email: string | null;
+  status: AccountStatus;
+  isTestAccount: boolean;
+  createdAt: string;
+  updatedAt: string;
+  memberships: TeamAdminMembership[];
+};
+
+export type TeamAdminAuditEvent = {
+  id: string;
+  event: string;
+  userId: string | null;
+  organizationId: string | null;
+  occurredAt: string;
+  metadata: Readonly<Record<string, unknown>>;
+};
+
+export type TeamAdminReadModel = {
+  generatedAt: string;
+  summary: {
+    totalUsers: number;
+    activeUsers: number;
+    suspendedUsers: number;
+    disabledUsers: number;
+    memberships: number;
+    recentAuditEvents: number;
+  };
+  users: TeamAdminUser[];
+  auditEvents: TeamAdminAuditEvent[];
 };
 
 export type PlatformRateLimitAction =
@@ -258,6 +305,7 @@ export interface PlatformApiServices {
   }): Promise<PlatformSessionContext>;
   recordAnalyticsEvent?(input: PortalAnalyticsEventInput): Promise<void>;
   getTeamCreatorFunnel?(input: { now: string }): Promise<TeamCreatorFunnelReadModel>;
+  getTeamAdminOverview?(input: { now: string }): Promise<TeamAdminReadModel>;
   manageMembership?(input: PlatformMembershipMutationInput): Promise<Membership>;
   getBrandOverview?(input: {
     organizationId: string;

@@ -1,8 +1,10 @@
 import { createPlatformApiHandler as createAnalyticsPlatformApiHandler } from "./analytics-http.js";
+import { handleTeamAdminOverview } from "./team-admin-http.js";
 import { handleTeamCreatorFunnel } from "./team-creator-funnel-http.js";
 import type { PlatformApiDependencies } from "./types.js";
 
 const TEAM_CREATOR_FUNNEL_ENDPOINT = "/api/team/creator-funnel";
+const TEAM_ADMIN_ENDPOINT = "/api/team/admin";
 
 export function createPlatformApiHandler(
   dependencies: PlatformApiDependencies,
@@ -10,7 +12,25 @@ export function createPlatformApiHandler(
   const baseHandler = createAnalyticsPlatformApiHandler(dependencies);
 
   return async (request: Request): Promise<Response> => {
-    if (new URL(request.url).pathname === TEAM_CREATOR_FUNNEL_ENDPOINT) {
+    const pathname = new URL(request.url).pathname;
+
+    if (pathname === TEAM_ADMIN_ENDPOINT) {
+      try {
+        return await handleTeamAdminOverview(request, dependencies);
+      } catch (error) {
+        const code = error instanceof Error ? error.message.split(":", 1)[0] : "TEAM_ADMIN_OVERVIEW_FAILED";
+        console.error("GMVGANG_TEAM_ADMIN_OVERVIEW_FAILED", { code });
+        return new Response(JSON.stringify({ error: "internal_error" }), {
+          status: 500,
+          headers: {
+            "Cache-Control": "no-store",
+            "Content-Type": "application/json; charset=utf-8",
+          },
+        });
+      }
+    }
+
+    if (pathname === TEAM_CREATOR_FUNNEL_ENDPOINT) {
       try {
         return await handleTeamCreatorFunnel(request, dependencies);
       } catch (error) {

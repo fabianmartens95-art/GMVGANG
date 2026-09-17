@@ -1,6 +1,7 @@
 export * from "./brand-performance.js";
 export * from "./creator-referrals.js";
 export * from "./creator-workspace.js";
+export * from "./team-admin.js";
 export * from "./team-creator-funnel.js";
 export { createPlatformApiHandler } from "./team-http.js";
 export { createPlatformApiHandler as createAnalyticsPlatformApiHandler } from "./analytics-http.js";
