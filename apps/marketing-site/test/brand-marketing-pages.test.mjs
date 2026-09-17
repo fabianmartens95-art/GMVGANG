@@ -59,7 +59,7 @@ test('brand page clearly separates route-ready modules from finished functionali
   }
   assert.equal((html.match(/ROUTE READY/g) ?? []).length, 4);
   assert.match(html, /Fachlogik wird schrittweise ergänzt/);
-  assert.doesNotMatch(html, /vollständig fertig dargestellt/);
+  assert.match(html, /nicht als vollständig fertig dargestellt/);
 });
 
 test('brand and homepage no longer lead with the old agency-only positioning', () => {
