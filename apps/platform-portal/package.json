@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@gmvgang/brand-intelligence": "workspace:*",
+    "@gmvgang/creator-qualification": "workspace:*",
     "@gmvgang/creator-registration": "workspace:*",
     "@gmvgang/platform-foundation": "workspace:*"
   },
