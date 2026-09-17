@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { createCookieAccessTokenPort } from "../src/auth.js";
+import { createCookieAccessTokenPort, ensureInitializedSignOut } from "../src/auth.js";
 
 function fakeClient(options?: { token?: string | null; error?: boolean }) {
   let sessionReads = 0;
@@ -77,5 +77,28 @@ describe("platform access-token extraction", () => {
 
     await expect(port.getAccessToken(new Request("https://app.gmvgang.de/api/session"))).resolves.toBeNull();
     expect(fake.sessionReads()).toBe(1);
+  });
+});
+
+describe("SSR sign-out", () => {
+  it("hydrates the lazy cookie session before revoking the current session", async () => {
+    const calls: string[] = [];
+    const client = {
+      auth: {
+        async getSession() {
+          calls.push("getSession");
+          return { data: { session: { access_token: "access", refresh_token: "refresh" } }, error: null };
+        },
+        async signOut(options?: { scope?: string }) {
+          calls.push(`signOut:${options?.scope ?? "default"}`);
+          return { error: null };
+        },
+      },
+    } as unknown as SupabaseClient;
+
+    const initialized = ensureInitializedSignOut(client);
+    await initialized.auth.signOut({ scope: "local" });
+
+    expect(calls).toEqual(["getSession", "signOut:local"]);
   });
 });
