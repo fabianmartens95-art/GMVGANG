@@ -6,6 +6,10 @@ import type {
   SampleStatus,
 } from "@gmvgang/campaign-operations";
 import type {
+  CreatorQualification,
+  CreatorQualificationInput,
+} from "@gmvgang/creator-qualification";
+import type {
   CreatorProfileCompletionCommand,
   CreatorRegistrationResult,
   PublicCreatorRegistrationInput,
@@ -27,7 +31,10 @@ export interface PlatformApiClock {
   now(): string;
 }
 
-export type PlatformRateLimitAction = "creator_registration" | "creator_profile_completion";
+export type PlatformRateLimitAction =
+  | "creator_registration"
+  | "creator_profile_completion"
+  | "creator_qualification";
 
 export interface PlatformRateLimitPort {
   consume(input: {
@@ -198,6 +205,14 @@ export interface PlatformApiServices {
     userId: string;
     now: string;
   }): Promise<CreatorProfile | null>;
+  getCreatorQualification?(input: {
+    userId: string;
+    now: string;
+  }): Promise<CreatorQualification | null>;
+  submitCreatorQualification?(
+    input: CreatorQualificationInput,
+    context: TrustedCreatorRegistrationContext,
+  ): Promise<CreatorQualification>;
   getCreatorReferralHub?(input: {
     userId: string;
     now: string;
