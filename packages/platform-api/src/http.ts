@@ -1,3 +1,4 @@
+import { parseCreatorQualificationInput } from "@gmvgang/creator-qualification";
 import type {
   CreatorProfileCompletionCommand,
   PublicCreatorRegistrationInput,
@@ -380,6 +381,61 @@ async function handleCreatorProfile(request: Request, dependencies: PlatformApiD
   return jsonResponse(responseBody);
 }
 
+async function handleCreatorQualification(request: Request, dependencies: PlatformApiDependencies): Promise<Response> {
+  if (request.method === "GET") {
+    const trustedContext = await authenticatedCreatorContext(request, dependencies);
+    if (!trustedContext) return jsonResponse({ ok: false, errors: ["authentication_required"] }, 401);
+    if (!dependencies.services.getCreatorQualification) {
+      return jsonResponse({ ok: false, errors: ["creator_qualification_unavailable"] }, 503);
+    }
+    const qualification = await dependencies.services.getCreatorQualification(trustedContext);
+    if (!qualification) return jsonResponse({ ok: false, errors: ["creator_qualification_not_found"] }, 404);
+    return jsonResponse({ ok: true, qualification });
+  }
+
+  if (request.method !== "POST") return methodNotAllowed(["GET", "POST"]);
+  if (!sameOriginMutation(request)) return jsonResponse({ ok: false, errors: ["same_origin_required"] }, 403);
+  if (!request.headers.get("Content-Type")?.toLowerCase().includes("application/json")) {
+    return jsonResponse({ ok: false, errors: ["json_required"] }, 415);
+  }
+
+  let payload: unknown;
+  try { payload = await request.json(); } catch { return jsonResponse({ ok: false, errors: ["invalid_json"] }, 400); }
+  const input = parseCreatorQualificationInput(payload);
+  if (!input) return jsonResponse({ ok: false, errors: ["invalid_request"] }, 400);
+
+  const trustedContext = await authenticatedCreatorContext(request, dependencies);
+  if (!trustedContext) return jsonResponse({ ok: false, errors: ["authentication_required"] }, 401);
+  if (!dependencies.services.submitCreatorQualification) {
+    return jsonResponse({ ok: false, errors: ["creator_qualification_unavailable"] }, 503);
+  }
+  if (!await mutationAllowed(dependencies, "creator_qualification", trustedContext.userId, trustedContext.now)) {
+    return jsonResponse({ ok: false, errors: ["rate_limited"] }, 429, { "Retry-After": "600" });
+  }
+
+  const idempotency = await idempotencyStart(
+    request,
+    dependencies,
+    "creator_qualification",
+    trustedContext.userId,
+    input,
+    trustedContext.now,
+  );
+  if (idempotency.status === "response") return idempotency.response;
+
+  const qualification = await dependencies.services.submitCreatorQualification(input, trustedContext);
+  const responseBody = { ok: true, qualification };
+  await idempotencyComplete(
+    dependencies,
+    "creator_qualification",
+    trustedContext.userId,
+    idempotency,
+    200,
+    responseBody,
+  );
+  return jsonResponse(responseBody);
+}
+
 function publicError(error: unknown): Response {
   const code = error instanceof Error ? error.message.split(":", 1)[0] : "";
   if (
@@ -387,6 +443,7 @@ function publicError(error: unknown): Response {
     code === "ORGANIZATION_ACCESS_DENIED" || code === "SUPABASE_IDENTITY_MISMATCH" || code === "PLATFORM_USER_NOT_PROVISIONED"
   ) return jsonResponse({ error: "access_denied" }, 403);
   if (code === "CREATOR_PROFILE_NOT_FOUND") return jsonResponse({ ok: false, errors: ["creator_profile_not_found"] }, 404);
+  if (code === "CREATOR_QUALIFICATION_LOCKED") return jsonResponse({ ok: false, errors: ["creator_qualification_locked"] }, 409);
   if (code === "TIKTOK_HANDLE_ALREADY_REGISTERED") return jsonResponse({ ok: false, errors: ["tiktok_handle_already_registered"] }, 409);
   if (
     code === "INVALID_TIKTOK_HANDLE" || code === "DISPLAY_NAME_REQUIRED" || code === "MARKET_REQUIRED" ||
@@ -406,6 +463,7 @@ export function createPlatformApiHandler(dependencies: PlatformApiDependencies):
       if (pathname === "/api/brand/overview") return await handleBrandOverview(request, dependencies);
       if (pathname === "/api/creator/registration") return await handleCreatorRegistration(request, dependencies);
       if (pathname === "/api/creator/profile") return await handleCreatorProfile(request, dependencies);
+      if (pathname === "/api/creator/qualification") return await handleCreatorQualification(request, dependencies);
       if (pathname === "/api/creator/referrals") return await handleCreatorReferralHub(request, dependencies);
       if (pathname === "/api/creator/workspace") return await handleCreatorWorkspace(request, dependencies);
       return jsonResponse({ error: "not_found" }, 404);
