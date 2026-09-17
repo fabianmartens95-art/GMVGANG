@@ -10,6 +10,13 @@ const repoRoot = join(root, '..', '..');
 const dist = join(root, 'dist');
 const src = join(root, 'src');
 const designSystemTokens = join(repoRoot, 'packages', 'design-system', 'tokens.css');
+const assetVersion = '20260917-ci-v1';
+
+function versionStaticAssets(html) {
+  return html
+    .replace('href="/styles.css"', `href="/styles.css?v=${assetVersion}"`)
+    .replace('src="/client.js"', `src="/client.js?v=${assetVersion}"`);
+}
 
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
@@ -22,7 +29,7 @@ await cp(join(src, 'creator-application.js'), join(dist, 'creator-application.js
 for (const page of pages) {
   const targetDir = page.path === '/' ? dist : join(dist, page.path.replace(/^\//, ''));
   await mkdir(targetDir, { recursive: true });
-  const rendered = renderPage(page);
+  const rendered = versionStaticAssets(renderPage(page));
   const output = page.path === '/creator/' ? enhanceCreatorApplicationPage(rendered) : rendered;
   await writeFile(join(targetDir, 'index.html'), output, 'utf8');
 }
@@ -41,13 +48,13 @@ await writeFile(join(dist, 'sitemap.xml'), sitemap, 'utf8');
 
 await writeFile(
   join(dist, '_headers'),
-  `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  X-Frame-Options: SAMEORIGIN\n  Permissions-Policy: camera=(), microphone=(), geolocation=()\n`,
+  `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  X-Frame-Options: SAMEORIGIN\n  Permissions-Policy: camera=(), microphone=(), geolocation=()\n\n/styles.css\n  Cache-Control: no-cache\n/tokens.css\n  Cache-Control: no-cache\n`,
   'utf8',
 );
 
 await writeFile(
   join(dist, '404.html'),
-  renderPage({
+  versionStaticAssets(renderPage({
     path: '/404',
     title: 'Seite nicht gefunden | GMVGANG',
     description: 'Die angeforderte Seite wurde nicht gefunden.',
@@ -56,7 +63,7 @@ await writeFile(
     lead: 'Zurück zur GMVGANG Startseite.',
     body: '<p><a class="button button-primary" href="/">Zur Startseite</a></p>',
     index: false,
-  }),
+  })),
   'utf8',
 );
 
