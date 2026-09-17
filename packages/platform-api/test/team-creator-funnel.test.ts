@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildTeamCreatorFunnelReadModel } from "../src/team-creator-funnel.js";
+import {
+  buildTeamCreatorFunnelReadModel,
+  type TeamCreatorFunnelSource,
+} from "../src/team-creator-funnel.js";
 
 const NOW = "2026-09-17T22:00:00.000Z";
 
-function source() {
+function source(): TeamCreatorFunnelSource {
   return {
     users: [
       { id: "creator-1", email: "creator@example.com", created_at: "2026-09-17T20:00:00.000Z", updated_at: "2026-09-17T20:00:00.000Z" },
