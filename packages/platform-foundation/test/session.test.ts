@@ -101,6 +101,7 @@ describe("resolvePlatformSession", () => {
     ).toEqual({
       status: "authenticated",
       userId: user.id,
+      email: user.email,
       organizationId: brand.id,
       roles: ["brand_member"],
     });
@@ -129,6 +130,7 @@ describe("resolvePlatformSession", () => {
     ).toEqual({
       status: "authenticated",
       userId: user.id,
+      email: user.email,
       organizationId: brand.id,
       roles: ["brand_member", "brand_manager"],
     });
@@ -146,6 +148,7 @@ describe("resolvePlatformSession", () => {
     ).toEqual({
       status: "authenticated",
       userId: user.id,
+      email: user.email,
       roles: [],
     });
   });
@@ -162,6 +165,7 @@ describe("resolvePlatformSession", () => {
     ).toEqual({
       status: "authenticated",
       userId: user.id,
+      email: user.email,
       roles: [],
     });
   });
