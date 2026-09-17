@@ -42,7 +42,7 @@ export function governCreatorSelfServiceProfileInput(
   current: CreatorProfile,
   input: CreatorProfileCompletionCommand,
 ): CreatorProfileCompletionCommand {
-  if (current.networkStatus !== "profile_complete") return input;
+  if (current.networkStatus === "registered") return input;
 
   const market = current.market?.trim();
   const language = current.language?.trim();
