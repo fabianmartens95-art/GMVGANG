@@ -25,6 +25,7 @@ import {
   buildCreatorWorkspaceReadModel,
   unavailableCreatorWorkspaceReadModel,
 } from "./creator-workspace.js";
+import { buildTeamAdminReadModel } from "./team-admin.js";
 import { buildTeamCreatorFunnelReadModel } from "./team-creator-funnel.js";
 import type {
   BrandOverviewReadPort,
@@ -120,6 +121,34 @@ export function createSupabasePlatformApiServices(
         occurred_at: input.occurredAt,
       });
       if (error) throw new Error(`ANALYTICS_INSERT_FAILED:${error.code ?? "unknown"}`);
+    },
+    async getTeamAdminOverview(input) {
+      const [users, memberships, audit] = await Promise.all([
+        client.from("platform_users")
+          .select("id,email,status,is_test_account,created_at,updated_at")
+          .order("created_at", { ascending: false })
+          .limit(1000),
+        client.from("memberships")
+          .select("id,user_id,organization_id,role,status,created_at,updated_at,organizations!inner(name,type,status)")
+          .order("updated_at", { ascending: false })
+          .limit(2000),
+        client.from("platform_audit_events")
+          .select("id,event,user_id,organization_id,occurred_at,metadata")
+          .order("occurred_at", { ascending: false })
+          .limit(250),
+      ]);
+
+      const resultSets = [users, memberships, audit];
+      const failed = resultSets.find((result) => result.error);
+      if (failed?.error) {
+        throw new Error(`TEAM_ADMIN_OVERVIEW_QUERY_FAILED:${failed.error.code ?? "unknown"}`);
+      }
+
+      return buildTeamAdminReadModel({
+        users: (users.data ?? []) as Parameters<typeof buildTeamAdminReadModel>[0]["users"],
+        memberships: (memberships.data ?? []) as Parameters<typeof buildTeamAdminReadModel>[0]["memberships"],
+        audit: (audit.data ?? []) as Parameters<typeof buildTeamAdminReadModel>[0]["audit"],
+      }, input.now);
     },
     async getTeamCreatorFunnel(input) {
       const [users, profiles, qualifications, memberships, analytics, audit] = await Promise.all([
