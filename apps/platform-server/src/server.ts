@@ -70,6 +70,14 @@ function validEmail(value: unknown): value is string {
   return cleaned.length >= 5 && cleaned.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleaned);
 }
 
+function validLoginPassword(value: unknown): value is string {
+  return typeof value === "string" && value.length >= 1 && value.length <= 128;
+}
+
+function validNewPassword(value: unknown): value is string {
+  return typeof value === "string" && value.length >= 8 && value.length <= 128;
+}
+
 export function safeNextPath(value: unknown): string {
   if (typeof value !== "string") return "/";
   const cleaned = value.trim();
@@ -141,6 +149,16 @@ async function authResponse(
       return json({ ok: false, error: "rate_limited" }, 429, { "Retry-After": "900" });
     }
 
+    if (record.password !== undefined) {
+      if (!validLoginPassword(record.password)) {
+        return json({ ok: false, error: "invalid_credentials" }, 401);
+      }
+
+      const { error } = await client.auth.signInWithPassword({ email, password: record.password });
+      if (error) return json({ ok: false, error: "invalid_credentials" }, 401);
+      return json({ ok: true });
+    }
+
     const next = safeNextPath(record.next);
     const redirectUrl = new URL("/auth/callback", config.publicOrigin);
     redirectUrl.searchParams.set("next", next);
@@ -155,6 +173,36 @@ async function authResponse(
 
     if (error) return json({ ok: false, error: "sign_in_unavailable" }, 503);
     return json({ ok: true }, 202);
+  }
+
+  if (url.pathname === "/api/auth/password") {
+    if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+    if (!sameOrigin(request)) return json({ ok: false, error: "same_origin_required" }, 403);
+    if (!request.headers.get("content-type")?.toLowerCase().includes("application/json")) {
+      return json({ ok: false, error: "json_required" }, 415);
+    }
+
+    let payload: unknown;
+    try {
+      payload = await request.json();
+    } catch {
+      return json({ ok: false, error: "invalid_json" }, 400);
+    }
+    const record = typeof payload === "object" && payload !== null && !Array.isArray(payload)
+      ? payload as Record<string, unknown>
+      : null;
+    if (!record || !validNewPassword(record.password)) {
+      return json({ ok: false, error: "weak_password" }, 400);
+    }
+
+    const { data: userData, error: userError } = await client.auth.getUser();
+    if (userError || !userData.user) {
+      return json({ ok: false, error: "authentication_required" }, 401);
+    }
+
+    const { error } = await client.auth.updateUser({ password: record.password });
+    if (error) return json({ ok: false, error: "password_update_failed" }, 400);
+    return json({ ok: true });
   }
 
   if (url.pathname === "/api/auth/sign-out") {
