@@ -1,0 +1,36 @@
+name: Live Brand Intake Readback Once
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/live-brand-intake-readback-once.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  live-readback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify live privacy copy
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$(curl --fail --silent --show-error --location --max-time 20 https://gmvgang.de/datenschutz/)"
+          printf '%s' "$body" | grep -q 'Supabase'
+          if printf '%s' "$body" | grep -qi '>Make<\|Make für die automatisierte'; then
+            echo 'Legacy Make privacy copy is still live' >&2
+            exit 1
+          fi
+
+      - name: Verify live potential form has no Make webhook
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$(curl --fail --silent --show-error --location --max-time 20 https://gmvgang.de/potenzialanalyse/)"
+          printf '%s' "$body" | grep -q 'id="pc-form"'
+          if printf '%s' "$body" | grep -q 'hook.eu1.make.com'; then
+            echo 'Legacy Make webhook is still present in live form HTML' >&2
+            exit 1
+          fi
