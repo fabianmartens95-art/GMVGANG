@@ -1,5 +1,6 @@
 export * from "./access.js";
 export * from "./client.js";
+export * from "./memberships.js";
 export * from "./referral-rewards.js";
 export * from "./referrals.js";
 export * from "./registration.js";
