@@ -62,12 +62,24 @@ function bearerAccessToken(request: Request): string | null | undefined {
   return token;
 }
 
+export function ensureInitializedSignOut(client: SupabaseClient): SupabaseClient {
+  const signOut = client.auth.signOut.bind(client.auth);
+  client.auth.signOut = async (options) => {
+    // @supabase/ssr initializes cookie sessions lazily. Hydrate the request
+    // session before signOut so the Auth server can revoke the current
+    // refresh-token family instead of only clearing browser cookies.
+    await client.auth.getSession();
+    return signOut(options);
+  };
+  return client;
+}
+
 export function createRequestSupabaseClient(
   request: Request,
   mutations: ResponseMutations,
   options: SupabaseCookieAuthOptions,
 ): SupabaseClient {
-  return createServerClient(options.supabaseUrl, options.supabasePublishableKey, {
+  const client = createServerClient(options.supabaseUrl, options.supabasePublishableKey, {
     cookies: {
       getAll() {
         return requestCookies(request);
@@ -82,6 +94,8 @@ export function createRequestSupabaseClient(
       },
     },
   });
+
+  return ensureInitializedSignOut(client);
 }
 
 export function createCookieAccessTokenPort(client: SupabaseClient): PlatformAccessTokenPort {
