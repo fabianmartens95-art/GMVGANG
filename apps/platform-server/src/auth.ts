@@ -50,6 +50,18 @@ function mergeRefreshHeaders(
   }
 }
 
+function bearerAccessToken(request: Request): string | null | undefined {
+  const authorization = request.headers.get("authorization");
+  if (authorization === null) return undefined;
+
+  const match = /^Bearer\s+([^\s]+)$/i.exec(authorization.trim());
+  if (!match) return null;
+
+  const token = match[1]?.trim() ?? "";
+  if (!token || token.length > 8192) return null;
+  return token;
+}
+
 export function createRequestSupabaseClient(
   request: Request,
   mutations: ResponseMutations,
@@ -74,9 +86,12 @@ export function createRequestSupabaseClient(
 
 export function createCookieAccessTokenPort(client: SupabaseClient): PlatformAccessTokenPort {
   return {
-    async getAccessToken() {
+    async getAccessToken(request) {
+      const bearer = bearerAccessToken(request);
+      if (bearer !== undefined) return bearer;
+
       // getSession is used only to extract/refresh the cookie-backed token.
-      // Platform authorization revalidates the token with Supabase getUser/getClaims.
+      // Platform authorization revalidates either token source with Supabase getUser/getClaims.
       const { data, error } = await client.auth.getSession();
       if (error || !data.session?.access_token) return null;
       return data.session.access_token;

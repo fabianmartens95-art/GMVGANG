@@ -1,0 +1,57 @@
+name: Auth RBAC E2E
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  auth-rbac-e2e:
+    name: Verify isolated staging Auth/RBAC
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging
+    steps:
+      - name: Checkout tested revision
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Typecheck harness and platform
+        run: pnpm typecheck
+
+      - name: Run isolated Auth/RBAC E2E
+        env:
+          E2E_BASE_URL: ${{ secrets.AUTH_E2E_BASE_URL }}
+          E2E_SUPABASE_URL: ${{ secrets.AUTH_E2E_SUPABASE_URL }}
+          E2E_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.AUTH_E2E_SUPABASE_PUBLISHABLE_KEY }}
+          E2E_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.AUTH_E2E_SUPABASE_SERVICE_ROLE_KEY }}
+          E2E_PRODUCTION_SUPABASE_PROJECT_REF: ${{ secrets.PRODUCTION_SUPABASE_PROJECT_REF }}
+          E2E_ALLOW_AUTH_MUTATION: "1"
+        run: pnpm --filter @gmvgang/platform-server e2e:auth-rbac
+
+      - name: Record gate summary
+        if: success()
+        run: |
+          {
+            echo "## GMVGANG Auth/RBAC E2E"
+            echo ""
+            echo "- Revision: \`${GITHUB_SHA}\`"
+            echo "- Target: isolated staging only"
+            echo "- Real Supabase sessions: verified"
+            echo "- Founder/Admin/Creator Manager boundaries: verified"
+            echo "- Membership audit trail: verified"
+            echo "- Temporary test users: cleanup attempted"
+          } >> "$GITHUB_STEP_SUMMARY"

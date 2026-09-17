@@ -6,7 +6,8 @@
   "scripts": {
     "start": "tsx src/server.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "e2e:auth-rbac": "tsx scripts/auth-rbac-e2e.ts"
   },
   "dependencies": {
     "@gmvgang/affiliate-performance": "workspace:*",
