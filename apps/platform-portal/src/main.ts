@@ -2,6 +2,7 @@ import "./styles.css";
 import "./session-controls.css";
 import "./module-navigation.css";
 import "./creator-profile.css";
+import "./creator-onboarding.css";
 import "./creator-qualification.css";
 import "./creator-referrals.css";
 import "./creator-workspace.css";
@@ -17,6 +18,7 @@ import {
   wireCreatorQualification,
 } from "./creator-qualification.js";
 import { HttpCreatorProfileAdapter, renderCreatorProfile, wireCreatorProfile } from "./creator-profile.js";
+import { buildCreatorOnboardingModel, renderCreatorOnboarding } from "./creator-onboarding.js";
 import { HttpCreatorReferralHubAdapter, renderCreatorReferralHub, wireCreatorReferralHub } from "./creator-referrals.js";
 import {
   HttpCreatorWorkspaceAdapter,
@@ -265,6 +267,29 @@ async function protectedView(area: Exclude<PortalArea, "public">, route: PortalR
         <section class="boundary-note">
           <strong>Tenant boundary</strong>
           <span>Brand-Daten werden nur akzeptiert, wenn die serverseitige Overview dieselbe Organization-ID wie die verifizierte Portal-Session trägt.</span>
+        </section>
+      </main>`;
+  }
+
+  if (area === "creator" && route.moduleId === "overview") {
+    const creatorProfile = await new HttpCreatorProfileAdapter().getProfile();
+    let qualification = null;
+    if (creatorProfile.ok) {
+      try {
+        qualification = await new HttpCreatorQualificationAdapter().getQualification();
+      } catch {
+        qualification = null;
+      }
+    }
+    const onboarding = buildCreatorOnboardingModel(creatorProfile, qualification);
+    return `
+      <main class="workspace">
+        ${intro}
+        ${renderCreatorOnboarding(onboarding)}
+        ${moduleOverview("creator")}
+        <section class="boundary-note">
+          <strong>Account-bound onboarding</strong>
+          <span>Fortschritt und Next Best Action werden ausschließlich aus dem serverseitig verifizierten Creator-Profil und der zugehörigen Qualifizierung abgeleitet.</span>
         </section>
       </main>`;
   }
