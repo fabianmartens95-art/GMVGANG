@@ -10,6 +10,7 @@ export interface PortalRoute {
   label: string;
   navigation: PortalNavigation;
   moduleId?: string;
+  requiredCapability?: PlatformCapability;
 }
 
 export const PORTAL_ROUTES: readonly PortalRoute[] = [
@@ -41,6 +42,14 @@ export const PORTAL_ROUTES: readonly PortalRoute[] = [
   { path: "/team/approvals", area: "team", label: "Approval Center", navigation: "module", moduleId: "approvals" },
   { path: "/team/risk", area: "team", label: "Risk & Alerts", navigation: "module", moduleId: "risk" },
   { path: "/team/activity", area: "team", label: "Activity Trail", navigation: "module", moduleId: "activity" },
+  {
+    path: "/team/admin",
+    area: "team",
+    label: "Security & Admin",
+    navigation: "module",
+    moduleId: "admin",
+    requiredCapability: "users.manage",
+  },
 ];
 
 export const PRIMARY_PORTAL_ROUTES: readonly PortalRoute[] = PORTAL_ROUTES.filter(
@@ -72,6 +81,12 @@ export function canAccessArea(session: PortalSession, area: PortalArea): boolean
   if (area === "public") return true;
   if (session.status !== "authenticated") return false;
   return anyRoleHasCapability(session.roles, AREA_CAPABILITY[area]);
+}
+
+export function canAccessRoute(session: PortalSession, route: PortalRoute): boolean {
+  if (!canAccessArea(session, route.area)) return false;
+  if (!route.requiredCapability) return true;
+  return session.status === "authenticated" && anyRoleHasCapability(session.roles, route.requiredCapability);
 }
 
 export function defaultAreaForSession(session: PortalSession): PortalArea {
