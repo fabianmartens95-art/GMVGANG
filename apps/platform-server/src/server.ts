@@ -5,6 +5,11 @@ import { extname, resolve, sep } from "node:path";
 import { createPlatformApiHandler, createSupabasePlatformApiServices } from "@gmvgang/platform-api";
 
 import {
+  createPlatformAuditLogger,
+  recordAuditBestEffort,
+  type PlatformAuditLogger,
+} from "./audit.js";
+import {
   applyResponseMutations,
   createCookieAccessTokenPort,
   createRequestSupabaseClient,
@@ -78,6 +83,10 @@ function validNewPassword(value: unknown): value is string {
   return typeof value === "string" && value.length >= 8 && value.length <= 128;
 }
 
+function auditNow(): string {
+  return new Date().toISOString();
+}
+
 export function safeNextPath(value: unknown): string {
   if (typeof value !== "string") return "/";
   const cleaned = value.trim();
@@ -123,6 +132,8 @@ async function authResponse(
   client: ReturnType<typeof createRequestSupabaseClient>,
   config: PlatformServerConfig,
   signInRateLimit: FixedWindowRateLimiter,
+  audit: PlatformAuditLogger,
+  requestId: string,
 ): Promise<Response | null> {
   const url = new URL(request.url);
 
@@ -145,17 +156,45 @@ async function authResponse(
     if (!record || !validEmail(record.email)) return json({ ok: false, error: "invalid_email" }, 400);
 
     const email = record.email.trim().toLowerCase();
+    const authMethod = record.password !== undefined ? "password" : "magic_link";
     if (!signInRateLimit.consume(email)) {
+      await recordAuditBestEffort(audit, {
+        event: "auth.sign_in.rate_limited",
+        occurredAt: auditNow(),
+        requestId,
+        metadata: { authMethod },
+      });
       return json({ ok: false, error: "rate_limited" }, 429, { "Retry-After": "900" });
     }
 
     if (record.password !== undefined) {
       if (!validLoginPassword(record.password)) {
+        await recordAuditBestEffort(audit, {
+          event: "auth.password.sign_in_failed",
+          occurredAt: auditNow(),
+          requestId,
+          metadata: { reason: "invalid_credentials" },
+        });
         return json({ ok: false, error: "invalid_credentials" }, 401);
       }
 
-      const { error } = await client.auth.signInWithPassword({ email, password: record.password });
-      if (error) return json({ ok: false, error: "invalid_credentials" }, 401);
+      const { data, error } = await client.auth.signInWithPassword({ email, password: record.password });
+      if (error) {
+        await recordAuditBestEffort(audit, {
+          event: "auth.password.sign_in_failed",
+          occurredAt: auditNow(),
+          requestId,
+          metadata: { reason: "invalid_credentials" },
+        });
+        return json({ ok: false, error: "invalid_credentials" }, 401);
+      }
+      await recordAuditBestEffort(audit, {
+        event: "auth.password.signed_in",
+        userId: data.user?.id ?? null,
+        occurredAt: auditNow(),
+        requestId,
+        metadata: { authMethod: "password" },
+      });
       return json({ ok: true });
     }
 
@@ -171,7 +210,20 @@ async function authResponse(
       },
     });
 
-    if (error) return json({ ok: false, error: "sign_in_unavailable" }, 503);
+    if (error) {
+      await recordAuditBestEffort(audit, {
+        event: "auth.magic_link.request_failed",
+        occurredAt: auditNow(),
+        requestId,
+      });
+      return json({ ok: false, error: "sign_in_unavailable" }, 503);
+    }
+    await recordAuditBestEffort(audit, {
+      event: "auth.magic_link.requested",
+      occurredAt: auditNow(),
+      requestId,
+      metadata: { next },
+    });
     return json({ ok: true }, 202);
   }
 
@@ -202,14 +254,27 @@ async function authResponse(
 
     const { error } = await client.auth.updateUser({ password: record.password });
     if (error) return json({ ok: false, error: "password_update_failed" }, 400);
+    await recordAuditBestEffort(audit, {
+      event: "auth.password.updated",
+      userId: userData.user.id,
+      occurredAt: auditNow(),
+      requestId,
+    });
     return json({ ok: true });
   }
 
   if (url.pathname === "/api/auth/sign-out") {
     if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
     if (!sameOrigin(request)) return json({ ok: false, error: "same_origin_required" }, 403);
+    const { data: userData } = await client.auth.getUser();
     const { error } = await client.auth.signOut({ scope: "local" });
     if (error) return json({ ok: false, error: "sign_out_unavailable" }, 503);
+    await recordAuditBestEffort(audit, {
+      event: "auth.signed_out",
+      userId: userData.user?.id ?? null,
+      occurredAt: auditNow(),
+      requestId,
+    });
     return json({ ok: true });
   }
 
@@ -222,11 +287,23 @@ async function authResponse(
       return Response.redirect(new URL("/login?error=missing_token", config.publicOrigin), 303);
     }
 
-    const { error } = await client.auth.verifyOtp({ token_hash: tokenHash, type: "email" });
+    const { data, error } = await client.auth.verifyOtp({ token_hash: tokenHash, type: "email" });
     if (error) {
+      await recordAuditBestEffort(audit, {
+        event: "auth.magic_link.sign_in_failed",
+        occurredAt: auditNow(),
+        requestId,
+      });
       return Response.redirect(new URL("/login?error=auth_callback", config.publicOrigin), 303);
     }
 
+    await recordAuditBestEffort(audit, {
+      event: "auth.magic_link.signed_in",
+      userId: data.user?.id ?? null,
+      occurredAt: auditNow(),
+      requestId,
+      metadata: { authMethod: "magic_link" },
+    });
     const next = safeConfirmationNextPath(url.searchParams.get("next"), config.publicOrigin);
     return Response.redirect(new URL(next, config.publicOrigin), 303);
   }
@@ -237,11 +314,25 @@ async function authResponse(
     if (!code) return Response.redirect(new URL("/login?error=missing_code", config.publicOrigin), 303);
 
     const flowId = url.searchParams.get("sb_flow_id")?.trim();
-    const { error } = await client.auth.exchangeCodeForSession(
+    const { data, error } = await client.auth.exchangeCodeForSession(
       code,
       flowId ? { flowId } : undefined,
     );
-    if (error) return Response.redirect(new URL("/login?error=auth_callback", config.publicOrigin), 303);
+    if (error) {
+      await recordAuditBestEffort(audit, {
+        event: "auth.pkce.sign_in_failed",
+        occurredAt: auditNow(),
+        requestId,
+      });
+      return Response.redirect(new URL("/login?error=auth_callback", config.publicOrigin), 303);
+    }
+    await recordAuditBestEffort(audit, {
+      event: "auth.pkce.signed_in",
+      userId: data.user?.id ?? null,
+      occurredAt: auditNow(),
+      requestId,
+      metadata: { authMethod: "pkce" },
+    });
     return Response.redirect(new URL(safeNextPath(url.searchParams.get("next")), config.publicOrigin), 303);
   }
 
@@ -370,6 +461,10 @@ export function createPlatformServer(config: PlatformServerConfig) {
         : {}),
     },
   );
+  const audit = createPlatformAuditLogger({
+    url: config.supabaseUrl,
+    serviceRoleKey: config.supabaseServiceRoleKey,
+  });
   const idempotency = new SupabasePlatformIdempotencyPort(createSupabaseIdempotencyClient({
     url: config.supabaseUrl,
     serviceRoleKey: config.supabaseServiceRoleKey,
@@ -417,7 +512,7 @@ export function createPlatformServer(config: PlatformServerConfig) {
         production: config.production,
       });
 
-      const auth = await authResponse(request, authClient, config, signInRateLimit);
+      const auth = await authResponse(request, authClient, config, signInRateLimit, audit, requestId);
       if (auth) {
         await writeNodeResponse(applyResponseMutations(auth, mutations), outgoing);
         return;
