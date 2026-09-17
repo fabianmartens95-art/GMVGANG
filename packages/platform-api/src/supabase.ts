@@ -1,5 +1,9 @@
 import { createAffiliatePerformanceStore, createSupabaseAffiliatePerformanceDriver } from "@gmvgang/affiliate-performance-supabase";
-import { completeCreatorProfile, registerCreator } from "@gmvgang/creator-registration";
+import {
+  completeCreatorProfile,
+  registerCreator,
+  type CreatorProfileCompletionCommand,
+} from "@gmvgang/creator-registration";
 import { unavailableBrandPortalReadModel } from "@gmvgang/brand-intelligence/portal";
 import type { CreatorProfile } from "@gmvgang/platform-foundation";
 import {
@@ -33,6 +37,28 @@ export type SupabasePlatformApiOptions = {
   brandOverview?: BrandOverviewReadPort;
   affiliatePerformancePolicy?: BrandAffiliatePerformancePolicy;
 };
+
+export function governCreatorSelfServiceProfileInput(
+  current: CreatorProfile,
+  input: CreatorProfileCompletionCommand,
+): CreatorProfileCompletionCommand {
+  if (current.networkStatus !== "profile_complete") return input;
+
+  const market = current.market?.trim();
+  const language = current.language?.trim();
+  const niche = current.niche?.map((item) => item.trim()).filter(Boolean);
+  if (!market || !language || !niche?.length) {
+    throw new Error("CREATOR_PROFILE_GOVERNANCE_STATE_INVALID");
+  }
+
+  return {
+    tiktokHandle: current.tiktokHandle,
+    displayName: input.displayName,
+    market,
+    language,
+    niche,
+  };
+}
 
 export function createSupabasePlatformApiServices(
   config: PlatformSupabaseConfig,
@@ -117,7 +143,9 @@ export function createSupabasePlatformApiServices(
       return { ...result, creatorProfile };
     },
     async completeCreatorProfile(input, context) {
-      const profile = await completeCreatorProfile(input, context, registrationPorts);
+      const current = await registrationPorts.profiles.findByUserId(context.userId);
+      const governedInput = current ? governCreatorSelfServiceProfileInput(current, input) : input;
+      const profile = await completeCreatorProfile(governedInput, context, registrationPorts);
       return syncCreatorOperations(profile, context.now);
     },
   };
