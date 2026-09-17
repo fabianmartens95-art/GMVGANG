@@ -8,7 +8,7 @@ import "./creator-workspace.css";
 import "./team-creator-funnel.css";
 
 import type { PlatformWorkspaceAccess } from "@gmvgang/platform-foundation";
-import { renderLogin, signOut, wireLogin } from "./auth-client.js";
+import { renderLogin, renderPasswordSettings, signOut, wireLogin, wirePasswordSettings } from "./auth-client.js";
 import { createBrandOverviewPort, loadBrandOverview, renderBrandOverview } from "./brand-workspace.js";
 import { HttpCreatorRegistrationAdapter, renderCreatorJoin, wireCreatorJoin } from "./creator-join.js";
 import {
@@ -24,6 +24,16 @@ import {
   renderCreatorMatches,
   renderCreatorPerformance,
 } from "./creator-workspace.js";
+import {
+  loadParallelV1,
+  renderActivity,
+  renderBrandCampaigns as renderNativeBrandCampaigns,
+  renderBrandProducts,
+  renderBrandSetup,
+  renderCreatorNativeCampaigns,
+  renderCreatorOnboarding,
+  wireParallelV1,
+} from "./parallel-v1.js";
 import {
   canAccessArea,
   moduleRoutesForArea,
@@ -269,12 +279,53 @@ async function protectedView(area: Exclude<PortalArea, "public">, route: PortalR
       </main>`;
   }
 
+  if (
+    area === "brand" &&
+    session.status === "authenticated" &&
+    session.organizationId &&
+    ["setup", "products", "campaigns", "activity"].includes(route.moduleId ?? "")
+  ) {
+    const snapshot = await loadParallelV1(session.organizationId);
+    const content = route.moduleId === "setup"
+      ? renderBrandSetup(snapshot)
+      : route.moduleId === "products"
+        ? renderBrandProducts(snapshot)
+        : route.moduleId === "campaigns"
+          ? renderNativeBrandCampaigns(snapshot)
+          : renderActivity(snapshot);
+    return `
+      <main class="workspace">
+        ${intro}
+        ${content}
+        <section class="boundary-note">
+          <strong>Server-authoritative workspace</strong>
+          <span>Brand-Onboarding, Produkte und Campaign-State werden auf dem Server gegen Membership und Organization geprüft. Browserwerte allein verleihen keine Schreibrechte.</span>
+        </section>
+      </main>`;
+  }
+
   if (area === "creator" && route.moduleId === "profile") {
     const creatorProfile = await new HttpCreatorProfileAdapter().getProfile();
     return `
       <main class="workspace">
         ${intro}
         ${renderCreatorProfile(creatorProfile)}
+      </main>`;
+  }
+
+  if (area === "creator" && ["onboarding", "activity"].includes(route.moduleId ?? "")) {
+    const snapshot = await loadParallelV1();
+    const content = route.moduleId === "onboarding"
+      ? renderCreatorOnboarding(snapshot)
+      : renderActivity(snapshot);
+    return `
+      <main class="workspace">
+        ${intro}
+        ${content}
+        <section class="boundary-note">
+          <strong>Creator identity boundary</strong>
+          <span>Onboarding und Activity werden ausschließlich an das serverseitig verknüpfte Creator-Profil des eingeloggten Accounts gebunden.</span>
+        </section>
       </main>`;
   }
 
@@ -313,10 +364,11 @@ async function protectedView(area: Exclude<PortalArea, "public">, route: PortalR
 
   if (area === "creator" && ["matches", "campaigns", "performance"].includes(route.moduleId ?? "")) {
     const workspace = await new HttpCreatorWorkspaceAdapter().getWorkspace();
+    const nativeSnapshot = route.moduleId === "campaigns" ? await loadParallelV1() : null;
     const content = route.moduleId === "matches"
       ? renderCreatorMatches(workspace)
       : route.moduleId === "campaigns"
-        ? renderCreatorCampaigns(workspace)
+        ? `${renderCreatorNativeCampaigns(nativeSnapshot)}${renderCreatorCampaigns(workspace)}`
         : renderCreatorPerformance(workspace);
     return `
       <main class="workspace">
@@ -324,7 +376,7 @@ async function protectedView(area: Exclude<PortalArea, "public">, route: PortalR
         ${content}
         <section class="boundary-note">
           <strong>Creator-safe read boundary</strong>
-          <span>Nur dein serverseitig verknüpfter Creator-Datensatz wird gelesen. Nicht freigegebene Campaigns, interne Matching-Scores und operative Blocker werden nicht an den Browser übertragen.</span>
+          <span>Nur dein serverseitig verknüpfter Creator-Datensatz wird gelesen. Native Campaigns und bestehende Operations-Daten werden getrennt geladen und nicht clientseitig autorisiert.</span>
         </section>
       </main>`;
   }
@@ -410,21 +462,27 @@ async function render(): Promise<void> {
   const privacyNoticeVersion = String(import.meta.env.VITE_CREATOR_PRIVACY_NOTICE_VERSION ?? "").trim();
   const body = route.path === "/login"
     ? renderLogin(session.status === "authenticated")
-    : route.path === "/join"
-      ? renderCreatorJoin(session, { privacyNoticeVersion, ...(referralCode ? { referralCode } : {}) })
-      : route.area === "public"
-        ? publicView()
-        : await protectedView(route.area, route);
+    : route.path === "/account/password"
+      ? renderPasswordSettings(session.status === "authenticated")
+      : route.path === "/join"
+        ? renderCreatorJoin(session, { privacyNoticeVersion, ...(referralCode ? { referralCode } : {}) })
+        : route.area === "public"
+          ? publicView()
+          : await protectedView(route.area, route);
 
   app.innerHTML = `${navigation()}${body}<footer><span>GMVGANG</span><span>Portal</span></footer>`;
   wireNavigation();
   wireWorkspaceSelector();
   wireSignOut();
   if (route.path === "/login") wireLogin();
+  if (route.path === "/account/password") wirePasswordSettings();
   if (route.path === "/join") wireCreatorJoin(new HttpCreatorRegistrationAdapter());
   if (route.path === "/creator/profile") wireCreatorProfile(new HttpCreatorProfileAdapter());
   if (route.path === "/creator/qualification") wireCreatorQualification(new HttpCreatorQualificationAdapter());
   if (route.path === "/creator/referrals") wireCreatorReferralHub();
+  if (["/creator/onboarding", "/creator/campaigns", "/creator/activity", "/brand/setup", "/brand/products", "/brand/campaigns", "/brand/activity"].includes(route.path)) {
+    wireParallelV1(session.status === "authenticated" ? session.organizationId : undefined);
+  }
 }
 
 window.addEventListener("popstate", () => void render());
