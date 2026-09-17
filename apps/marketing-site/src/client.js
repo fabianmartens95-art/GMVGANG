@@ -53,6 +53,7 @@ if (form instanceof HTMLFormElement) {
   const productionHosts = new Set(['gmvgang.de', 'www.gmvgang.de']);
   const productionHost = productionHosts.has(window.location.hostname.toLowerCase());
   const nativeIntakeEndpoint = 'https://wikctgtgesmnezeufxsu.supabase.co/functions/v1/brand-intake';
+  const nativeIntakeApiKey = 'sb_publishable_oF9bK81-MMmBzp-h-8Kx8w_NC53y22v';
   const createSubmissionId = () => {
     if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
     const bytes = crypto.getRandomValues(new Uint8Array(16));
@@ -242,7 +243,10 @@ if (form instanceof HTMLFormElement) {
       const data = Object.fromEntries(new FormData(form).entries());
       const response = await fetch(nativeIntakeEndpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: nativeIntakeApiKey,
+        },
         body: JSON.stringify({ submissionId, payload: { data } }),
       });
       const result = await response.json();
