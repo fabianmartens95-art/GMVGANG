@@ -107,6 +107,19 @@ export function createSupabasePlatformApiServices(
     resolveSessionContext(input) {
       return resolveSupabasePlatformSessionContext(client, input);
     },
+    async recordAnalyticsEvent(input) {
+      const { error } = await client.from("portal_analytics_events").insert({
+        user_id: input.userId,
+        organization_id: input.organizationId ?? null,
+        event_name: input.eventName,
+        path: input.path,
+        client_session_id: input.clientSessionId,
+        request_id: input.requestId ?? null,
+        properties: input.properties,
+        occurred_at: input.occurredAt,
+      });
+      if (error) throw new Error(`ANALYTICS_INSERT_FAILED:${error.code ?? "unknown"}`);
+    },
     manageMembership(input) {
       return manageSupabaseMembership(client, input);
     },

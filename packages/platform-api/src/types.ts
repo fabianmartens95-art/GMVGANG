@@ -31,6 +31,27 @@ export interface PlatformApiClock {
   now(): string;
 }
 
+export type PortalAnalyticsEventName =
+  | "portal.page_view"
+  | "portal.navigation"
+  | "portal.sign_out_clicked"
+  | "creator.registration.submitted"
+  | "creator.profile.submitted"
+  | "creator.qualification.submitted";
+
+export type PortalAnalyticsProperties = Readonly<Record<string, string>>;
+
+export type PortalAnalyticsEventInput = {
+  userId: string;
+  organizationId?: string;
+  eventName: PortalAnalyticsEventName;
+  path: string;
+  clientSessionId: string;
+  requestId?: string;
+  properties: PortalAnalyticsProperties;
+  occurredAt: string;
+};
+
 export type PlatformRateLimitAction =
   | "creator_registration"
   | "creator_profile_completion"
@@ -195,6 +216,7 @@ export interface PlatformApiServices {
     requestedOrganizationId?: string;
     now: string;
   }): Promise<PlatformSessionContext>;
+  recordAnalyticsEvent?(input: PortalAnalyticsEventInput): Promise<void>;
   manageMembership?(input: PlatformMembershipMutationInput): Promise<Membership>;
   getBrandOverview?(input: {
     organizationId: string;
