@@ -116,7 +116,7 @@ describe("platform session service", () => {
   it("does not merge roles across organizations without an explicit tenant", async () => {
     await expect(
       loadPlatformSession({ identity: identityPort(), persistence: persistencePort(), now: NOW }),
-    ).resolves.toEqual({ status: "authenticated", userId: user.id, roles: [] });
+    ).resolves.toEqual({ status: "authenticated", userId: user.id, email: user.email, roles: [] });
   });
 
   it("resolves only the roles belonging to the requested organization", async () => {
@@ -130,6 +130,7 @@ describe("platform session service", () => {
     ).resolves.toEqual({
       status: "authenticated",
       userId: user.id,
+      email: user.email,
       organizationId: "org_brand",
       roles: ["brand_member"],
     });

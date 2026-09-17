@@ -1,4 +1,5 @@
 import "./styles.css";
+import "./session-controls.css";
 import "./module-navigation.css";
 import "./creator-profile.css";
 import "./creator-referrals.css";
@@ -94,8 +95,16 @@ function navigation(): string {
     ? workspaces.find((workspace) => workspace.organizationId === currentOrganizationId)
     : undefined;
   const primaryRoutes = PRIMARY_PORTAL_ROUTES.filter(
-    (route) => route.path !== "/login" || session.status !== "authenticated",
+    (route) =>
+      (route.path !== "/login" || session.status !== "authenticated") &&
+      (route.path !== "/join" || !canAccessArea(session, "creator")),
   );
+  const accountLabel = session.status === "authenticated"
+    ? escapeHtml(session.email ?? "GMVGANG Account")
+    : "Nicht eingeloggt";
+  const accountContext = session.status === "authenticated"
+    ? `${currentWorkspace ? escapeHtml(currentWorkspace.name) : "Kein Workspace"} · ${session.roles.join(", ") || "Keine Rolle"}`
+    : `Default ${defaultArea}`;
 
   return `
     <header class="topbar">
@@ -117,9 +126,10 @@ function navigation(): string {
         ${workspaceSelector()}
         <div class="session-chip">
           <span class="session-dot ${session.status === "authenticated" ? "is-authenticated" : ""}"></span>
-          ${session.status === "authenticated"
-            ? `${currentWorkspace ? escapeHtml(currentWorkspace.name) : "authenticated"} · ${session.roles.join(", ") || "workspace required"}`
-            : `Nicht eingeloggt · Default ${defaultArea}`}
+          <span class="session-chip__copy">
+            <strong>${accountLabel}</strong>
+            <small>${accountContext}</small>
+          </span>
         </div>
         ${session.status === "authenticated" ? '<button id="sign-out" class="session-action" type="button">Abmelden</button>' : ""}
       </div>
@@ -350,7 +360,12 @@ async function render(): Promise<void> {
   session = await createSessionPort(requestedWorkspaceId).getSession();
   workspaces = session.status === "authenticated" ? await createWorkspacePort().getWorkspaces() : [];
 
-  const route = resolvePortalRoute(window.location.pathname);
+  let route = resolvePortalRoute(window.location.pathname);
+  if (route.path === "/join" && canAccessArea(session, "creator")) {
+    window.history.replaceState({}, "", "/creator");
+    route = resolvePortalRoute("/creator");
+  }
+
   const referralCode = new URLSearchParams(window.location.search).get("ref") ?? undefined;
   const privacyNoticeVersion = String(import.meta.env.VITE_CREATOR_PRIVACY_NOTICE_VERSION ?? "").trim();
   const body = route.path === "/login"
