@@ -16,6 +16,7 @@ export const PORTAL_ROUTES: readonly PortalRoute[] = [
   { path: "/", area: "public", label: "Start", navigation: "primary" },
   { path: "/join", area: "public", label: "Creator Join", navigation: "primary" },
   { path: "/login", area: "public", label: "Login", navigation: "primary" },
+  { path: "/account/password", area: "public", label: "Passwort", navigation: "hidden" },
 
   { path: "/creator", area: "creator", label: "Creator Portal", navigation: "primary", moduleId: "overview" },
   { path: "/creator/profile", area: "creator", label: "Profil", navigation: "module", moduleId: "profile" },
