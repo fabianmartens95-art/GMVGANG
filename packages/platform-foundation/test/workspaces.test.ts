@@ -165,6 +165,7 @@ describe("platform workspaces", () => {
       session: {
         status: "authenticated",
         userId: user.id,
+        email: user.email,
         organizationId: "org_brand_a",
         roles: ["brand_member"],
       },
