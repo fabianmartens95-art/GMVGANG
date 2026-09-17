@@ -44,6 +44,7 @@ type BrandProduct = {
 
 type Campaign = {
   id: string;
+  organization_id: string;
   name: string;
   product_id: string | null;
   status: string;
