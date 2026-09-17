@@ -88,7 +88,7 @@ function organization(
   value: TeamAdminSource["memberships"][number]["organizations"],
 ): { name: string; type: OrganizationType } {
   const row = Array.isArray(value) ? value[0] : value;
-  if (!row || row.status !== "active" || !row.name.trim()) throw new Error("TEAM_ADMIN_ORGANIZATION_INVALID");
+  if (!row || !row.name.trim()) throw new Error("TEAM_ADMIN_ORGANIZATION_INVALID");
   return { name: row.name.trim(), type: organizationType(row.type) };
 }
 
