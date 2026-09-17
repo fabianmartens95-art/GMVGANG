@@ -679,7 +679,7 @@ async function mutateWorkspace(request: Request, deps: ParallelV1Dependencies): 
 }
 
 function errorResponse(error: unknown): Response {
-  const code = error instanceof Error ? error.message.split(":", 1)[0] : "INTERNAL_ERROR";
+  const code = (error instanceof Error ? error.message.split(":", 1)[0] : "INTERNAL_ERROR") ?? "INTERNAL_ERROR";
   if (code === "AUTHENTICATION_REQUIRED") return json({ error: "authentication_required" }, 401);
   if (
     code === "BRAND_ACCESS_DENIED" ||
