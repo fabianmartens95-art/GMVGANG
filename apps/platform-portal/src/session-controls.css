@@ -1,15 +1,20 @@
 .session-controls {
   min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
+  width: min(360px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  justify-self: end;
+  gap: 6px;
 }
 
 .session-chip {
   min-width: 0;
-  max-width: 360px;
-  flex: 1 1 auto;
+  width: 100%;
+  max-width: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   overflow: hidden;
   text-align: left;
 }
@@ -45,10 +50,10 @@
 
 .session-action {
   display: inline-flex;
+  width: 100%;
+  min-height: 38px;
   align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
-  min-height: 40px;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, .035);
   color: var(--white);
@@ -83,17 +88,9 @@
     grid-column: 1;
     grid-row: 2;
     width: 100%;
-    max-width: none;
-    justify-content: space-between;
+    max-width: 420px;
+    justify-self: start;
     padding: 10px 0 2px;
-  }
-
-  .session-chip {
-    display: flex;
-    flex: 1 1 0;
-    max-width: none;
-    overflow: hidden;
-    text-align: left;
   }
 
   .nav {
@@ -104,11 +101,12 @@
 
 @media (max-width: 700px) {
   .session-controls {
+    width: 100%;
+    max-width: none;
     gap: 8px;
   }
 
   .session-action {
     min-height: 44px;
-    padding-inline: 14px;
   }
 }
