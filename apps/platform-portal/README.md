@@ -86,6 +86,14 @@ The current Brand Workspace renders:
 
 For local visual development only, set `VITE_PLATFORM_DEV_BRAND_DEMO=1` with a `brand_member` role and a development organization ID. The fixture is synthetic and is visibly labeled `SYNTHETIC DEV DATA`. Production never uses that fixture.
 
+## Creator Qualification contract
+
+Creator Runde 2 is available at `/creator/qualification` and reads/writes through the same-origin `GET/POST /api/creator/qualification` boundary. The browser never supplies an authoritative Creator ID; the server resolves the Creator profile from the verified account session.
+
+R2 remains editable only while the network status is `profile_complete`. After internal progression, the submitted data is rendered as a read-only snapshot. A successful R2 submission does not advance the network status automatically and therefore cannot bypass GMVGANG review.
+
+Tally/Make remains a temporary fallback until the production migration, authenticated E2E path and first real pilot completion are verified.
+
 ## Portal route hierarchy
 
 The platform is one web app with nested role-protected module routes, not a collection of separate portals. The global navigation exposes only the main surfaces; each protected surface owns its own module navigation.
@@ -94,6 +102,7 @@ Creator:
 
 - `/creator` — overview
 - `/creator/profile` — profile
+- `/creator/qualification` — native Runde-2 qualification
 - `/creator/referrals` — Referral Hub
 - `/creator/matches` — matching
 - `/creator/campaigns` — campaigns
@@ -144,6 +153,7 @@ Change `VITE_PLATFORM_DEV_ROLE` and set `VITE_PLATFORM_DEV_ORGANIZATION_ID` loca
 - Workspace discovery exposes only organizations backed by active server-side memberships.
 - `?workspace=` and `X-GMVGANG-Organization-Id` are selectors, never authorization evidence.
 - Brand overview payloads are not rendered across tenant boundaries.
+- Creator qualification writes are account-bound and cannot target a client-supplied Creator ID.
 - No API tokens, passwords, Creator PII or customer data belong in the repository.
 - Notion / GMVGANG Company OS remains the operational SSOT during this phase.
 - The next implementation gate is the concrete production provider + persistence adapter behind `/api/session`, `/api/workspaces` and tenant-bound read endpoints, followed by durable Creator/Brand data integration.
