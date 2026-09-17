@@ -13,6 +13,13 @@ function jsonResponse(payload: unknown, status = 200, headers?: HeadersInit): Re
   });
 }
 
+function requestedOrganizationId(request: Request): string | undefined {
+  const value = request.headers.get("X-GMVGANG-Organization-Id")?.trim();
+  if (!value) return undefined;
+  if (value.length > 128) throw new Error("ORGANIZATION_SELECTOR_INVALID");
+  return value;
+}
+
 export async function handleTeamAdminOverview(
   request: Request,
   dependencies: PlatformApiDependencies,
@@ -25,7 +32,12 @@ export async function handleTeamAdminOverview(
   if (!accessToken) return jsonResponse({ error: "authentication_required" }, 401);
 
   const now = dependencies.clock.now();
-  const context = await dependencies.services.resolveSessionContext({ accessToken, now });
+  const organizationId = requestedOrganizationId(request);
+  const context = await dependencies.services.resolveSessionContext({
+    accessToken,
+    ...(organizationId ? { requestedOrganizationId: organizationId } : {}),
+    now,
+  });
   if (context.session.status !== "authenticated") {
     return jsonResponse({ error: "authentication_required" }, 401);
   }
