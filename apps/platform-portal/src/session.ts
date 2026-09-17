@@ -38,6 +38,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export function parsePortalSession(payload: unknown): PortalSession {
   if (!isRecord(payload)) {
     throw new Error("SESSION_PAYLOAD_INVALID");
@@ -81,26 +85,38 @@ export class HttpSessionAdapter implements SessionPort {
   ) {}
 
   async getSession(): Promise<PortalSession> {
-    try {
-      const headers: Record<string, string> = { Accept: "application/json" };
-      if (this.requestedOrganizationId) {
-        headers["X-GMVGANG-Organization-Id"] = this.requestedOrganizationId;
-      }
+    const headers: Record<string, string> = { Accept: "application/json" };
+    if (this.requestedOrganizationId) {
+      headers["X-GMVGANG-Organization-Id"] = this.requestedOrganizationId;
+    }
 
-      const response = await this.fetchSession(this.endpoint, {
-        credentials: "include",
-        cache: "no-store",
-        headers,
-      });
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const response = await this.fetchSession(this.endpoint, {
+          credentials: "include",
+          cache: "no-store",
+          headers,
+        });
 
-      if (!response.ok) {
+        if (!response.ok) {
+          if (attempt === 0) {
+            await wait(350);
+            continue;
+          }
+          return { status: "anonymous", roles: [] };
+        }
+
+        return parsePortalSession(await response.json());
+      } catch {
+        if (attempt === 0) {
+          await wait(350);
+          continue;
+        }
         return { status: "anonymous", roles: [] };
       }
-
-      return parsePortalSession(await response.json());
-    } catch {
-      return { status: "anonymous", roles: [] };
     }
+
+    return { status: "anonymous", roles: [] };
   }
 }
 
