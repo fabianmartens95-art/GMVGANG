@@ -36,10 +36,21 @@ function enhanceAccountMenu(): void {
     label.className = "account-menu__label";
     label.textContent = "Account";
 
-    signOut.classList.add("account-menu__logout");
-    signOut.setAttribute("role", "menuitem");
+    const logout = document.createElement("button");
+    logout.className = "account-menu__logout";
+    logout.type = "button";
+    logout.setAttribute("role", "menuitem");
+    logout.textContent = "Abmelden";
+    logout.addEventListener("click", () => {
+      menu.open = false;
+      signOut.click();
+    });
 
-    panel.append(label, signOut);
+    signOut.hidden = true;
+    signOut.setAttribute("aria-hidden", "true");
+    signOut.tabIndex = -1;
+
+    panel.append(label, logout);
     menu.append(trigger, panel);
     controls.append(menu);
     controls.dataset.accountMenuEnhanced = "true";
