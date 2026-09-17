@@ -16,6 +16,7 @@
     "@gmvgang/affiliate-performance-supabase": "workspace:*",
     "@gmvgang/brand-intelligence": "workspace:*",
     "@gmvgang/campaign-operations": "workspace:*",
+    "@gmvgang/creator-qualification": "workspace:*",
     "@gmvgang/creator-registration": "workspace:*",
     "@gmvgang/platform-foundation": "workspace:*",
     "@gmvgang/platform-supabase": "workspace:*"

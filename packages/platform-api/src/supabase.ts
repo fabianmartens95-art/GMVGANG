@@ -8,6 +8,7 @@ import { unavailableBrandPortalReadModel } from "@gmvgang/brand-intelligence/por
 import type { CreatorProfile } from "@gmvgang/platform-foundation";
 import {
   createPlatformAdminClient,
+  createSupabaseCreatorQualificationStore,
   createSupabaseCreatorReferralReadPort,
   createSupabaseCreatorRegistrationPorts,
   ensureSupabaseCreatorMembership,
@@ -66,6 +67,7 @@ export function createSupabasePlatformApiServices(
 ): PlatformApiServices {
   const client = createPlatformAdminClient(config);
   const registrationPorts = createSupabaseCreatorRegistrationPorts(client);
+  const qualificationStore = createSupabaseCreatorQualificationStore(client);
   const referralReadPort = createSupabaseCreatorReferralReadPort(client);
   const brandOverview = options.brandOverview ?? (
     options.affiliatePerformancePolicy
@@ -114,6 +116,37 @@ export function createSupabasePlatformApiServices(
     },
     async getCreatorProfile(input) {
       return registrationPorts.profiles.findByUserId(input.userId);
+    },
+    async getCreatorQualification(input) {
+      const profile = await registrationPorts.profiles.findByUserId(input.userId);
+      if (!profile) return null;
+      return qualificationStore.findByCreatorProfileId(profile.id);
+    },
+    async submitCreatorQualification(input, context) {
+      const profile = await registrationPorts.profiles.findByUserId(context.userId);
+      if (!profile) throw new Error("CREATOR_PROFILE_NOT_FOUND");
+      if (profile.networkStatus !== "profile_complete") {
+        throw new Error("CREATOR_QUALIFICATION_LOCKED");
+      }
+
+      const existing = await qualificationStore.findByCreatorProfileId(profile.id);
+      const qualification = await qualificationStore.save({
+        creatorProfileId: profile.id,
+        qualification: input,
+        now: context.now,
+      });
+      const { error } = await client.from("platform_audit_events").insert({
+        event: existing ? "creator.qualification.updated" : "creator.qualification.submitted",
+        user_id: context.userId,
+        creator_profile_id: profile.id,
+        occurred_at: context.now,
+        metadata: {
+          schemaVersion: qualification.schemaVersion,
+          networkStatus: profile.networkStatus,
+        },
+      });
+      if (error) throw new Error(`AUDIT_INSERT_FAILED:${error.code ?? "unknown"}`);
+      return qualification;
     },
     async getCreatorReferralHub(input) {
       const profile = await registrationPorts.profiles.findByUserId(input.userId);

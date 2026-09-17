@@ -2,6 +2,7 @@ import "./styles.css";
 import "./session-controls.css";
 import "./module-navigation.css";
 import "./creator-profile.css";
+import "./creator-qualification.css";
 import "./creator-referrals.css";
 import "./creator-workspace.css";
 
@@ -9,6 +10,11 @@ import type { PlatformWorkspaceAccess } from "@gmvgang/platform-foundation";
 import { renderLogin, signOut, wireLogin } from "./auth-client.js";
 import { createBrandOverviewPort, loadBrandOverview, renderBrandOverview } from "./brand-workspace.js";
 import { HttpCreatorRegistrationAdapter, renderCreatorJoin, wireCreatorJoin } from "./creator-join.js";
+import {
+  HttpCreatorQualificationAdapter,
+  renderCreatorQualification,
+  wireCreatorQualification,
+} from "./creator-qualification.js";
 import { HttpCreatorProfileAdapter, renderCreatorProfile, wireCreatorProfile } from "./creator-profile.js";
 import { HttpCreatorReferralHubAdapter, renderCreatorReferralHub, wireCreatorReferralHub } from "./creator-referrals.js";
 import {
@@ -38,7 +44,7 @@ const areaCopy: Record<Exclude<PortalArea, "public">, { eyebrow: string; title: 
   creator: {
     eyebrow: "Creator Network",
     title: "Creator Portal",
-    description: "Profil, Netzwerkstatus, Referral-Wachstum, Matches und Campaign-Fortschritt in einer Oberfläche.",
+    description: "Profil, Qualifizierung, Referral-Wachstum, Matches und Campaign-Fortschritt in einer Oberfläche.",
   },
   brand: {
     eyebrow: "Brand Growth",
@@ -153,7 +159,7 @@ function publicView(): string {
         </div>
         <aside class="architecture-card">
           <div class="architecture-card__label">CURRENT ARCHITECTURE</div>
-          <div class="stack-item"><strong>Creator Portal</strong><span>Registration · Profile · Referrals · Matches</span></div>
+          <div class="stack-item"><strong>Creator Portal</strong><span>Registration · Profile · Qualification · Referrals · Matches</span></div>
           <div class="connector"></div>
           <div class="stack-item stack-item--core"><strong>GMVGANG Core</strong><span>Auth · RBAC · Matching · Campaigns · Economics</span></div>
           <div class="connector"></div>
@@ -162,7 +168,7 @@ function publicView(): string {
       </section>
 
       <section class="portal-grid" aria-label="Portal Bereiche">
-        ${portalEntry("creator", "CREATOR", "Offene Registrierung, Creator-Profil, Referral Hub, Matches und persönlicher Campaign-Fortschritt.")}
+        ${portalEntry("creator", "CREATOR", "Offene Registrierung, Creator-Profil, native Qualifizierung, Referral Hub, Matches und persönlicher Campaign-Fortschritt.")}
         ${portalEntry("brand", "BRAND", "Profitability Center, Next Best Actions, Campaigns, Creator Intelligence und Reports.")}
         ${portalEntry("team", "TEAM", "Founder, Admin, Creator Manager, Brand Manager und Closer mit getrennten Rechten.")}
       </section>
@@ -278,6 +284,30 @@ async function protectedView(area: Exclude<PortalArea, "public">, route: PortalR
       </main>`;
   }
 
+  if (area === "creator" && route.moduleId === "qualification") {
+    const creatorProfile = await new HttpCreatorProfileAdapter().getProfile();
+    if (!creatorProfile.ok) {
+      return `
+        <main class="workspace">
+          ${intro}
+          ${renderCreatorProfile(creatorProfile)}
+        </main>`;
+    }
+    const qualification = await new HttpCreatorQualificationAdapter().getQualification();
+    return `
+      <main class="workspace">
+        ${intro}
+        ${renderCreatorQualification(
+          creatorProfile.creatorProfile as unknown as Parameters<typeof renderCreatorQualification>[0],
+          qualification,
+        )}
+        <section class="boundary-note">
+          <strong>Account-bound qualification</strong>
+          <span>R2 wird ausschließlich dem serverseitig verifizierten Creator-Profil des eingeloggten Accounts zugeordnet. Ein Browser kann keine fremde Creator-ID vorgeben.</span>
+        </section>
+      </main>`;
+  }
+
   if (area === "creator" && route.moduleId === "referrals") {
     const referralHub = await new HttpCreatorReferralHubAdapter().getHub();
     return `
@@ -383,6 +413,7 @@ async function render(): Promise<void> {
   if (route.path === "/login") wireLogin();
   if (route.path === "/join") wireCreatorJoin(new HttpCreatorRegistrationAdapter());
   if (route.path === "/creator/profile") wireCreatorProfile(new HttpCreatorProfileAdapter());
+  if (route.path === "/creator/qualification") wireCreatorQualification(new HttpCreatorQualificationAdapter());
   if (route.path === "/creator/referrals") wireCreatorReferralHub();
 }
 
