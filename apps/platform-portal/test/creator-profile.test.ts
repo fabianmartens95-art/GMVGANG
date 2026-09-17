@@ -118,6 +118,15 @@ describe("renderCreatorProfile", () => {
     expect(html).toContain("Screening-, Vertrags-, Compliance- und Intake-Status");
   });
 
+  it("locks verified identity and matching fields while keeping the display name editable", () => {
+    const html = renderCreatorProfile(parseCreatorProfileResult(PROFILE_PAYLOAD));
+    expect(html.match(/readonly aria-readonly="true"/g)).toHaveLength(4);
+    expect(html).toContain('name="displayName" value="Creator One" required minlength="2" autocomplete="name" />');
+    expect(html).toContain("Anzeigename speichern");
+    expect(html).toContain("Verifizierte Profildaten sind geschützt.");
+    expect(html).toContain("Änderung nur über GMVGANG Review");
+  });
+
   it("shows a join path when no profile exists", () => {
     const html = renderCreatorProfile({ ok: false, errors: ["creator_profile_not_found"] });
     expect(html).toContain("Noch kein Creator-Profil");
