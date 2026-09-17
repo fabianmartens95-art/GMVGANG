@@ -470,6 +470,19 @@ async function mutateWorkspace(request: Request, deps: ParallelV1Dependencies): 
       const assignmentId = uuid(payload.assignmentId);
       const decision = String(payload.decision ?? "");
       if (decision !== "accepted" && decision !== "declined") throw new Error("INVALID_DECISION");
+      const { data: currentAssignment, error: currentAssignmentError } = await deps.adminClient
+        .from("campaign_creator_assignments")
+        .select("id,campaign_id,creator_profile_id")
+        .eq("id", assignmentId)
+        .eq("creator_profile_id", auth.creatorProfileId)
+        .maybeSingle();
+      if (currentAssignmentError || !currentAssignment) throw new Error("ASSIGNMENT_NOT_FOUND");
+      const { data: campaign, error: campaignError } = await deps.adminClient
+        .from("campaigns")
+        .select("organization_id")
+        .eq("id", currentAssignment.campaign_id)
+        .maybeSingle();
+      if (campaignError || !campaign || campaign.organization_id !== organizationId) throw new Error("ASSIGNMENT_NOT_FOUND");
       const { data, error } = await deps.adminClient
         .from("campaign_creator_assignments")
         .update({
@@ -481,8 +494,6 @@ async function mutateWorkspace(request: Request, deps: ParallelV1Dependencies): 
         .select("*")
         .maybeSingle();
       if (error || !data) throw new Error("ASSIGNMENT_NOT_FOUND");
-      const { data: campaign } = await deps.adminClient.from("campaigns").select("organization_id").eq("id", data.campaign_id).maybeSingle();
-      if (!campaign || campaign.organization_id !== organizationId) throw new Error("ASSIGNMENT_NOT_FOUND");
       await activity(deps, {
         auth,
         eventType: `creator.opportunity.${decision}`,
