@@ -41,12 +41,14 @@ export function createFixedWindowRateLimiter(options: FixedWindowOptions): Fixed
 const MUTATION_RULES: Record<PlatformRateLimitAction, FixedWindowOptions> = {
   creator_registration: { limit: 5, windowMs: 10 * 60 * 1000 },
   creator_profile_completion: { limit: 20, windowMs: 10 * 60 * 1000 },
+  creator_qualification: { limit: 20, windowMs: 10 * 60 * 1000 },
 };
 
 export function createPlatformMutationRateLimitPort(): PlatformRateLimitPort {
   const limiters: Record<PlatformRateLimitAction, FixedWindowRateLimiter> = {
     creator_registration: createFixedWindowRateLimiter(MUTATION_RULES.creator_registration),
     creator_profile_completion: createFixedWindowRateLimiter(MUTATION_RULES.creator_profile_completion),
+    creator_qualification: createFixedWindowRateLimiter(MUTATION_RULES.creator_qualification),
   };
 
   return {
