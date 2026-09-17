@@ -57,6 +57,7 @@ export function parsePortalSession(payload: unknown): PortalSession {
   }
 
   const roles = [...new Set(payload.roles as PlatformUserRole[])];
+  const email = typeof payload.email === "string" ? payload.email.trim() : "";
   const organizationId = typeof payload.organizationId === "string" ? payload.organizationId.trim() : "";
 
   if (roles.length > 0 && !organizationId) {
@@ -66,6 +67,7 @@ export function parsePortalSession(payload: unknown): PortalSession {
   return {
     status: "authenticated",
     userId,
+    ...(email ? { email } : {}),
     ...(organizationId ? { organizationId } : {}),
     roles,
   };
@@ -123,6 +125,7 @@ export class EnvironmentSessionAdapter implements SessionPort {
     return {
       status: "authenticated",
       userId: "dev-user",
+      email: "dev@gmvgang.local",
       organizationId,
       roles: [role],
     };
