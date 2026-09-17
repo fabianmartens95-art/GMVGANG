@@ -90,6 +90,26 @@ export function safeNextPath(value: unknown): string {
   }
 }
 
+export function safeConfirmationNextPath(value: unknown, publicOrigin: string): string {
+  if (typeof value !== "string") return "/";
+  const cleaned = value.trim();
+  if (!cleaned || cleaned.length > 1024) return "/";
+
+  try {
+    const origin = new URL(publicOrigin).origin;
+    const parsed = new URL(cleaned, origin);
+    if (parsed.origin !== origin) return "/";
+
+    if (parsed.pathname === "/auth/callback") {
+      return safeNextPath(parsed.searchParams.get("next"));
+    }
+
+    return safeNextPath(`${parsed.pathname}${parsed.search}${parsed.hash}`);
+  } catch {
+    return "/";
+  }
+}
+
 async function authResponse(
   request: Request,
   client: ReturnType<typeof createRequestSupabaseClient>,
@@ -143,6 +163,24 @@ async function authResponse(
     const { error } = await client.auth.signOut({ scope: "local" });
     if (error) return json({ ok: false, error: "sign_out_unavailable" }, 503);
     return json({ ok: true });
+  }
+
+  if (url.pathname === "/auth/confirm") {
+    if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
+
+    const tokenHash = url.searchParams.get("token_hash")?.trim();
+    const type = url.searchParams.get("type")?.trim();
+    if (!tokenHash || tokenHash.length > 2048 || type !== "email") {
+      return Response.redirect(new URL("/login?error=missing_token", config.publicOrigin), 303);
+    }
+
+    const { error } = await client.auth.verifyOtp({ token_hash: tokenHash, type: "email" });
+    if (error) {
+      return Response.redirect(new URL("/login?error=auth_callback", config.publicOrigin), 303);
+    }
+
+    const next = safeConfirmationNextPath(url.searchParams.get("next"), config.publicOrigin);
+    return Response.redirect(new URL(next, config.publicOrigin), 303);
   }
 
   if (url.pathname === "/auth/callback") {
