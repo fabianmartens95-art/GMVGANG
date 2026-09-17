@@ -177,6 +177,10 @@ export function renderCreatorProfile(result: CreatorProfileResult): string {
   }
 
   const profile = result.creatorProfile;
+  const verified = profile.networkStatus === "profile_complete";
+  const locked = verified ? ' readonly aria-readonly="true"' : "";
+  const verifiedHint = verified ? '<small>Verifiziert · Änderung nur über GMVGANG Review.</small>' : "";
+
   return `<section class="creator-profile-shell">
     <div class="creator-profile-summary">
       <div>
@@ -193,34 +197,40 @@ export function renderCreatorProfile(result: CreatorProfileResult): string {
     <form id="creator-profile-form" class="creator-profile-form" novalidate>
       <label>
         <span>TikTok Username *</span>
-        <input name="tiktokHandle" value="${escapeHtml(profile.tiktokHandle)}" required minlength="2" maxlength="25" autocomplete="off" />
+        <input name="tiktokHandle" value="${escapeHtml(profile.tiktokHandle)}" required minlength="2" maxlength="25" autocomplete="off"${locked} />
+        ${verifiedHint}
       </label>
       <label>
         <span>Anzeigename *</span>
         <input name="displayName" value="${escapeHtml(profile.displayName ?? "")}" required minlength="2" autocomplete="name" />
+        ${verified ? '<small>Kann von dir selbst aktualisiert werden.</small>' : ""}
       </label>
       <label>
         <span>Markt *</span>
-        <input name="market" value="${escapeHtml(profile.market ?? "")}" required placeholder="DE" autocomplete="country" />
+        <input name="market" value="${escapeHtml(profile.market ?? "")}" required placeholder="DE" autocomplete="country"${locked} />
+        ${verifiedHint}
       </label>
       <label>
         <span>Content-Sprache *</span>
-        <input name="language" value="${escapeHtml(profile.language ?? "")}" required placeholder="de" />
+        <input name="language" value="${escapeHtml(profile.language ?? "")}" required placeholder="de"${locked} />
+        ${verifiedHint}
       </label>
       <label class="creator-profile-form__wide">
         <span>Kategorien / Nischen *</span>
-        <input name="niche" value="${escapeHtml((profile.niche ?? []).join(", "))}" required placeholder="Beauty, Fashion, Lifestyle" />
-        <small>Mehrere Kategorien mit Komma trennen.</small>
+        <input name="niche" value="${escapeHtml((profile.niche ?? []).join(", "))}" required placeholder="Beauty, Fashion, Lifestyle"${locked} />
+        ${verified ? verifiedHint : "<small>Mehrere Kategorien mit Komma trennen.</small>"}
       </label>
       <div class="creator-profile-form__actions creator-profile-form__wide">
-        <button type="submit" class="creator-profile-submit">Profil speichern</button>
+        <button type="submit" class="creator-profile-submit">${verified ? "Anzeigename speichern" : "Profil speichern"}</button>
         <div id="creator-profile-result" class="creator-profile-result" aria-live="polite"></div>
       </div>
     </form>
 
     <aside class="creator-profile-boundary">
-      <strong>Operative Daten bleiben geschützt.</strong>
-      <span>Diese Profilseite aktualisiert nur deine eigenen Basisdaten. Screening-, Vertrags-, Compliance- und Intake-Status werden im Company OS verwaltet und durch Profiländerungen nicht zurückgesetzt.</span>
+      <strong>${verified ? "Verifizierte Profildaten sind geschützt." : "Operative Daten bleiben geschützt."}</strong>
+      <span>${verified
+        ? "TikTok-Username, Markt, Content-Sprache und Kategorien sind nach Abschluss des Profils gesperrt. Änderungen daran benötigen einen kontrollierten GMVGANG Review. Screening-, Vertrags-, Compliance- und Intake-Status bleiben ebenfalls geschützt."
+        : "Diese Profilseite aktualisiert nur deine eigenen Basisdaten. Screening-, Vertrags-, Compliance- und Intake-Status werden im Company OS verwaltet und durch Profiländerungen nicht zurückgesetzt."}</span>
     </aside>
   </section>`;
 }
