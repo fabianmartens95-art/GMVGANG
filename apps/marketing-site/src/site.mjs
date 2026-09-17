@@ -148,7 +148,7 @@ export const pages = [
           <div class="progress-track" aria-hidden="true"><span id="pc-progress-fill"></span></div>
         </div>
         <div id="pc-error" class="form-message form-error" role="alert" tabindex="-1" hidden>Bitte prüfen Sie das markierte Pflichtfeld.</div>
-        <form id="pc-form" class="potential-form" action="https://hook.eu1.make.com/pxnd9dc4dd9egwjsjerlxwbo2jpfam9t" method="post" novalidate>
+        <form id="pc-form" class="potential-form" method="post" novalidate>
           <section class="pc-step pc-step-active" data-step="1" aria-hidden="false">
             <p class="step-label">01 · Brand</p>
             <h3 tabindex="-1">Die Basis.</h3>
@@ -272,7 +272,7 @@ export const pages = [
         <p>Die Potenzialanalyse berechnet aus Ihren Antworten einen internen Score und eine Potenzialstufe. Diese Bewertung dient der strukturierten Ersteinschätzung und Priorisierung. Sie führt nicht automatisch zu einem Vertrag, einer Annahme oder Ablehnung und stellt keine ausschließlich automatisierte Entscheidung mit rechtlicher oder vergleichbar erheblicher Wirkung dar.</p>
 
         <h2>5. Eingesetzte Dienstleister</h2>
-        <p>Zur technischen Verarbeitung setzen wir insbesondere Cloudflare für Hosting und Auslieferung der Website, Make für die automatisierte Übermittlung und Verarbeitung von Anfragen sowie Notion für unser internes Brand- und Lead-Management ein. Diese Anbieter verarbeiten Daten im Rahmen der jeweils vereinbarten datenschutzrechtlichen Regelungen und nur soweit dies für die genannten Zwecke erforderlich ist.</p>
+        <p>Zur technischen Verarbeitung setzen wir insbesondere Cloudflare für Hosting und Auslieferung der Website sowie Supabase für die technische Verarbeitung und Speicherung von Kontakt- und Potenzialanfragen ein. Soweit eine Anfrage nach interner Prüfung in unsere operativen Brand- und Lead-Prozesse übernommen wird, kann Notion für das interne Brand- und Lead-Management eingesetzt werden. Diese Anbieter verarbeiten Daten im Rahmen der jeweils vereinbarten datenschutzrechtlichen Regelungen und nur soweit dies für die genannten Zwecke erforderlich ist.</p>
 
         <h2>6. Übermittlungen in Drittländer</h2>
         <p>Bei einzelnen Dienstleistern kann eine Verarbeitung personenbezogener Daten außerhalb des Europäischen Wirtschaftsraums stattfinden. Soweit erforderlich, stützen sich solche Übermittlungen auf einen anwendbaren Angemessenheitsbeschluss oder geeignete Garantien, insbesondere die Standardvertragsklauseln der Europäischen Kommission.</p>
@@ -292,7 +292,7 @@ export const pages = [
         <h2>11. Externe Links</h2>
         <p>Die Creator-Bewerbung kann über einen externen Link zu Tally geöffnet werden. Beim Aufruf verlassen Sie diese Website. Für die Creator-Bewerbung gelten ergänzend die dort bereitgestellten gesonderten Datenschutzhinweise.</p>
 
-        <p class="legal-note">Stand: 16. September 2026 · Hosting-Stack auf Cloudflare Pages angepasst; vor Domain-Cutover erneut rechtlich/operativ prüfen.</p>
+        <p class="legal-note">Stand: 17. September 2026 · Website-Intake auf native Supabase-Verarbeitung umgestellt.</p>
       </section>
     `,
     index: false,

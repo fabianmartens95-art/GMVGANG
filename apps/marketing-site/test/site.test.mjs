@@ -28,10 +28,11 @@ test('potential check is eligible for production indexing once global gate is en
   assert.notEqual(byPath('/potenzialanalyse/').index, false);
 });
 
-test('potential check preserves secure intake boundary', () => {
+test('potential check preserves native intake boundary without Make fallback', () => {
   const html = renderPage(byPath('/potenzialanalyse/'));
   assert.match(html, /id="pc-form"/);
-  assert.match(html, /hook\.eu1\.make\.com\/pxnd9dc4dd9egwjsjerlxwbo2jpfam9t/);
+  assert.doesNotMatch(html, /hook\.eu1\.make\.com/);
+  assert.doesNotMatch(html, /make\.com/i);
   for (const field of ['potential_score', 'potential_band', 'potential_crm', 'tiktok_shop_crm', 'branche_crm', 'assessment_summary', 'source_url']) {
     assert.match(html, new RegExp(`name="${field}"`));
   }
@@ -51,7 +52,7 @@ test('mobile navigation can be closed with Escape and restores focus', async () 
   assert.match(source, /menuButton\.focus\(\)/);
 });
 
-test('client only routes to result after confirmed Make save and only transfers score/band', async () => {
+test('client only routes to result after confirmed native save and only transfers score/band', async () => {
   const source = await readFile(join(root, 'src/client.js'), 'utf8');
   assert.match(source, /result\.saved !== true/);
   assert.match(source, /query\.set\('score'/);
@@ -61,10 +62,11 @@ test('client only routes to result after confirmed Make save and only transfers 
   assert.doesNotMatch(source, /query\.set\('brand'/);
 });
 
-test('privacy copy reflects Cloudflare migration and no longer describes Webflow as hosting', () => {
+test('privacy copy reflects the current Cloudflare and Supabase intake stack', () => {
   const html = renderPage(byPath('/datenschutz/'));
   assert.match(html, /Cloudflare Pages/);
-  assert.match(html, /Make/);
+  assert.match(html, /Supabase/);
   assert.match(html, /Notion/);
+  assert.doesNotMatch(html, /Make/);
   assert.doesNotMatch(html, /Website wird mit Webflow bereitgestellt/);
 });
