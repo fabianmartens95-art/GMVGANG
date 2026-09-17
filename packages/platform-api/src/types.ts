@@ -52,6 +52,46 @@ export type PortalAnalyticsEventInput = {
   occurredAt: string;
 };
 
+export type TeamCreatorFunnelStep = "registered" | "profile" | "qualification" | "complete";
+export type TeamCreatorFunnelHealth = "in_progress" | "stalled" | "complete";
+
+export type TeamCreatorActivityItem = {
+  source: "analytics" | "audit";
+  event: string;
+  occurredAt: string;
+  path?: string;
+};
+
+export type TeamCreatorFunnelItem = {
+  userId: string;
+  email: string | null;
+  creatorProfileId: string | null;
+  displayName: string | null;
+  tiktokHandle: string | null;
+  networkStatus: string | null;
+  profileCompletionPercent: number;
+  registeredAt: string;
+  lastActivityAt: string;
+  qualificationSubmittedAt: string | null;
+  currentStep: TeamCreatorFunnelStep;
+  health: TeamCreatorFunnelHealth;
+  stalledForMinutes: number | null;
+  activity: TeamCreatorActivityItem[];
+};
+
+export type TeamCreatorFunnelReadModel = {
+  generatedAt: string;
+  stalledAfterMinutes: number;
+  summary: {
+    totalCreators: number;
+    completed: number;
+    stalled: number;
+    inProgress: number;
+    registrationsLast24h: number;
+  };
+  creators: TeamCreatorFunnelItem[];
+};
+
 export type PlatformRateLimitAction =
   | "creator_registration"
   | "creator_profile_completion"
@@ -217,6 +257,7 @@ export interface PlatformApiServices {
     now: string;
   }): Promise<PlatformSessionContext>;
   recordAnalyticsEvent?(input: PortalAnalyticsEventInput): Promise<void>;
+  getTeamCreatorFunnel?(input: { now: string }): Promise<TeamCreatorFunnelReadModel>;
   manageMembership?(input: PlatformMembershipMutationInput): Promise<Membership>;
   getBrandOverview?(input: {
     organizationId: string;
