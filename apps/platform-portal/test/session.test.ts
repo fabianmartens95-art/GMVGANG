@@ -10,12 +10,14 @@ describe("parsePortalSession", () => {
       parsePortalSession({
         status: "authenticated",
         userId: "user-1",
+        email: "member@example.com",
         organizationId: "brand-1",
         roles: ["brand_member", "brand_member"],
       }),
     ).toEqual({
       status: "authenticated",
       userId: "user-1",
+      email: "member@example.com",
       organizationId: "brand-1",
       roles: ["brand_member"],
     });
@@ -54,6 +56,7 @@ describe("HttpSessionAdapter", () => {
           return {
             status: "authenticated",
             userId: "user-1",
+            email: "member@example.com",
             organizationId: "brand-1",
             roles: ["brand_member"],
           };
@@ -64,6 +67,7 @@ describe("HttpSessionAdapter", () => {
     await expect(adapter.getSession()).resolves.toEqual({
       status: "authenticated",
       userId: "user-1",
+      email: "member@example.com",
       organizationId: "brand-1",
       roles: ["brand_member"],
     });
@@ -87,6 +91,7 @@ describe("HttpSessionAdapter", () => {
             return {
               status: "authenticated",
               userId: "user-1",
+              email: "member@example.com",
               organizationId: "brand-2",
               roles: ["brand_member"],
             };
