@@ -124,7 +124,7 @@ export function createSupabasePlatformApiServices(
     async getTeamCreatorFunnel(input) {
       const [users, profiles, qualifications, memberships, analytics, audit] = await Promise.all([
         client.from("platform_users")
-          .select("id,email,created_at,updated_at")
+          .select("id,email,is_test_account,created_at,updated_at")
           .order("created_at", { ascending: false })
           .limit(500),
         client.from("creator_profiles")
