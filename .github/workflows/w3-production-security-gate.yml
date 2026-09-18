@@ -1,0 +1,128 @@
+name: W3 Production Security Gate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w3-production-security-gate
+  cancel-in-progress: false
+
+jobs:
+  verify-w3-production-security:
+    name: Verify W3 production-security gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: staging
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gmvgang_w3_security
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d gmvgang_w3_security"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/gmvgang_w3_security
+
+    steps:
+      - name: Checkout gated revision
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Run repository quality gate
+        run: |
+          pnpm typecheck
+          pnpm test
+          pnpm build
+
+      - name: Verify PostgreSQL client
+        run: psql --version
+
+      - name: Bootstrap isolated security database
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/test/ci_bootstrap.sql
+
+      - name: Apply all Supabase migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r migration; do
+            echo "::group::Applying ${migration}"
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
+            echo "::endgroup::"
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+
+      - name: Verify platform foundation security
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/verify/platform_foundation.sql
+
+      - name: Verify append-only audit hardening
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/verify/platform_audit_hardening.sql
+
+      - name: Verify RLS and cross-tenant isolation
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/verify/security_invariants.sql
+
+      - name: Validate isolated staging target
+        env:
+          STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+          PRIMARY_BASE_URL: ${{ secrets.PRIMARY_BASE_URL }}
+        run: node scripts/validate-staging-target.mjs
+
+      - name: Verify exact deployed revision
+        env:
+          STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+          EXPECTED_REVISION: ${{ github.sha }}
+        run: node scripts/verify-staging-revision.mjs
+
+      - name: Run remote platform smoke
+        env:
+          SMOKE_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+        run: node scripts/smoke-platform.mjs
+
+      - name: Run real isolated-staging Auth/RBAC E2E
+        env:
+          E2E_BASE_URL: ${{ secrets.AUTH_E2E_BASE_URL }}
+          E2E_SUPABASE_URL: ${{ secrets.AUTH_E2E_SUPABASE_URL }}
+          E2E_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.AUTH_E2E_SUPABASE_PUBLISHABLE_KEY }}
+          E2E_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.AUTH_E2E_SUPABASE_SERVICE_ROLE_KEY }}
+          E2E_PRODUCTION_SUPABASE_PROJECT_REF: ${{ secrets.PRODUCTION_SUPABASE_PROJECT_REF }}
+          E2E_ALLOW_AUTH_MUTATION: "1"
+        run: pnpm --filter @gmvgang/platform-server e2e:auth-rbac
+
+      - name: Record W3 gate summary
+        if: success()
+        run: |
+          {
+            echo "## GMVGANG W3 Production Security Gate"
+            echo ""
+            echo "- Revision: \`${GITHUB_SHA}\`"
+            echo "- Repository quality: passed"
+            echo "- Fresh migration application: passed"
+            echo "- RLS/cross-tenant invariants: passed"
+            echo "- Audit hardening: passed"
+            echo "- Exact isolated staging revision: passed"
+            echo "- Remote smoke: passed"
+            echo "- Real Auth/RBAC E2E: passed"
+            echo "- Promotion remains manual after this gate"
+          } >> "$GITHUB_STEP_SUMMARY"
