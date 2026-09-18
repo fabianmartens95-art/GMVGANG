@@ -3,6 +3,8 @@ import {
   completeCreatorProfile,
   registerCreator,
   type CreatorProfileCompletionCommand,
+  type CreatorRegistrationPorts,
+  type TrustedCreatorRegistrationContext,
 } from "@gmvgang/creator-registration";
 import { unavailableBrandPortalReadModel } from "@gmvgang/brand-intelligence/portal";
 import type { CreatorProfile } from "@gmvgang/platform-foundation";
@@ -62,6 +64,56 @@ export function governCreatorSelfServiceProfileInput(
   };
 }
 
+function stableErrorCode(error: unknown): string {
+  return error instanceof Error && error.message
+    ? (error.message.split(":", 1)[0] ?? "CREATOR_PROFILE_COMPLETION_FAILED")
+    : "CREATOR_PROFILE_COMPLETION_FAILED";
+}
+
+export async function completeCreatorProfileWithRecovery(
+  input: CreatorProfileCompletionCommand,
+  context: TrustedCreatorRegistrationContext,
+  ports: CreatorRegistrationPorts,
+): Promise<CreatorProfile> {
+  try {
+    return await completeCreatorProfile(input, context, ports);
+  } catch (error) {
+    const persisted = await ports.profiles.findByUserId(context.userId);
+    if (
+      !persisted ||
+      persisted.networkStatus !== "profile_complete" ||
+      persisted.profileCompletionPercent < 100
+    ) {
+      throw error;
+    }
+
+    console.warn(JSON.stringify({
+      scope: "gmvgang.creator.profile",
+      level: "warn",
+      event: "completion.partial_commit_retry",
+      code: stableErrorCode(error),
+      creatorProfileId: persisted.id,
+    }));
+
+    return completeCreatorProfile(input, context, ports);
+  }
+}
+
+export async function reconcileCreatorOperationsLink(
+  profile: CreatorProfile,
+  now: string,
+  sync: (profile: CreatorProfile, now: string) => Promise<CreatorProfile>,
+): Promise<CreatorProfile> {
+  if (
+    profile.creatorMasterId?.trim() ||
+    profile.networkStatus !== "profile_complete" ||
+    profile.profileCompletionPercent < 100
+  ) {
+    return profile;
+  }
+  return sync(profile, now);
+}
+
 export function createSupabasePlatformApiServices(
   config: PlatformSupabaseConfig,
   options: SupabasePlatformApiOptions = {},
@@ -101,6 +153,27 @@ export function createSupabasePlatformApiServices(
         code,
       });
       return profile;
+    }
+  }
+
+  async function recordCreatorOperationsRepair(profile: CreatorProfile, now: string): Promise<void> {
+    const { error } = await client.from("platform_audit_events").insert({
+      event: "creator.operations_link.repaired",
+      user_id: profile.userId,
+      creator_profile_id: profile.id,
+      occurred_at: now,
+      metadata: {
+        source: "workspace_read_reconciliation",
+      },
+    });
+    if (error) {
+      console.warn(JSON.stringify({
+        scope: "gmvgang.creator.operations-link",
+        level: "warn",
+        event: "repair_audit_failed",
+        creatorProfileId: profile.id,
+        code: error.code ?? "unknown",
+      }));
     }
   }
 
@@ -211,8 +284,14 @@ export function createSupabasePlatformApiServices(
       return buildCreatorReferralHubReadModel(profile, attributions);
     },
     async getCreatorWorkspace(input) {
-      const profile = await registrationPorts.profiles.findByUserId(input.userId);
-      if (!profile) return null;
+      const storedProfile = await registrationPorts.profiles.findByUserId(input.userId);
+      if (!storedProfile) return null;
+      const profile = options.creatorOperationsSync
+        ? await reconcileCreatorOperationsLink(storedProfile, input.now, syncCreatorOperations)
+        : storedProfile;
+      if (!storedProfile.creatorMasterId?.trim() && profile.creatorMasterId?.trim()) {
+        await recordCreatorOperationsRepair(profile, input.now);
+      }
       const creatorMasterId = profile.creatorMasterId?.trim();
       if (!creatorMasterId) {
         return unavailableCreatorWorkspaceReadModel(input.now, "creator_master_id_missing");
@@ -234,7 +313,7 @@ export function createSupabasePlatformApiServices(
     async completeCreatorProfile(input, context) {
       const current = await registrationPorts.profiles.findByUserId(context.userId);
       const governedInput = current ? governCreatorSelfServiceProfileInput(current, input) : input;
-      const profile = await completeCreatorProfile(governedInput, context, registrationPorts);
+      const profile = await completeCreatorProfileWithRecovery(governedInput, context, registrationPorts);
       return syncCreatorOperations(profile, context.now);
     },
   };
