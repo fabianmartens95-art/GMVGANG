@@ -8,6 +8,8 @@ on:
 
 permissions:
   contents: read
+  issues: read
+  pull-requests: read
 
 jobs:
   quality:
@@ -15,6 +17,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -26,8 +30,33 @@ jobs:
         with:
           node-version: 22
 
+      - name: Validate build lane boundaries
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: node scripts/ci/validate-build-lane.mjs
+
+      - name: Validate build contract
+        if: github.event_name == 'pull_request'
+        run: node scripts/ci/validate-build-contract.mjs
+
+      - name: Enforce active lane limit
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/ci/validate-active-lanes.mjs
+
+      - name: Enforce declared dependencies
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/ci/validate-pr-dependencies.mjs
+
       - name: Validate integration queue policy
         run: node --check scripts/ci/integration-queue.mjs
+
       - name: Validate Integration Wave V2 policy
         run: node --check scripts/ci/integration-wave-v2.mjs
 
