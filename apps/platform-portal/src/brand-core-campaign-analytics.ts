@@ -47,6 +47,9 @@ const FORBIDDEN_PROFIT_FIELDS = new Set([
   "netRevenueCents",
 ]);
 
+const CANONICAL_ECONOMICS_NOTICE =
+  "GMV, Orders und aufgezeichnete Creator-Provisionen sind Performance-Kennzahlen. Sie sind keine vollständige Profitabilitätsberechnung und enthalten insbesondere keine Retouren, Rabatte, COGS, Sample-Kosten, Adspend, Zahlungs-/Plattformgebühren oder sonstige Kosten.";
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -54,6 +57,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function requiredText(value: unknown, code: string): string {
   if (typeof value !== "string" || !value.trim()) throw new Error(code);
   return value.trim();
+}
+
+function hasOnlyKeys(
+  value: Record<string, unknown>,
+  keys: readonly string[],
+): boolean {
+  const allowed = new Set(keys);
+  return Object.keys(value).every((key) => allowed.has(key));
+}
+
+function hasExactlyKeys(
+  value: Record<string, unknown>,
+  keys: readonly string[],
+): boolean {
+  return hasOnlyKeys(value, keys) && Object.keys(value).length === keys.length;
 }
 
 function nonNegativeInteger(value: unknown, code: string): number {
@@ -85,8 +103,24 @@ function assertNoProfitClaims(value: unknown): void {
 }
 
 function parseCampaign(value: unknown): BrandCampaignAnalyticsCampaign {
-  if (!isRecord(value)) throw new Error("BRAND_CAMPAIGN_ANALYTICS_CAMPAIGN_INVALID");
+  if (!isRecord(value)) {
+    throw new Error("BRAND_CAMPAIGN_ANALYTICS_CAMPAIGN_INVALID");
+  }
   assertNoProfitClaims(value);
+  if (
+    !hasExactlyKeys(value, [
+      "campaignId",
+      "campaignName",
+      "gmvCents",
+      "orders",
+      "recordedCommissionCents",
+      "assignedCreators",
+      "postedCreators",
+      "performanceUpdatedAt",
+    ])
+  ) {
+    throw new Error("BRAND_CAMPAIGN_ANALYTICS_CAMPAIGN_INVALID");
+  }
   return {
     campaignId: requiredText(value.campaignId, "BRAND_CAMPAIGN_ANALYTICS_CAMPAIGN_INVALID"),
     campaignName: requiredText(value.campaignName, "BRAND_CAMPAIGN_ANALYTICS_CAMPAIGN_INVALID"),
@@ -111,16 +145,46 @@ function parseCampaign(value: unknown): BrandCampaignAnalyticsCampaign {
   };
 }
 
-export function parseBrandCampaignAnalytics(payload: unknown): BrandCampaignAnalyticsResponse {
-  if (!isRecord(payload) || !isRecord(payload.model)) {
+export function parseBrandCampaignAnalytics(
+  payload: unknown,
+): BrandCampaignAnalyticsResponse {
+  if (
+    !isRecord(payload) ||
+    !hasExactlyKeys(payload, ["model"]) ||
+    !isRecord(payload.model)
+  ) {
     throw new Error("BRAND_CAMPAIGN_ANALYTICS_PAYLOAD_INVALID");
   }
+
   const model = payload.model;
   assertNoProfitClaims(model);
-  if (!isRecord(model.totals) || !Array.isArray(model.campaigns)) {
+  if (isRecord(model.totals)) assertNoProfitClaims(model.totals);
+
+  if (
+    !hasExactlyKeys(model, [
+      "generatedAt",
+      "currency",
+      "totals",
+      "campaigns",
+      "economicsNotice",
+    ]) ||
+    !isRecord(model.totals) ||
+    !hasExactlyKeys(model.totals, [
+      "gmvCents",
+      "orders",
+      "recordedCommissionCents",
+      "assignedCreators",
+      "postedCreators",
+    ]) ||
+    !Array.isArray(model.campaigns)
+  ) {
     throw new Error("BRAND_CAMPAIGN_ANALYTICS_MODEL_INVALID");
   }
-  assertNoProfitClaims(model.totals);
+
+  const generatedAt = isoTimestamp(
+    model.generatedAt,
+    "BRAND_CAMPAIGN_ANALYTICS_GENERATED_AT_INVALID",
+  );
 
   const currency = requiredText(
     model.currency,
@@ -140,11 +204,23 @@ export function parseBrandCampaignAnalytics(payload: unknown): BrandCampaignAnal
     if (campaign.postedCreators > campaign.assignedCreators) {
       throw new Error("BRAND_CAMPAIGN_ANALYTICS_CREATOR_COUNTS_INVALID");
     }
+    if (
+      campaign.performanceUpdatedAt !== null &&
+      Date.parse(campaign.performanceUpdatedAt) > Date.parse(generatedAt)
+    ) {
+      throw new Error("BRAND_CAMPAIGN_ANALYTICS_FRESHNESS_INVALID");
+    }
   }
 
   const totals = {
-    gmvCents: nonNegativeInteger(model.totals.gmvCents, "BRAND_CAMPAIGN_ANALYTICS_TOTALS_INVALID"),
-    orders: nonNegativeInteger(model.totals.orders, "BRAND_CAMPAIGN_ANALYTICS_TOTALS_INVALID"),
+    gmvCents: nonNegativeInteger(
+      model.totals.gmvCents,
+      "BRAND_CAMPAIGN_ANALYTICS_TOTALS_INVALID",
+    ),
+    orders: nonNegativeInteger(
+      model.totals.orders,
+      "BRAND_CAMPAIGN_ANALYTICS_TOTALS_INVALID",
+    ),
     recordedCommissionCents: nonNegativeInteger(
       model.totals.recordedCommissionCents,
       "BRAND_CAMPAIGN_ANALYTICS_TOTALS_INVALID",
@@ -162,19 +238,54 @@ export function parseBrandCampaignAnalytics(payload: unknown): BrandCampaignAnal
     throw new Error("BRAND_CAMPAIGN_ANALYTICS_CREATOR_COUNTS_INVALID");
   }
 
+  const campaignTotals = campaigns.reduce(
+    (sum, campaign) => ({
+      gmvCents: sum.gmvCents + campaign.gmvCents,
+      orders: sum.orders + campaign.orders,
+      recordedCommissionCents:
+        sum.recordedCommissionCents + campaign.recordedCommissionCents,
+      assignedCreators: sum.assignedCreators + campaign.assignedCreators,
+      postedCreators: sum.postedCreators + campaign.postedCreators,
+    }),
+    {
+      gmvCents: 0,
+      orders: 0,
+      recordedCommissionCents: 0,
+      assignedCreators: 0,
+      postedCreators: 0,
+    },
+  );
+
+  if (
+    !Number.isSafeInteger(campaignTotals.gmvCents) ||
+    !Number.isSafeInteger(campaignTotals.orders) ||
+    !Number.isSafeInteger(campaignTotals.recordedCommissionCents) ||
+    campaignTotals.gmvCents !== totals.gmvCents ||
+    campaignTotals.orders !== totals.orders ||
+    campaignTotals.recordedCommissionCents !== totals.recordedCommissionCents
+  ) {
+    throw new Error("BRAND_CAMPAIGN_ANALYTICS_TOTALS_INCONSISTENT");
+  }
+
+  if (
+    totals.assignedCreators > campaignTotals.assignedCreators ||
+    totals.postedCreators > campaignTotals.postedCreators
+  ) {
+    throw new Error("BRAND_CAMPAIGN_ANALYTICS_CREATOR_COUNTS_INVALID");
+  }
+
+  requiredText(
+    model.economicsNotice,
+    "BRAND_CAMPAIGN_ANALYTICS_NOTICE_REQUIRED",
+  );
+
   return {
     model: {
-      generatedAt: isoTimestamp(
-        model.generatedAt,
-        "BRAND_CAMPAIGN_ANALYTICS_GENERATED_AT_INVALID",
-      ),
+      generatedAt,
       currency,
       totals,
       campaigns,
-      economicsNotice: requiredText(
-        model.economicsNotice,
-        "BRAND_CAMPAIGN_ANALYTICS_NOTICE_REQUIRED",
-      ),
+      economicsNotice: CANONICAL_ECONOMICS_NOTICE,
     },
   };
 }
