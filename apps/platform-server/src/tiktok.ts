@@ -77,6 +77,20 @@ export function existingTikTokConnectionTokenFields(connection: {
   };
 }
 
+export function freshTikTokConnectionTokenFields(
+  accessTokenSecretRef: string,
+  refreshTokenSecretRef: string,
+  now: string,
+  token: Pick<TikTokTokenResponse, "expires_in" | "refresh_expires_in">,
+): Record<string, string> {
+  return {
+    access_token_secret_ref: accessTokenSecretRef,
+    refresh_token_secret_ref: refreshTokenSecretRef,
+    access_token_expires_at: expiry(now, token.expires_in),
+    refresh_token_expires_at: expiry(now, token.refresh_expires_in),
+  };
+}
+
 function json(payload: unknown, status = 200, headers?: HeadersInit): Response {
   return new Response(JSON.stringify(payload), {
     status,
@@ -503,10 +517,10 @@ async function persistProfileSnapshot(
       createdSecretRefs.push(refreshRef);
     }
 
-    connection.access_token_secret_ref = accessRef;
-    connection.refresh_token_secret_ref = refreshRef;
-    connection.access_token_expires_at = expiry(deps.now, token.expires_in);
-    connection.refresh_token_expires_at = expiry(deps.now, token.refresh_expires_in);
+    Object.assign(
+      connection,
+      freshTikTokConnectionTokenFields(accessRef, refreshRef, deps.now, token),
+    );
     connection.connected_at = deps.now;
   }
 
