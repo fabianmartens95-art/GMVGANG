@@ -149,20 +149,6 @@ export function parseCreatorTikTokConnection(
     "CREATOR_TIKTOK_CONNECTION_METADATA_INVALID",
   );
 
-  if (
-    state === "disconnected" &&
-    (externalShopIds.length > 0 ||
-      grantedScopes.length > 0 ||
-      lastSyncAt !== null ||
-      lastErrorCode !== null)
-  ) {
-    throw new Error("CREATOR_TIKTOK_CONNECTION_STATE_INCONSISTENT");
-  }
-
-  if (state === "connected" && lastErrorCode !== null) {
-    throw new Error("CREATOR_TIKTOK_CONNECTION_STATE_INCONSISTENT");
-  }
-
   return {
     state,
     nextAction: expectedAction,
