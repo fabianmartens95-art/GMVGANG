@@ -24,6 +24,7 @@ export type PlatformServerConfig = {
     clientKey: string;
     clientSecret: string;
     tokenEncryptionKey: string;
+    identityHashKey: string;
     redirectUri: string;
     scopes: string[];
   } | null;
@@ -79,10 +80,11 @@ function tiktokCreatorOAuth(
   const clientKey = env.TIKTOK_CLIENT_KEY?.trim() ?? "";
   const clientSecret = env.TIKTOK_CLIENT_SECRET?.trim() ?? "";
   const tokenEncryptionKey = env.TIKTOK_TOKEN_ENCRYPTION_KEY?.trim() ?? "";
-  const anyConfigured = Boolean(clientKey || clientSecret || tokenEncryptionKey || env.TIKTOK_REDIRECT_URI?.trim());
+  const identityHashKey = env.TIKTOK_IDENTITY_HASH_KEY?.trim() ?? "";
+  const anyConfigured = Boolean(clientKey || clientSecret || tokenEncryptionKey || identityHashKey || env.TIKTOK_REDIRECT_URI?.trim());
 
   if (!anyConfigured) return null;
-  if (!clientKey || !clientSecret || !tokenEncryptionKey) {
+  if (!clientKey || !clientSecret || !tokenEncryptionKey || !identityHashKey) {
     throw new Error("TIKTOK_CREATOR_OAUTH_CONFIG_INCOMPLETE");
   }
 
@@ -93,6 +95,9 @@ function tiktokCreatorOAuth(
     throw new Error("TIKTOK_TOKEN_ENCRYPTION_KEY_INVALID");
   }
   if (decodedKey.length !== 32) throw new Error("TIKTOK_TOKEN_ENCRYPTION_KEY_INVALID");
+  if (Buffer.byteLength(identityHashKey, "utf8") < 32) {
+    throw new Error("TIKTOK_IDENTITY_HASH_KEY_TOO_SHORT");
+  }
 
   const redirectUri = env.TIKTOK_REDIRECT_URI?.trim()
     || new URL("/api/integrations/tiktok/callback", publicOrigin).toString();
@@ -116,6 +121,7 @@ function tiktokCreatorOAuth(
     clientKey,
     clientSecret,
     tokenEncryptionKey,
+    identityHashKey,
     redirectUri: parsed.toString(),
     scopes: [...TIKTOK_CREATOR_SCOPES],
   };
