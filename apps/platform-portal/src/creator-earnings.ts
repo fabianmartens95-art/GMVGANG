@@ -48,8 +48,19 @@ const FORBIDDEN_SETTLEMENT_FIELDS = new Set([
   "payoutCents",
 ]);
 
+const CANONICAL_SETTLEMENT_MESSAGE =
+  "Aufgezeichnete Provisionen sind noch kein bestätigter oder ausgezahlter Betrag.";
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasOnlyKeys(
+  value: Record<string, unknown>,
+  keys: readonly string[],
+): boolean {
+  const allowed = new Set(keys);
+  return Object.keys(value).every((key) => allowed.has(key));
 }
 
 function safeInteger(value: unknown, code: string): number {
@@ -85,7 +96,19 @@ function assertNoSettlementClaims(value: unknown): void {
 }
 
 function parseCampaign(value: unknown): CreatorEarningsCampaignView {
-  if (!isRecord(value)) throw new Error("CREATOR_EARNINGS_CAMPAIGN_INVALID");
+  if (
+    !isRecord(value) ||
+    !hasOnlyKeys(value, [
+      "campaignId",
+      "campaignName",
+      "gmvCents",
+      "orders",
+      "recordedCommissionCents",
+      "updatedAt",
+    ])
+  ) {
+    throw new Error("CREATOR_EARNINGS_CAMPAIGN_INVALID");
+  }
   assertNoSettlementClaims(value);
   return {
     campaignId: requiredText(value.campaignId, "CREATOR_EARNINGS_CAMPAIGN_INVALID"),
@@ -101,13 +124,35 @@ function parseCampaign(value: unknown): CreatorEarningsCampaignView {
 }
 
 export function parseCreatorEarningsResponse(payload: unknown): CreatorEarningsResponse {
-  if (!isRecord(payload) || !isRecord(payload.model)) {
+  if (
+    !isRecord(payload) ||
+    !hasOnlyKeys(payload, ["model"]) ||
+    !isRecord(payload.model)
+  ) {
     throw new Error("CREATOR_EARNINGS_PAYLOAD_INVALID");
   }
 
   const model = payload.model;
   assertNoSettlementClaims(model);
-  if (!isRecord(model.totals) || !Array.isArray(model.campaigns) || !isRecord(model.settlement)) {
+  if (
+    !hasOnlyKeys(model, [
+      "generatedAt",
+      "updatedAt",
+      "currency",
+      "totals",
+      "campaigns",
+      "settlement",
+    ]) ||
+    !isRecord(model.totals) ||
+    !hasOnlyKeys(model.totals, [
+      "gmvCents",
+      "orders",
+      "recordedCommissionCents",
+    ]) ||
+    !Array.isArray(model.campaigns) ||
+    !isRecord(model.settlement) ||
+    !hasOnlyKeys(model.settlement, ["status", "message"])
+  ) {
     throw new Error("CREATOR_EARNINGS_MODEL_INVALID");
   }
   assertNoSettlementClaims(model.totals);
@@ -123,27 +168,87 @@ export function parseCreatorEarningsResponse(payload: unknown): CreatorEarningsR
   const campaigns = model.campaigns.map(parseCampaign);
   const campaignIds = new Set<string>();
   for (const campaign of campaigns) {
-    if (campaignIds.has(campaign.campaignId)) throw new Error("CREATOR_EARNINGS_DUPLICATE_CAMPAIGN");
+    if (campaignIds.has(campaign.campaignId)) {
+      throw new Error("CREATOR_EARNINGS_DUPLICATE_CAMPAIGN");
+    }
     campaignIds.add(campaign.campaignId);
   }
 
+  const totals = {
+    gmvCents: safeInteger(
+      model.totals.gmvCents,
+      "CREATOR_EARNINGS_TOTALS_INVALID",
+    ),
+    orders: safeInteger(
+      model.totals.orders,
+      "CREATOR_EARNINGS_TOTALS_INVALID",
+    ),
+    recordedCommissionCents: safeInteger(
+      model.totals.recordedCommissionCents,
+      "CREATOR_EARNINGS_TOTALS_INVALID",
+    ),
+  };
+
+  const summed = campaigns.reduce(
+    (result, campaign) => ({
+      gmvCents: result.gmvCents + campaign.gmvCents,
+      orders: result.orders + campaign.orders,
+      recordedCommissionCents:
+        result.recordedCommissionCents + campaign.recordedCommissionCents,
+    }),
+    { gmvCents: 0, orders: 0, recordedCommissionCents: 0 },
+  );
+  if (
+    !Number.isSafeInteger(summed.gmvCents) ||
+    !Number.isSafeInteger(summed.orders) ||
+    !Number.isSafeInteger(summed.recordedCommissionCents) ||
+    summed.gmvCents !== totals.gmvCents ||
+    summed.orders !== totals.orders ||
+    summed.recordedCommissionCents !== totals.recordedCommissionCents
+  ) {
+    throw new Error("CREATOR_EARNINGS_TOTALS_INCONSISTENT");
+  }
+
+  const generatedAt = timestamp(
+    model.generatedAt,
+    "CREATOR_EARNINGS_GENERATED_AT_INVALID",
+  );
+  const updatedAt = nullableTimestamp(
+    model.updatedAt,
+    "CREATOR_EARNINGS_UPDATED_AT_INVALID",
+  );
+  const latestCampaignUpdatedAt = campaigns.reduce<string | null>(
+    (latest, campaign) => {
+      if (!campaign.updatedAt) return latest;
+      if (!latest || Date.parse(campaign.updatedAt) > Date.parse(latest)) {
+        return campaign.updatedAt;
+      }
+      return latest;
+    },
+    null,
+  );
+  if (
+    updatedAt !== latestCampaignUpdatedAt ||
+    (updatedAt !== null && Date.parse(updatedAt) > Date.parse(generatedAt))
+  ) {
+    throw new Error("CREATOR_EARNINGS_FRESHNESS_INCONSISTENT");
+  }
+
+  requiredText(
+    model.settlement.message,
+    "CREATOR_EARNINGS_SETTLEMENT_STATE_INVALID",
+  );
+
   return {
     model: {
-      generatedAt: timestamp(model.generatedAt, "CREATOR_EARNINGS_GENERATED_AT_INVALID"),
-      updatedAt: nullableTimestamp(model.updatedAt, "CREATOR_EARNINGS_UPDATED_AT_INVALID"),
+      generatedAt,
+      updatedAt,
       currency,
-      totals: {
-        gmvCents: safeInteger(model.totals.gmvCents, "CREATOR_EARNINGS_TOTALS_INVALID"),
-        orders: safeInteger(model.totals.orders, "CREATOR_EARNINGS_TOTALS_INVALID"),
-        recordedCommissionCents: safeInteger(
-          model.totals.recordedCommissionCents,
-          "CREATOR_EARNINGS_TOTALS_INVALID",
-        ),
-      },
+      totals,
       campaigns,
       settlement: {
         status: "not_available",
-        message: requiredText(model.settlement.message, "CREATOR_EARNINGS_SETTLEMENT_STATE_INVALID"),
+        message: CANONICAL_SETTLEMENT_MESSAGE,
       },
     },
   };
