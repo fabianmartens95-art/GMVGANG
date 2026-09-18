@@ -5,29 +5,33 @@ import {
   renderBrandBilling,
 } from "../src/brand-billing.js";
 
+const HISTORY_ENTRY = {
+  id: "entry-1",
+  kind: "revenue_share",
+  status: "settled",
+  source: "tiktok_partner_payment",
+  periodStart: "2026-09-01T00:00:00.000Z",
+  periodEnd: "2026-10-01T00:00:00.000Z",
+  recordedAt: "2026-10-02T10:00:00.000Z",
+  amountCents: 12345,
+  currency: "EUR",
+  revenueShareBps: 1500,
+  reference: "settlement-<1>",
+};
+
+const TOTAL = {
+  currency: "EUR",
+  pendingCents: 0,
+  settledCents: 12345,
+};
+
 const BILLING = {
   organizationId: "org-1",
   billingModel: "revenue_share",
   revenueShareBps: 1500,
   partnerAuthorizationStatus: "authorized",
-  history: [{
-    id: "entry-1",
-    kind: "revenue_share",
-    status: "settled",
-    source: "tiktok_partner_payment",
-    periodStart: "2026-09-01T00:00:00.000Z",
-    periodEnd: "2026-10-01T00:00:00.000Z",
-    recordedAt: "2026-10-02T10:00:00.000Z",
-    amountCents: 12345,
-    currency: "EUR",
-    revenueShareBps: 1500,
-    reference: "settlement-<1>",
-  }],
-  totalsByCurrency: [{
-    currency: "EUR",
-    pendingCents: 0,
-    settledCents: 12345,
-  }],
+  history: [HISTORY_ENTRY],
+  totalsByCurrency: [TOTAL],
 };
 
 describe("Brand Billing & Revenue Share surface", () => {
@@ -61,13 +65,24 @@ describe("Brand Billing & Revenue Share surface", () => {
   it("rejects malformed history, totals and duplicate IDs/currencies", () => {
     expect(() => parseBrandBilling({
       ...BILLING,
-      history: [BILLING.history[0], { ...BILLING.history[0] }],
+      history: [HISTORY_ENTRY, { ...HISTORY_ENTRY }],
     })).toThrow("BRAND_BILLING_SURFACE_HISTORY_DUPLICATE");
 
     expect(() => parseBrandBilling({
       ...BILLING,
-      totalsByCurrency: [BILLING.totalsByCurrency[0], { ...BILLING.totalsByCurrency[0] }],
+      totalsByCurrency: [TOTAL, { ...TOTAL }],
     })).toThrow("BRAND_BILLING_SURFACE_TOTALS_DUPLICATE");
+  });
+
+  it("rejects revenue-share snapshots on non-revenue-share history rows", () => {
+    expect(() => parseBrandBilling({
+      ...BILLING,
+      history: [{
+        ...HISTORY_ENTRY,
+        kind: "retainer",
+        revenueShareBps: 1500,
+      }],
+    })).toThrow("BRAND_BILLING_SURFACE_HISTORY_SHARE_CONFLICT");
   });
 
   it("escapes references and exposes no payment/invoice/bank control", () => {
