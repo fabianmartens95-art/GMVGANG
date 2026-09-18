@@ -14,6 +14,7 @@ import {
   applyResponseMutations,
   createCookieAccessTokenPort,
   createRequestSupabaseClient,
+  passwordRecoveryRedirect,
   type ResponseMutations,
 } from "./auth.js";
 import { loadPlatformServerConfig, type PlatformServerConfig } from "./env.js";
@@ -171,7 +172,7 @@ export function safeConfirmationNextPath(value: unknown, publicOrigin: string): 
   }
 }
 
-async function authResponse(
+export async function authResponse(
   request: Request,
   client: ReturnType<typeof createRequestSupabaseClient>,
   config: PlatformServerConfig,
@@ -278,6 +279,49 @@ async function authResponse(
       requestId,
       metadata: { next },
     });
+    return json({ ok: true }, 202);
+  }
+
+  if (url.pathname === "/api/auth/password-recovery") {
+    if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+    if (!sameOrigin(request)) return json({ ok: false, error: "same_origin_required" }, 403);
+    if (!request.headers.get("content-type")?.toLowerCase().includes("application/json")) {
+      return json({ ok: false, error: "json_required" }, 415);
+    }
+
+    let payload: unknown;
+    try {
+      payload = await request.json();
+    } catch {
+      return json({ ok: false, error: "invalid_json" }, 400);
+    }
+    const record = typeof payload === "object" && payload !== null && !Array.isArray(payload)
+      ? payload as Record<string, unknown>
+      : null;
+    if (!record || !validEmail(record.email)) return json({ ok: false, error: "invalid_email" }, 400);
+
+    const email = record.email.trim().toLowerCase();
+    if (!signInRateLimit.consume(`password-recovery:${email}`)) {
+      await recordAuditBestEffort(audit, {
+        event: "auth.password_recovery.rate_limited",
+        occurredAt: auditNow(),
+        requestId,
+      });
+      return json({ ok: false, error: "rate_limited" }, 429, { "Retry-After": "900" });
+    }
+
+    const { error } = await client.auth.resetPasswordForEmail(email, {
+      redirectTo: passwordRecoveryRedirect(config.publicOrigin),
+    });
+
+    await recordAuditBestEffort(audit, {
+      event: error ? "auth.password_recovery.request_failed" : "auth.password_recovery.requested",
+      occurredAt: auditNow(),
+      requestId,
+    });
+
+    // Always acknowledge a syntactically valid, non-rate-limited request so the
+    // public endpoint does not reveal whether an account exists.
     return json({ ok: true }, 202);
   }
 
