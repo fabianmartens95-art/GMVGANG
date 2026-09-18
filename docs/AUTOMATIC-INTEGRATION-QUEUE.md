@@ -50,6 +50,6 @@ Database migrations, authentication/authorization changes, shared-core changes a
 
 Use `Auto merge: yes` for small, isolated and reversible PRs. Keep shared-core foundation changes serialized. Once a shared primitive lands, dependent streams should update and rerun CI rather than merging stale heads.
 
-## Next optimization
+## Integration Wave V2
 
-After V1 has stable operational evidence, the next step is an Integration Wave V2 that batches compatible PRs on a temporary integration revision and runs cross-stream E2E before promotion.
+Integration Wave V2 is active alongside this queue. PRs with `Integration wave: yes` are excluded from V1 and routed to the combined-revision workflow documented in `docs/INTEGRATION_WAVE_V2.md`. V1 remains the path for single isolated reversible PRs.
