@@ -243,3 +243,5 @@ export function comparePilotScenarios(
     rank: index + 1
   }));
 }
+
+export * from "./profitability-readiness.js";
