@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "repository": "fabianmartens95-art/GMVGANG",
+  "signalIssueNumber": 285,
+  "notion": {
+    "productWavesPageId": "3df76c68-17ac-81a9-9c24-c670195871d6",
+    "controlMarker": "GMVGANG_WAVE_CONTROL_V1",
+    "apiVersion": "2026-03-11"
+  },
+  "waves": [
+    { "id": "W3", "name": "Production Security", "next": "W4" },
+    { "id": "W4", "name": "Campaign Core", "next": "W5" },
+    { "id": "W5", "name": "Performance & Money Loop", "next": "W6" },
+    { "id": "W6", "name": "Intelligence Layer", "next": "W7" },
+    { "id": "W7", "name": "Beta Monetization", "next": "W8" },
+    { "id": "W8", "name": "Relationship, Trust & Rights", "next": "W9" },
+    { "id": "W9", "name": "Commerce Optimization & Activation", "next": "W10" },
+    { "id": "W10", "name": "Measurement, Simulation & Learning", "next": "W11" },
+    { "id": "W11", "name": "Network Intelligence & Platform", "next": null }
+  ],
+  "activationIssue": {
+    "titlePrefix": "AUTOMATION – Activate",
+    "body": "Continuous Autonomous Wave Execution V1 activated this wave. Fresh-load the canonical Notion Product Waves page, Autonomous Parallel Build Loop and Parallel Build Board. Decompose the active wave dependency-first into safe conflict-free engineering slices, maintain at least five useful workstreams where possible, keep Shared Core serial, and preserve all Founder/Production/irreversible gates. This issue is activation evidence, not a second product-roadmap SSOT."
+  }
+}
