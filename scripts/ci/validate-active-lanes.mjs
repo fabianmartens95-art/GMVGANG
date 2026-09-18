@@ -42,16 +42,33 @@ const developmentLanes = activeLanes.filter((lane) => lane !== "integration");
 
 console.log(JSON.stringify({
   scope: "gmvgang.active-lanes",
-  maximum: config.maxActiveLanes,
+  minimumActiveWorkstreams: config.minimumActiveWorkstreams,
+  maximumDevelopmentLanes: config.maxActiveLanes,
   activeLanes,
   developmentLanes,
   contractedPullRequests: contracted,
   ignoredLegacyPullRequests: legacy,
 }, null, 2));
 
-if (developmentLanes.length > config.maxActiveLanes) {
+if (!Number.isInteger(config.minimumActiveWorkstreams) || config.minimumActiveWorkstreams < 5) {
+  console.error("active-lanes: minimumActiveWorkstreams must be at least 5");
+  process.exit(1);
+}
+
+const knownDevelopmentLaneCount = Object.keys(config.lanes ?? {}).length;
+if (
+  !Number.isInteger(config.maxActiveLanes)
+  || config.maxActiveLanes < knownDevelopmentLaneCount
+) {
   console.error(
-    `active-lanes: ${developmentLanes.length} development lanes exceed configured maximum ${config.maxActiveLanes}: ${developmentLanes.join(", ")}`
+    `active-lanes: maxActiveLanes must not impose a lower cap than the ${knownDevelopmentLaneCount} configured development lanes`,
+  );
+  process.exit(1);
+}
+
+if (developmentLanes.length > knownDevelopmentLaneCount) {
+  console.error(
+    `active-lanes: detected ${developmentLanes.length} development lanes but only ${knownDevelopmentLaneCount} are configured`,
   );
   process.exit(1);
 }
