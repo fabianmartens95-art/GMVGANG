@@ -60,6 +60,33 @@
   text-transform: uppercase;
 }
 
+.account-menu__panel .workspace-switcher {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.account-menu__panel .workspace-switcher > span {
+  color: var(--gray);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.account-menu__panel .workspace-switcher select {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 32px 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--white);
+  font: inherit;
+  font-size: 12px;
+}
+
 .account-menu__item,
 .account-menu__logout {
   appearance: none;
