@@ -246,10 +246,14 @@ function renderProfileSelectOptions(options: readonly CreatorProfileOption[], cu
 function renderNicheTags(selectedNiches: readonly string[], disabled: boolean): string {
   const selected = new Set(selectedNiches.map((item) => item.trim().toLowerCase()).filter(Boolean));
   const knownValues = new Set(CREATOR_NICHES.map((option) => option.value.toLowerCase()));
-  const legacyOptions = selectedNiches
-    .map((item) => item.trim())
-    .filter((item) => item && !knownValues.has(item.toLowerCase()))
-    .map((item) => ({ value: item, label: `${item} (bestehend)` }));
+  const legacyOptions = [...selectedNiches.reduce((options, item) => {
+    const value = item.trim();
+    const key = value.toLowerCase();
+    if (value && !knownValues.has(key) && !options.has(key)) {
+      options.set(key, { value, label: `${value} (bestehend)` });
+    }
+    return options;
+  }, new Map<string, CreatorProfileOption>()).values()];
 
   return [...CREATOR_NICHES, ...legacyOptions].map((option) => {
     const checked = selected.has(option.value.toLowerCase()) ? " checked" : "";
@@ -376,9 +380,12 @@ export function wireCreatorProfile(port: CreatorProfilePort): void {
 
     const data = new FormData(form);
     const button = form.querySelector<HTMLButtonElement>("button[type=submit]");
-    const niche = data.getAll("niche")
-      .map((item) => String(item).trim())
-      .filter(Boolean);
+    const niche = [...data.getAll("niche").reduce((values, item) => {
+      const value = String(item).trim();
+      const key = value.toLowerCase();
+      if (value && !values.has(key)) values.set(key, value);
+      return values;
+    }, new Map<string, string>()).values()];
 
     if (niche.length === 0) {
       result.textContent = "Bitte wähle mindestens eine Kategorie oder Nische aus.";
