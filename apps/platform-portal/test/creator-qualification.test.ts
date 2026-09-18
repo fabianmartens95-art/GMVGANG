@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CreatorQualification } from "@gmvgang/creator-qualification";
 import type { CreatorProfile } from "@gmvgang/platform-foundation";
-import { renderCreatorQualification } from "../src/creator-qualification.js";
+import { renderCreatorQualification, shouldDisableCategoryOption } from "../src/creator-qualification.js";
 
 function profile(networkStatus: CreatorProfile["networkStatus"]): CreatorProfile {
   return {
@@ -39,6 +39,15 @@ const qualification: CreatorQualification = {
 };
 
 describe("creator qualification module", () => {
+  it("prevents selecting a fourth product category", () => {
+    expect(shouldDisableCategoryOption(0, false)).toBe(false);
+    expect(shouldDisableCategoryOption(2, false)).toBe(false);
+    expect(shouldDisableCategoryOption(3, false)).toBe(true);
+    expect(shouldDisableCategoryOption(3, true)).toBe(false);
+    expect(shouldDisableCategoryOption(4, false)).toBe(true);
+  });
+
+
   it("blocks R2 while the creator profile is incomplete", () => {
     const html = renderCreatorQualification(profile("registered"), null);
     expect(html).toContain("Profil zuerst vervollständigen");

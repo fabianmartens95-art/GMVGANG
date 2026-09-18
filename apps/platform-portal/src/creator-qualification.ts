@@ -59,6 +59,10 @@ function checked(values: readonly string[] | undefined, value: string): string {
   return values?.includes(value) ? " checked" : "";
 }
 
+export function shouldDisableCategoryOption(checkedCount: number, isChecked: boolean): boolean {
+  return checkedCount >= 3 && !isChecked;
+}
+
 function readonlySummary(qualification: CreatorQualification): string {
   const formats = qualification.contentFormats.map((value) => value.replaceAll("_", " ")).join(", ");
   const categories = qualification.contentCategories.map((value) => value.replaceAll("_", " ")).join(", ");
@@ -282,6 +286,7 @@ export function wireCreatorQualification(port: CreatorQualificationPort): void {
   if (!form) return;
   const shop = form.elements.namedItem("shopEnabled") as HTMLSelectElement | null;
   const live = [...form.querySelectorAll<HTMLInputElement>('input[name="contentFormats"]')];
+  const categories = [...form.querySelectorAll<HTMLInputElement>('input[name="contentCategories"]')];
   const violation = form.elements.namedItem("violationStatus") as HTMLSelectElement | null;
   const message = document.querySelector<HTMLElement>("#qualification-message");
   const shopGmvSelect = form.elements.namedItem("shopGmv30dBand") as HTMLSelectElement | null;
@@ -289,6 +294,14 @@ export function wireCreatorQualification(port: CreatorQualificationPort): void {
   const liveFrequency = form.elements.namedItem("liveFrequency") as HTMLSelectElement | null;
   const liveConcurrentViewers = form.elements.namedItem("liveConcurrentViewers") as HTMLSelectElement | null;
   const violationReasonInput = form.elements.namedItem("violationReason") as HTMLTextAreaElement | null;
+
+  const refreshCategoryLimit = () => {
+    const checkedCount = categories.filter((input) => input.checked).length;
+    categories.forEach((input) => {
+      input.disabled = shouldDisableCategoryOption(checkedCount, input.checked);
+      input.setAttribute("aria-disabled", input.disabled ? "true" : "false");
+    });
+  };
 
   const refreshConditional = () => {
     const shopGmv = form.querySelector<HTMLElement>("[data-shop-gmv]");
@@ -322,8 +335,10 @@ export function wireCreatorQualification(port: CreatorQualificationPort): void {
 
   shop?.addEventListener("change", refreshConditional);
   live.forEach((input) => input.addEventListener("change", refreshConditional));
+  categories.forEach((input) => input.addEventListener("change", refreshCategoryLimit));
   violation?.addEventListener("change", refreshConditional);
   refreshConditional();
+  refreshCategoryLimit();
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
