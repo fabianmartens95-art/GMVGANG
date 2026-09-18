@@ -26,6 +26,9 @@ describe("progressed creator profile states", () => {
   it("keeps identity fields protected after network progression", () => {
     const html = renderCreatorProfile(parseCreatorProfileResult(base));
     expect(html).toContain("Qualifiziert");
-    expect(html.match(/readonly aria-readonly=\"true\"/g)).toHaveLength(4);
+    expect(html.match(/readonly aria-readonly=\"true\"/g)).toHaveLength(1);
+    expect(html).toContain('select name="market" required autocomplete="country" disabled aria-disabled="true"');
+    expect(html).toContain('select name="language" required disabled aria-disabled="true"');
+    expect(html).toContain('type="checkbox" name="niche" value="beauty" checked disabled aria-disabled="true"');
   });
 });
