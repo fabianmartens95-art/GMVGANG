@@ -60,6 +60,39 @@ describe("Brand Campaign Performance", () => {
     expect(model.economicsNotice).toContain("keine vollständige Profitabilitätsberechnung");
   });
 
+  it("counts a Creator only once in cross-Campaign totals", () => {
+    const model = buildBrandCampaignPerformance({
+      currency: "EUR",
+      generatedAt: "2026-09-18T12:00:00.000Z",
+      entries: [
+        {
+          campaignId: "campaign-1",
+          campaignName: "Launch",
+          creatorProfileId: "creator-1",
+          gmvCents: 100,
+          orders: 1,
+          recordedCommissionCents: 10,
+          contentStatus: "posted",
+          performanceUpdatedAt: null,
+        },
+        {
+          campaignId: "campaign-2",
+          campaignName: "Always On",
+          creatorProfileId: "creator-1",
+          gmvCents: 200,
+          orders: 1,
+          recordedCommissionCents: 20,
+          contentStatus: "posted",
+          performanceUpdatedAt: null,
+        },
+      ],
+    });
+
+    expect(model.totals.assignedCreators).toBe(1);
+    expect(model.totals.postedCreators).toBe(1);
+    expect(model.campaigns).toHaveLength(2);
+  });
+
   it("fails closed on duplicate assignment rows", () => {
     const duplicate = {
       campaignId: "campaign-1",
