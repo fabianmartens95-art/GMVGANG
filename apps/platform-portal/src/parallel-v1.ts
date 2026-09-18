@@ -196,6 +196,11 @@ export function renderCreatorOnboarding(snapshot: ParallelV1Snapshot | null): st
     ? connection.follower_count
     : null;
   const followerValue = verifiedFollowerCount ?? onboarding?.follower_count ?? "";
+  const nextBestAction = tiktok.available
+    && !connection
+    && onboarding?.follower_count == null
+      ? "connect_tiktok_or_enter_manually"
+      : (onboarding?.next_best_action ?? "complete_creator_onboarding");
   const checkbox = (value: string, label: string) =>
     `<label class="gmv-field"><span><input type="checkbox" name="contentFormats" value="${value}"${formats.has(value) ? " checked" : ""} /> ${label}</span></label>`;
 
@@ -239,7 +244,7 @@ export function renderCreatorOnboarding(snapshot: ParallelV1Snapshot | null): st
     <section class="gmv-panel">
       ${panelHeader("CREATOR ONBOARDING", "Dein Setup", `${completion}%`)}
       <div class="gmv-progress"><span style="width:${Math.max(0, Math.min(100, completion))}%"></span></div>
-      <p class="gmv-help">Next Best Action: <strong>${escapeHtml(onboarding?.next_best_action ?? "complete_creator_onboarding")}</strong></p>
+      <p class="gmv-help">Next Best Action: <strong>${escapeHtml(nextBestAction)}</strong></p>
       ${tiktokBlock}
       <form class="gmv-form" data-parallel-action="creator_onboarding_upsert">
         <div class="gmv-grid">
