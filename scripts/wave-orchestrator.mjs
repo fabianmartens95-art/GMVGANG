@@ -94,8 +94,11 @@ export function parseControlBlockText(text, marker) {
     activeWave: fields.active || null,
     nextWave: fields.next || null,
     readyWaves: fields.next ? [fields.next] : [],
-    completedWaves: [],
-    lastTransitionKey: null,
+    completedWaves:
+      fields.completed && fields.completed !== "none"
+        ? fields.completed.split(",").map((item) => item.trim()).filter(Boolean)
+        : [],
+    lastTransitionKey: fields.last && fields.last !== "none" ? fields.last : null,
     activeGate: {
       blocked: fields.blocked !== "false",
       blockingReasons: fields.blocked === "false" ? [] : ["canonical wave marker is blocked"],
