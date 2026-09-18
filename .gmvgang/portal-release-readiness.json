@@ -226,6 +226,18 @@
       "evidence": []
     },
     {
+      "id": "reliability.production-autodeploy-gated",
+      "category": "reliability",
+      "required": true,
+      "status": "planned",
+      "description": "Railway Production cannot deploy runtime-relevant main commits before the exact staging revision has passed the W3 security/release gate; automatic Production deploys are disabled or otherwise bound to an explicit release promotion path.",
+      "sourceRefs": [
+        ".github/workflows/w3-production-security-gate.yml",
+        "Railway GMVGANG-Platform / production / platform-server"
+      ],
+      "evidence": []
+    },
+    {
       "id": "reliability.backup-recovery-restore",
       "category": "reliability",
       "required": true,
