@@ -267,10 +267,21 @@ export function parseBrandCampaignAnalytics(
     throw new Error("BRAND_CAMPAIGN_ANALYTICS_TOTALS_INCONSISTENT");
   }
 
+  const maxCampaignAssignedCreators = campaigns.reduce(
+    (max, campaign) => Math.max(max, campaign.assignedCreators),
+    0,
+  );
+  const maxCampaignPostedCreators = campaigns.reduce(
+    (max, campaign) => Math.max(max, campaign.postedCreators),
+    0,
+  );
+
   if (
     !Number.isSafeInteger(campaignTotals.assignedCreators) ||
     !Number.isSafeInteger(campaignTotals.postedCreators) ||
+    totals.assignedCreators < maxCampaignAssignedCreators ||
     totals.assignedCreators > campaignTotals.assignedCreators ||
+    totals.postedCreators < maxCampaignPostedCreators ||
     totals.postedCreators > campaignTotals.postedCreators
   ) {
     throw new Error("BRAND_CAMPAIGN_ANALYTICS_CREATOR_COUNTS_INVALID");
