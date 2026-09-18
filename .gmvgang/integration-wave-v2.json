@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "baseBranch": "main",
+  "requiredCheck": "quality",
+  "minBatch": 2,
+  "maxBatch": 4,
+  "maxFilesPerPr": 50,
+  "branchPrefix": "integration/wave-v2-",
+  "blockedPaths": [
+    ".github/",
+    "scripts/ci/",
+    "supabase/migrations/",
+    "apps/platform-server/src/auth/",
+    "apps/platform-server/src/server.ts",
+    "apps/platform-portal/src/main.ts",
+    "apps/platform-portal/src/routing.ts",
+    "packages/platform-foundation/",
+    "packages/platform-api/",
+    "packages/design-system/",
+    "package.json",
+    "pnpm-lock.yaml"
+  ]
+}
