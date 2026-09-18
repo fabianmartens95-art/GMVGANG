@@ -1,0 +1,288 @@
+{
+  "version": 1,
+  "product": "GMVGANG Portal",
+  "policy": {
+    "productionPromotion": "manual-only",
+    "verifiedStatus": "verified",
+    "evidenceRequiredForVerified": true
+  },
+  "scenarios": [
+    {
+      "id": "security.auth-account-lifecycle",
+      "category": "security",
+      "required": true,
+      "status": "planned",
+      "description": "Registration, login, password recovery/update, session persistence, logout and re-login work on isolated staging.",
+      "sourceRefs": [
+        "#107",
+        "#185",
+        ".github/workflows/auth-rbac-e2e.yml"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "security.cross-tenant-brand-isolation",
+      "category": "security",
+      "required": true,
+      "status": "implemented",
+      "description": "Brand A cannot read or mutate Brand B tenant data across protected paths.",
+      "sourceRefs": [
+        "#181",
+        ".github/workflows/w3-production-security-gate.yml"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "security.cross-creator-isolation",
+      "category": "security",
+      "required": true,
+      "status": "planned",
+      "description": "Creator A cannot read or mutate Creator B private state or earnings.",
+      "sourceRefs": [
+        "#181",
+        "#194",
+        "#198"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "security.server-authoritative-capabilities",
+      "category": "security",
+      "required": true,
+      "status": "implemented",
+      "description": "Critical mutations are authorized server-side through canonical capability boundaries.",
+      "sourceRefs": [
+        "#181",
+        "#192"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "creator.onboarding-profile-qualification",
+      "category": "creator",
+      "required": true,
+      "status": "implemented",
+      "description": "Creator can complete account, profile, onboarding progress and qualification without cross-account leakage.",
+      "sourceRefs": [
+        "#115"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "creator.tiktok-connection",
+      "category": "creator",
+      "required": true,
+      "status": "planned",
+      "description": "Creator TikTok connect/reconnect lifecycle works through the approved provider configuration without browser token exposure.",
+      "sourceRefs": [
+        "#129",
+        "#130",
+        "#182"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "creator.campaign-sample-content-loop",
+      "category": "creator",
+      "required": true,
+      "status": "planned",
+      "description": "Opportunity decision, sample lifecycle, briefing/content submission and review transitions work end-to-end.",
+      "sourceRefs": [
+        "#146",
+        "#148",
+        "#147",
+        "#149"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "creator.earnings-recorded-vs-paid",
+      "category": "creator",
+      "required": true,
+      "status": "planned",
+      "description": "Creator sees account-bound recorded GMV/orders/commission while paid, settled and withdrawable balances remain unavailable unless separately verified.",
+      "sourceRefs": [
+        "#123",
+        "#194",
+        "#198"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "brand.onboarding-trial-readonly",
+      "category": "brand",
+      "required": true,
+      "status": "planned",
+      "description": "Brand onboarding readiness, trial start, entitlement state and read-only behavior after expiry are verified without deleting workspace data.",
+      "sourceRefs": [
+        "#125",
+        "#126",
+        "#127",
+        "#128"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "brand.product-lifecycle",
+      "category": "brand",
+      "required": true,
+      "status": "planned",
+      "description": "Products follow readiness and lifecycle rules; invalid activation and cross-tenant writes fail closed.",
+      "sourceRefs": [
+        "#150",
+        "#151",
+        "#192"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "brand.campaign-creator-loop",
+      "category": "brand",
+      "required": true,
+      "status": "planned",
+      "description": "Brand can progress Product to Campaign to Creator assignment to Sample/Content through governed server-side state transitions.",
+      "sourceRefs": [
+        "#144",
+        "#145",
+        "#146",
+        "#147"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "brand.campaign-analytics-not-profit",
+      "category": "brand",
+      "required": true,
+      "status": "planned",
+      "description": "Campaign analytics are organization-bound and clearly separated from complete profitability claims.",
+      "sourceRefs": [
+        "#152",
+        "#153",
+        "#193",
+        "#200"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "brand.next-best-action",
+      "category": "brand",
+      "required": true,
+      "status": "planned",
+      "description": "One organization-bound server-derived Next Best Action is rendered and browser counters cannot select priority.",
+      "sourceRefs": [
+        "#142",
+        "#143",
+        "#195",
+        "#200"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "money.full-profitability-input-readiness",
+      "category": "money",
+      "required": true,
+      "status": "planned",
+      "description": "Full profitability is unavailable until every required revenue/cost input is explicitly known; missing values never silently become zero.",
+      "sourceRefs": [
+        "#201"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "reliability.idempotent-retry-after-failure",
+      "category": "reliability",
+      "required": true,
+      "status": "planned",
+      "description": "Transient mutation failures can be retried safely without duplicate domain effects or stale pending idempotency locks.",
+      "sourceRefs": [
+        "#119",
+        "#159"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "reliability.audit-telemetry-pii-safe",
+      "category": "reliability",
+      "required": true,
+      "status": "implemented",
+      "description": "Security and mutation events are request-correlated and logs/read models do not expose token, password, secret or prohibited PII metadata.",
+      "sourceRefs": [
+        "#109",
+        "#112",
+        "#181"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "reliability.exact-staging-revision-smoke",
+      "category": "reliability",
+      "required": true,
+      "status": "implemented",
+      "description": "The exact release candidate revision is deployed to isolated staging and passes remote smoke plus W3 security gates.",
+      "sourceRefs": [
+        ".github/workflows/staging-verify.yml",
+        ".github/workflows/w3-production-security-gate.yml"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "reliability.production-autodeploy-gated",
+      "category": "reliability",
+      "required": true,
+      "status": "planned",
+      "description": "Railway Production cannot deploy runtime-relevant main commits before the exact staging revision has passed the W3 security/release gate; automatic Production deploys are disabled or otherwise bound to an explicit release promotion path.",
+      "sourceRefs": [
+        ".github/workflows/w3-production-security-gate.yml",
+        "Railway GMVGANG-Platform / production / platform-server"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "reliability.backup-recovery-restore",
+      "category": "reliability",
+      "required": true,
+      "status": "planned",
+      "description": "Backup, restore and recovery procedures are executed against a safe non-production target with recorded evidence.",
+      "sourceRefs": [
+        "#83"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "ux.iphone-safari",
+      "category": "ux",
+      "required": true,
+      "status": "planned",
+      "description": "Critical Creator and Brand journeys pass on current iPhone Safari at mobile viewport sizes.",
+      "sourceRefs": [],
+      "evidence": []
+    },
+    {
+      "id": "ux.android-chrome",
+      "category": "ux",
+      "required": true,
+      "status": "planned",
+      "description": "Critical Creator and Brand journeys pass on Android Chrome at mobile viewport sizes.",
+      "sourceRefs": [],
+      "evidence": []
+    },
+    {
+      "id": "ux.desktop-chromium",
+      "category": "ux",
+      "required": true,
+      "status": "planned",
+      "description": "Critical Creator, Brand and Staff journeys pass on a supported desktop Chromium browser.",
+      "sourceRefs": [],
+      "evidence": []
+    },
+    {
+      "id": "beta.creator-brand-staff-pilot",
+      "category": "beta",
+      "required": true,
+      "status": "planned",
+      "description": "Private beta with real Creator, Brand and Staff users completes core tasks without open P0 blockers.",
+      "sourceRefs": [],
+      "evidence": []
+    }
+  ]
+}
