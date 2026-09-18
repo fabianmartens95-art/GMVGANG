@@ -5,6 +5,15 @@ import {
   renderCreatorEarnings,
 } from "../src/creator-earnings.js";
 
+const CAMPAIGN = {
+  campaignId: "campaign-1",
+  campaignName: "Launch <One>",
+  gmvCents: 10000,
+  orders: 5,
+  recordedCommissionCents: 1500,
+  updatedAt: "2026-09-18T05:45:00.000Z",
+};
+
 const payload = {
   model: {
     generatedAt: "2026-09-18T06:00:00.000Z",
@@ -15,14 +24,7 @@ const payload = {
       orders: 5,
       recordedCommissionCents: 1500,
     },
-    campaigns: [{
-      campaignId: "campaign-1",
-      campaignName: "Launch <One>",
-      gmvCents: 10000,
-      orders: 5,
-      recordedCommissionCents: 1500,
-      updatedAt: "2026-09-18T05:45:00.000Z",
-    }],
+    campaigns: [CAMPAIGN],
     settlement: {
       status: "not_available",
       message: "Recorded commission ist kein bestätigter oder ausgezahlter Betrag.",
@@ -38,7 +40,27 @@ describe("Creator Earnings surface", () => {
     expect(response.model.updatedAt).toBe("2026-09-18T05:45:00.000Z");
   });
 
-  it("fails closed on any premature paid or withdrawable balance claim", () => {
+  it("fails closed on unknown fields and any premature paid or withdrawable balance claim", () => {
+    expect(() => parseCreatorEarningsResponse({
+      ...payload,
+      model: {
+        ...payload.model,
+        walletBalanceCents: 1500,
+      },
+    })).toThrow("CREATOR_EARNINGS_MODEL_INVALID");
+
+    expect(() => parseCreatorEarningsResponse({
+      ...payload,
+      model: {
+        ...payload.model,
+        campaigns: [{
+          ...CAMPAIGN,
+          payoutStatus: "paid",
+        }],
+      },
+    })).toThrow("CREATOR_EARNINGS_CAMPAIGN_INVALID");
+
+
     expect(() => parseCreatorEarningsResponse({
       ...payload,
       model: {
@@ -54,6 +76,44 @@ describe("Creator Earnings surface", () => {
         settlement: { ...payload.model.settlement, paidCents: 1500 },
       },
     })).toThrow("CREATOR_EARNINGS_SETTLEMENT_CLAIM_FORBIDDEN");
+  });
+
+  it("fails closed when totals or freshness contradict Campaign rows", () => {
+    expect(() => parseCreatorEarningsResponse({
+      ...payload,
+      model: {
+        ...payload.model,
+        totals: {
+          ...payload.model.totals,
+          gmvCents: 9999,
+        },
+      },
+    })).toThrow("CREATOR_EARNINGS_TOTALS_INCONSISTENT");
+
+    expect(() => parseCreatorEarningsResponse({
+      ...payload,
+      model: {
+        ...payload.model,
+        updatedAt: null,
+      },
+    })).toThrow("CREATOR_EARNINGS_FRESHNESS_INCONSISTENT");
+  });
+
+  it("uses canonical non-payout copy instead of trusting arbitrary server wording", () => {
+    const response = parseCreatorEarningsResponse({
+      ...payload,
+      model: {
+        ...payload.model,
+        settlement: {
+          status: "not_available",
+          message: "You may withdraw this now.",
+        },
+      },
+    });
+
+    expect(response.model.settlement.message).toBe(
+      "Aufgezeichnete Provisionen sind noch kein bestätigter oder ausgezahlter Betrag.",
+    );
   });
 
   it("renders recorded commission without presenting it as payout", () => {
