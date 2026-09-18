@@ -30,6 +30,15 @@ describe("platform foundation", () => {
     expect(roleHasCapability("brand_member", "platform.manage")).toBe(false);
   });
 
+  it("grants product management only to product-owning Brand roles", () => {
+    for (const role of ["founder", "admin", "brand_manager", "brand_member"] as const) {
+      expect(roleHasCapability(role, "products.manage")).toBe(true);
+    }
+    for (const role of ["creator_manager", "closer", "creator"] as const) {
+      expect(roleHasCapability(role, "products.manage")).toBe(false);
+    }
+  });
+
   it("allows founder and admin to enter both customer portal surfaces", () => {
     for (const role of ["founder", "admin"] as const) {
       expect(roleHasCapability(role, "creator.portal.access")).toBe(true);
