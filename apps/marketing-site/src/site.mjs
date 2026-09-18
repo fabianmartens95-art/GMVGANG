@@ -10,6 +10,117 @@ const cards = (items) => `<div class="card-grid">${items
 
 export const SITE_INDEXABLE = process.env.SITE_INDEXABLE === 'true';
 
+const privacyBody = `
+  <section class="section legal-copy">
+    <h2>1. Verantwortlicher</h2>
+    <p><strong>Fabian Martens</strong><br>Geschäftsbezeichnung: <strong>GMVGANG</strong><br>Böckenholt 17<br>48324 Sendenhorst<br>Deutschland<br>E-Mail: <a href="mailto:Tiktokagentur@gmail.com">Tiktokagentur@gmail.com</a></p>
+
+    <h2>2. Geltungsbereich</h2>
+    <p>Diese Datenschutzhinweise gelten für die öffentliche Website unter gmvgang.de, die GMVGANG Plattform unter app.gmvgang.de sowie die dort angebotenen Brand- und Creator-Funktionen. Einzelne Formulare oder externe Dienste können ergänzende Hinweise enthalten.</p>
+
+    <h2>3. Bereitstellung, Hosting und technische Protokolle</h2>
+    <p>Die öffentliche Website wird über Cloudflare Pages bereitgestellt. Das GMVGANG Portal wird über Railway betrieben und nutzt Supabase insbesondere für Authentifizierung und Datenhaltung. Beim Aufruf können technisch erforderliche Verbindungs- und Protokolldaten verarbeitet werden, insbesondere IP-Adresse, Zeitpunkt des Abrufs, aufgerufene Seite sowie Browser- und Geräteinformationen. Die Verarbeitung dient der sicheren, stabilen und technisch funktionsfähigen Bereitstellung. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO.</p>
+
+    <h2>4. TikTok-Shop-Potenzialanalyse und Kontaktanfragen</h2>
+    <p>Wenn Sie die Potenzialanalyse oder ein Kontaktformular ausfüllen, verarbeiten wir die von Ihnen eingegebenen Angaben, insbesondere Brand- und Website-Daten, Produkt- und TikTok-Shop-Angaben, Informationen zur wirtschaftlichen und operativen Ausgangslage sowie Name, geschäftliche E-Mail-Adresse und freiwillige Notizen. Die Daten werden verwendet, um Ihre Anfrage zu bearbeiten und einen sinnvollen nächsten Schritt für eine mögliche Zusammenarbeit zu bestimmen. Soweit die Anfrage auf die Anbahnung eines Vertrags gerichtet ist, erfolgt die Verarbeitung auf Grundlage von Art. 6 Abs. 1 lit. b DSGVO; im Übrigen auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO.</p>
+
+    <h2>5. Creator-Konto, Profil und Onboarding</h2>
+    <p>Bei Registrierung und Nutzung des Creator-Portals können wir insbesondere Account- und Kontaktdaten, Profilangaben, Creator-Status, Content-Formate, LIVE-Status, Bewerbungs- und Kampagneninformationen sowie technische Sicherheits- und Aktivitätsdaten verarbeiten. Die Verarbeitung dient der Bereitstellung des Portals, der Profilverwaltung, dem Onboarding, der Zuordnung zu geeigneten Funktionen und der Bearbeitung einer möglichen Zusammenarbeit.</p>
+
+    <h2>6. Freiwillige TikTok-Kontoverknüpfung</h2>
+    <p>Creator können ihr TikTok-Konto freiwillig mit GMVGANG verbinden. Die Verbindung erfolgt über die von TikTok bereitgestellte Autorisierung. Welche Daten GMVGANG von TikTok erhält, hängt von den durch den Creator freigegebenen Berechtigungen und der jeweiligen Verfügbarkeit der TikTok-Schnittstellen ab. Dazu können insbesondere TikTok-Profilkennung, Benutzername, Anzeigename, Profilbild, Verifizierungsstatus, Follower- und Following-Zahlen, Like- und Videoanzahl sowie freigegebene öffentliche Video-Metadaten gehören.</p>
+    <p>Wir verwenden diese Daten insbesondere, um Creator-Profildaten zu übernehmen oder zu verifizieren, manuelle Eingaben zu reduzieren, Profil- und Onboarding-Funktionen bereitzustellen und – soweit vorgesehen – zeitliche Entwicklungen von Profilkennzahlen nachvollziehbar zu machen. Die TikTok-Verknüpfung ist nicht Voraussetzung für den grundlegenden GMVGANG-Account, sofern eine Funktion nicht ausdrücklich eine TikTok-Autorisierung benötigt.</p>
+
+    <h2>7. OAuth-, Verbindungs- und Sicherheitsdaten</h2>
+    <p>Für die TikTok-Verknüpfung verarbeiten wir technische Verbindungsdaten wie erteilte Berechtigungen, Verbindungsstatus, Ablaufzeitpunkte und OAuth-Zugriffsinformationen. Zugriffstoken und Refresh-Token werden nicht an den Browser zurückgegeben, sondern serverseitig verschlüsselt gespeichert. Provider-Kennungen, die lediglich zur stabilen technischen Zuordnung benötigt werden, werden soweit technisch vorgesehen nicht als rohe Kennung, sondern in geschützter Form gespeichert.</p>
+    <p>Wird die TikTok-Verbindung getrennt, werden die für die aktive Verbindung gespeicherten Token entfernt bzw. ungültig gemacht. Bereits entstandene historische Kennzahlen oder Nachweise können nur so lange weiter gespeichert werden, wie dies für die dokumentierte Zusammenarbeit, Sicherheitszwecke, gesetzliche Pflichten oder die Geltendmachung bzw. Abwehr von Ansprüchen erforderlich ist; andernfalls werden sie gelöscht oder anonymisiert.</p>
+
+    <h2>8. Rechtsgrundlagen für Portal- und TikTok-Funktionen</h2>
+    <p>Soweit die Verarbeitung für die Registrierung, eine vom Nutzer angeforderte Portal-Funktion oder die Anbahnung bzw. Durchführung einer Zusammenarbeit erforderlich ist, erfolgt sie auf Grundlage von Art. 6 Abs. 1 lit. b DSGVO. Sicherheits-, Missbrauchsschutz- und Betriebsdaten verarbeiten wir auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse liegt in der sicheren und nachvollziehbaren Bereitstellung der Plattform.</p>
+
+    <h2>9. Eingesetzte Dienstleister und Empfänger</h2>
+    <p>Zur technischen Verarbeitung setzen wir insbesondere Cloudflare für die öffentliche Website, Railway für den Portalbetrieb und Supabase für Authentifizierung und Datenhaltung ein. Soweit Daten in operative Brand-, Creator- oder Kampagnenprozesse übernommen werden, kann Notion für das interne Arbeits- und Prozessmanagement eingesetzt werden. Bei einer TikTok-Kontoverknüpfung werden für die Autorisierung und den Datenaustausch außerdem TikTok-Dienste aufgerufen. Diese Anbieter verarbeiten Daten im Rahmen der jeweils anwendbaren vertraglichen und datenschutzrechtlichen Regelungen.</p>
+
+    <h2>10. Übermittlungen in Drittländer</h2>
+    <p>Bei einzelnen Dienstleistern kann eine Verarbeitung personenbezogener Daten außerhalb des Europäischen Wirtschaftsraums stattfinden. Soweit erforderlich, stützen sich solche Übermittlungen auf einen anwendbaren Angemessenheitsbeschluss oder geeignete Garantien, insbesondere die Standardvertragsklauseln der Europäischen Kommission.</p>
+
+    <h2>11. Speicherdauer</h2>
+    <p>Wir speichern personenbezogene Daten nur so lange, wie sie für den jeweiligen Zweck, die Bearbeitung einer Anfrage, die Nutzung des Portals, eine mögliche oder bestehende Zusammenarbeit sowie berechtigte Sicherheits- und Dokumentationszwecke erforderlich sind. Anschließend werden die Daten gelöscht oder eingeschränkt, soweit keine gesetzlichen Aufbewahrungspflichten oder sonstigen berechtigten Gründe für eine weitere Speicherung bestehen.</p>
+
+    <h2>12. Technisch erforderliche Sessions und keine Werbe-Tracker</h2>
+    <p>Für Login- und Sicherheitsfunktionen des Portals können technisch erforderliche Session- oder Authentifizierungsinformationen eingesetzt werden. Zum aktuellen Stand setzen wir auf der öffentlichen Website keine eigenen Marketing- oder Reichweitenanalyse-Tools wie Google Analytics oder Werbe-Pixel ein. Sollte sich der Tracking- oder Cookie-Stack ändern, werden diese Hinweise vor Aktivierung entsprechend angepasst.</p>
+
+    <h2>13. Automatisierte Bewertungen</h2>
+    <p>GMVGANG kann strukturierte Scores, Status oder Empfehlungen verwenden, um Anfragen, Profile oder nächste Schritte zu ordnen. Solche Bewertungen führen nicht automatisch zu einem Vertrag, einer Annahme oder Ablehnung und stellen keine ausschließlich automatisierte Entscheidung mit rechtlicher oder vergleichbar erheblicher Wirkung dar.</p>
+
+    <h2>14. Ihre Rechte</h2>
+    <p>Sie haben nach Maßgabe der DSGVO insbesondere das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und – soweit die Verarbeitung auf Art. 6 Abs. 1 lit. f DSGVO beruht – Widerspruch. Zur Ausübung Ihrer Rechte können Sie sich an die oben genannte Kontaktadresse wenden.</p>
+
+    <h2>15. TikTok-Verbindung widerrufen oder trennen</h2>
+    <p>Eine bestehende TikTok-Verbindung kann über die dafür vorgesehene Portal-Funktion getrennt werden, sobald diese Funktion für den jeweiligen Account verfügbar ist. Zusätzlich können Berechtigungen im TikTok-Konto nach den dort angebotenen Möglichkeiten widerrufen werden. Eine Trennung beendet zukünftige Synchronisierungen; gesetzlich erforderliche oder bereits anderweitig rechtmäßig gespeicherte Daten werden dadurch nicht automatisch rückwirkend gelöscht.</p>
+
+    <h2>16. Beschwerderecht</h2>
+    <p>Sie haben das Recht, sich bei einer Datenschutzaufsichtsbehörde zu beschweren. Für Verantwortliche mit Sitz in Nordrhein-Westfalen ist insbesondere die Landesbeauftragte für Datenschutz und Informationsfreiheit Nordrhein-Westfalen (LDI NRW) zuständig.</p>
+
+    <h2>17. Externe Links und Dienste</h2>
+    <p>Die Website und das Portal können auf externe Dienste wie TikTok oder Tally verweisen. Beim Aufruf externer Dienste gelten ergänzend deren eigene Datenschutz- und Nutzungsbedingungen.</p>
+
+    <p class="legal-note">Stand: 18. September 2026 · erweitert um GMVGANG Portal und freiwillige TikTok-Kontoverknüpfung.</p>
+  </section>
+`;
+
+const termsBody = `
+  <section class="section legal-copy">
+    <h2>1. Geltungsbereich</h2>
+    <p>Diese Nutzungsbedingungen gelten für die Nutzung der öffentlichen GMVGANG Website sowie der GMVGANG Plattform unter app.gmvgang.de. Sie regeln die technischen Portal- und Account-Funktionen. Individuelle Creator-, Brand-, Kampagnen-, Agentur- oder Vergütungsvereinbarungen werden durch diese Bedingungen nicht ersetzt.</p>
+
+    <h2>2. Anbieter</h2>
+    <p>Anbieter ist Fabian Martens unter der Geschäftsbezeichnung GMVGANG. Die vollständigen Anbieter- und Kontaktdaten finden Sie im <a href="/impressum/">Impressum</a>.</p>
+
+    <h2>3. Voraussetzungen für einen Account</h2>
+    <p>Die Nutzung registrierungspflichtiger Creator-Funktionen ist für Personen vorgesehen, die mindestens 18 Jahre alt und rechtlich befugt sind, die jeweilige Nutzung vorzunehmen. Angaben im Account und im Onboarding müssen wahrheitsgemäß und aktuell sein. Nutzer dürfen nur Accounts und externe Konten verbinden, zu deren Nutzung sie berechtigt sind.</p>
+
+    <h2>4. Account und Zugangsdaten</h2>
+    <p>Zugangsdaten und Login-Verfahren sind vor unbefugtem Zugriff zu schützen. Nutzer dürfen keine fremden Accounts verwenden und keine Zugriffs- oder Sicherheitsmechanismen umgehen. Bei Verdacht auf unbefugte Nutzung sollte GMVGANG unverzüglich informiert werden.</p>
+
+    <h2>5. TikTok-Kontoverknüpfung</h2>
+    <p>Die Verknüpfung eines TikTok-Kontos ist grundsätzlich freiwillig. Sie erfolgt über die von TikTok bereitgestellten Autorisierungsverfahren und nur mit den Berechtigungen, die der Nutzer im jeweiligen Autorisierungsvorgang freigibt. Eine bestehende Verbindung kann über die vorgesehenen GMVGANG- oder TikTok-Funktionen wieder getrennt bzw. widerrufen werden.</p>
+    <p>TikTok ist ein unabhängiger Drittanbieter. Für TikTok selbst, dessen Verfügbarkeit, Richtlinien, Konten oder API-Zugänge gelten zusätzlich die Bedingungen und Vorgaben von TikTok. GMVGANG kann nicht gewährleisten, dass bestimmte TikTok-Funktionen oder Datenfelder dauerhaft verfügbar bleiben.</p>
+
+    <h2>6. Portal-Funktionen</h2>
+    <p>Das Portal kann insbesondere Registrierung, Creator-Profil, Onboarding, Verifizierung von Angaben, Brand- oder Kampagnenmöglichkeiten, Samples, Briefings, Content-Einreichungen, Performance- und Earnings-Ansichten sowie weitere Commerce-Funktionen bereitstellen. Der konkrete Funktionsumfang kann sich während der Weiterentwicklung ändern.</p>
+
+    <h2>7. Keine Garantie für Aufnahme, Opportunities oder wirtschaftlichen Erfolg</h2>
+    <p>Ein GMVGANG-Account, ein vollständig ausgefülltes Profil oder eine TikTok-Verknüpfung begründen keinen Anspruch auf Aufnahme in ein Creator-Netzwerk, Vertragsabschluss, Kampagnen, Samples, Vergütung, Reichweite, Umsatz oder bestimmte wirtschaftliche Ergebnisse. Verbindliche Leistungen, Vergütungen und Pflichten entstehen nur aus einer jeweils gesonderten Vereinbarung oder ausdrücklich bestätigten Aktion.</p>
+
+    <h2>8. Zulässige Nutzung</h2>
+    <p>Untersagt sind insbesondere missbräuchliche oder rechtswidrige Nutzung, Identitätstäuschung, Manipulation von Profil- oder Performanceangaben, unbefugtes Auslesen oder Scraping, automatisierte Angriffe, Schadsoftware, Umgehung von Zugriffsbeschränkungen sowie der Versuch, auf Daten anderer Nutzer oder Mandanten zuzugreifen.</p>
+
+    <h2>9. Eingereichte Inhalte und technische Nutzungsrechte</h2>
+    <p>Nutzer behalten ihre Rechte an eigenen Inhalten. Soweit Nutzer Inhalte, Links, Briefings oder sonstige Materialien in das Portal einstellen, räumen sie GMVGANG nur die Rechte ein, die technisch und organisatorisch erforderlich sind, um die angeforderte Portal-Funktion oder eine separat vereinbarte Zusammenarbeit bereitzustellen. Weitergehende Nutzungsrechte richten sich nach der jeweils gesonderten Vereinbarung.</p>
+
+    <h2>10. Verfügbarkeit und Änderungen</h2>
+    <p>GMVGANG entwickelt die Plattform fortlaufend weiter. Funktionen können ergänzt, geändert oder vorübergehend eingeschränkt werden, insbesondere aufgrund von Wartung, Sicherheitsanforderungen, Drittanbieteränderungen oder regulatorischen Vorgaben. Eine ununterbrochene Verfügbarkeit einzelner Funktionen wird nicht zugesagt, soweit nicht ausdrücklich etwas anderes vereinbart ist.</p>
+
+    <h2>11. Sperrung und Beendigung</h2>
+    <p>Accounts oder einzelne Funktionen können bei konkreten Sicherheitsrisiken, missbräuchlicher Nutzung, erheblichen Verstößen gegen diese Bedingungen oder zwingenden rechtlichen Gründen vorübergehend eingeschränkt werden. Soweit möglich und zumutbar, wird der betroffene Nutzer über den Grund informiert. Nutzer können die Nutzung des Portals jederzeit einstellen; bestehende vertragliche Pflichten aus separaten Vereinbarungen bleiben unberührt.</p>
+
+    <h2>12. Haftung</h2>
+    <p>Für die Haftung von GMVGANG gelten die gesetzlichen Vorschriften. Diese Nutzungsbedingungen begründen keine zusätzliche Garantie für Drittanbieter, externe Plattformen oder wirtschaftliche Ergebnisse.</p>
+
+    <h2>13. Datenschutz</h2>
+    <p>Informationen zur Verarbeitung personenbezogener Daten, insbesondere zur freiwilligen TikTok-Kontoverknüpfung, finden Sie in unserer <a href="/privacy/">Datenschutzerklärung</a>.</p>
+
+    <h2>14. Anwendbares Recht</h2>
+    <p>Soweit gesetzlich zulässig, gilt deutsches Recht. Zwingende gesetzliche Schutzvorschriften, insbesondere für Verbraucher, bleiben unberührt.</p>
+
+    <h2>15. Kontakt</h2>
+    <p>Fragen zur Plattform oder zu diesen Nutzungsbedingungen können an <a href="mailto:Tiktokagentur@gmail.com">Tiktokagentur@gmail.com</a> gerichtet werden.</p>
+
+    <p class="legal-note">Stand: 18. September 2026 · Version für Website, Creator-Portal und TikTok-Kontoverknüpfung.</p>
+  </section>
+`;
+
 export const pages = [
   {
     path: '/',
@@ -201,7 +312,7 @@ export const pages = [
             <input id="pc-summary-input" name="assessment_summary" type="hidden">
             <input id="pc-source-url" name="source_url" type="hidden">
             <div class="form-actions"><button class="button button-secondary" type="button" data-back>Zurück</button><button class="button button-primary" type="submit">Anfrage senden</button></div>
-            <p class="form-note">Mit dem Absenden werden Ihre Angaben zur Bearbeitung Ihrer Anfrage und zur Prüfung einer möglichen Zusammenarbeit verarbeitet. Weitere Informationen finden Sie in unserer <a href="/datenschutz/">Datenschutzerklärung</a>.</p>
+            <p class="form-note">Mit dem Absenden werden Ihre Angaben zur Bearbeitung Ihrer Anfrage und zur Prüfung einer möglichen Zusammenarbeit verarbeitet. Weitere Informationen finden Sie in unserer <a href="/privacy/">Datenschutzerklärung</a>.</p>
           </section>
         </form>
         <div id="pc-success" class="form-message form-success" role="status" tabindex="-1" hidden>Danke – Ihre Anfrage ist angekommen. Wir prüfen Ihre Angaben und melden uns zum nächsten sinnvollen Schritt.</div>
@@ -253,50 +364,33 @@ export const pages = [
   {
     path: '/datenschutz/',
     title: 'Datenschutz | GMVGANG',
-    description: 'Datenschutzhinweise für die GMVGANG Website und Potenzialanalyse.',
+    description: 'Datenschutzhinweise für die GMVGANG Website, Plattform und freiwillige TikTok-Kontoverknüpfung.',
     eyebrow: 'Datenschutzhinweise',
     heading: 'Datenschutz',
-    lead: 'Diese Hinweise erläutern, wie personenbezogene Daten beim Besuch dieser Website und bei Nutzung der TikTok-Shop-Potenzialanalyse verarbeitet werden.',
-    body: `
-      <section class="section legal-copy">
-        <h2>1. Verantwortlicher</h2>
-        <p><strong>Fabian Martens</strong><br>Geschäftsbezeichnung: <strong>GMVGANG</strong><br>Böckenholt 17<br>48324 Sendenhorst<br>Deutschland<br>E-Mail: <a href="mailto:Tiktokagentur@gmail.com">Tiktokagentur@gmail.com</a></p>
-
-        <h2>2. Bereitstellung und Hosting der Website</h2>
-        <p>Die Website wird über Cloudflare Pages bereitgestellt. Beim Aufruf können technisch erforderliche Verbindungsdaten verarbeitet werden, insbesondere IP-Adresse, Zeitpunkt des Abrufs, aufgerufene Seite sowie Browser- und Geräteinformationen. Die Verarbeitung dient der sicheren, stabilen und technisch funktionsfähigen Bereitstellung der Website. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse liegt im sicheren und zuverlässigen Betrieb unseres Webauftritts.</p>
-
-        <h2>3. TikTok-Shop-Potenzialanalyse und Kontaktanfragen</h2>
-        <p>Wenn Sie die Potenzialanalyse ausfüllen, verarbeiten wir die von Ihnen eingegebenen Angaben, insbesondere Brand- und Website-Daten, Produkt- und TikTok-Shop-Angaben, Informationen zur wirtschaftlichen und operativen Ausgangslage sowie Name, geschäftliche E-Mail-Adresse und freiwillige Notizen. Die Daten werden verwendet, um das TikTok-Shop-Potenzial Ihrer Brand einzuschätzen, Ihre Anfrage zu bearbeiten und einen sinnvollen nächsten Schritt für eine mögliche Zusammenarbeit zu bestimmen. Soweit die Anfrage auf die Anbahnung eines Vertrags gerichtet ist, erfolgt die Verarbeitung auf Grundlage von Art. 6 Abs. 1 lit. b DSGVO; im Übrigen auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO zur Bearbeitung geschäftlicher Anfragen.</p>
-
-        <h2>4. Potenzial-Score</h2>
-        <p>Die Potenzialanalyse berechnet aus Ihren Antworten einen internen Score und eine Potenzialstufe. Diese Bewertung dient der strukturierten Ersteinschätzung und Priorisierung. Sie führt nicht automatisch zu einem Vertrag, einer Annahme oder Ablehnung und stellt keine ausschließlich automatisierte Entscheidung mit rechtlicher oder vergleichbar erheblicher Wirkung dar.</p>
-
-        <h2>5. Eingesetzte Dienstleister</h2>
-        <p>Zur technischen Verarbeitung setzen wir insbesondere Cloudflare für Hosting und Auslieferung der Website sowie Supabase für die technische Verarbeitung und Speicherung von Kontakt- und Potenzialanfragen ein. Soweit eine Anfrage nach interner Prüfung in unsere operativen Brand- und Lead-Prozesse übernommen wird, kann Notion für das interne Brand- und Lead-Management eingesetzt werden. Diese Anbieter verarbeiten Daten im Rahmen der jeweils vereinbarten datenschutzrechtlichen Regelungen und nur soweit dies für die genannten Zwecke erforderlich ist.</p>
-
-        <h2>6. Übermittlungen in Drittländer</h2>
-        <p>Bei einzelnen Dienstleistern kann eine Verarbeitung personenbezogener Daten außerhalb des Europäischen Wirtschaftsraums stattfinden. Soweit erforderlich, stützen sich solche Übermittlungen auf einen anwendbaren Angemessenheitsbeschluss oder geeignete Garantien, insbesondere die Standardvertragsklauseln der Europäischen Kommission.</p>
-
-        <h2>7. Speicherdauer</h2>
-        <p>Wir speichern personenbezogene Daten nur so lange, wie sie für die Bearbeitung Ihrer Anfrage, die Bewertung einer möglichen Zusammenarbeit und berechtigte geschäftliche Follow-ups erforderlich sind. Anschließend werden die Daten gelöscht oder eingeschränkt, soweit keine gesetzlichen Aufbewahrungspflichten oder sonstigen berechtigten Gründe für eine weitere Speicherung bestehen.</p>
-
-        <h2>8. Keine Marketing-Analyse in V1</h2>
-        <p>Zum aktuellen Stand setzen wir auf dieser Website keine eigenen Marketing- oder Reichweitenanalyse-Tools wie Google Analytics oder Werbe-Pixel ein. Sollte sich der eingesetzte Tracking- oder Cookie-Stack ändern, werden diese Datenschutzhinweise vor Aktivierung entsprechend angepasst.</p>
-
-        <h2>9. Ihre Rechte</h2>
-        <p>Sie haben nach Maßgabe der DSGVO insbesondere das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und – soweit die Verarbeitung auf Art. 6 Abs. 1 lit. f DSGVO beruht – Widerspruch. Zur Ausübung Ihrer Rechte können Sie sich an die oben genannte Kontaktadresse wenden.</p>
-
-        <h2>10. Beschwerderecht</h2>
-        <p>Sie haben das Recht, sich bei einer Datenschutzaufsichtsbehörde zu beschweren. Für Verantwortliche mit Sitz in Nordrhein-Westfalen ist insbesondere die Landesbeauftragte für Datenschutz und Informationsfreiheit Nordrhein-Westfalen (LDI NRW) zuständig.</p>
-
-        <h2>11. Externe Links</h2>
-        <p>Die Creator-Bewerbung kann über einen externen Link zu Tally geöffnet werden. Beim Aufruf verlassen Sie diese Website. Für die Creator-Bewerbung gelten ergänzend die dort bereitgestellten gesonderten Datenschutzhinweise.</p>
-
-        <p class="legal-note">Stand: 17. September 2026 · Website-Intake auf native Supabase-Verarbeitung umgestellt.</p>
-      </section>
-    `,
+    lead: 'Diese Hinweise erläutern, wie personenbezogene Daten bei der Nutzung von GMVGANG Website, Portal und TikTok-Verknüpfung verarbeitet werden.',
+    body: privacyBody,
     index: false,
   },
+  {
+    path: '/privacy/',
+    title: 'Privacy Policy | GMVGANG',
+    description: 'Datenschutzhinweise für die GMVGANG Website, Plattform und freiwillige TikTok-Kontoverknüpfung.',
+    eyebrow: 'Privacy Policy',
+    heading: 'Datenschutz',
+    lead: 'Diese Hinweise erläutern, wie personenbezogene Daten bei der Nutzung von GMVGANG Website, Portal und TikTok-Verknüpfung verarbeitet werden.',
+    body: privacyBody,
+    index: false,
+  },
+  {
+    path: '/terms/',
+    title: 'Nutzungsbedingungen | GMVGANG',
+    description: 'Nutzungsbedingungen für die GMVGANG Website, Plattform und freiwillige TikTok-Kontoverknüpfung.',
+    eyebrow: 'Terms of Service',
+    heading: 'Nutzungsbedingungen',
+    lead: 'Diese Bedingungen regeln die technischen Account- und Portal-Funktionen von GMVGANG einschließlich der freiwilligen TikTok-Verknüpfung.',
+    body: termsBody,
+    index: false,
+  }
 ];
 
 const actionMarkup = (actions = []) => actions.length
@@ -355,7 +449,7 @@ export function renderPage(page) {
     <div class="shell footer-grid">
       <div><strong>GMVGANG</strong><p>TikTok Shop Growth System</p></div>
       <div><a href="/brands/">Für Brands</a><a href="/creator/">Creator</a><a href="/ueber-gmvgang/">Über GMVGANG</a></div>
-      <div><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a></div>
+      <div><a href="/impressum/">Impressum</a><a href="/terms/">Nutzungsbedingungen</a><a href="/privacy/">Datenschutz</a></div>
     </div>
   </footer>
 </body>

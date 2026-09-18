@@ -11,7 +11,7 @@ const root = join(here, '..');
 const byPath = (path) => pages.find((page) => page.path === path);
 
 test('migration contains all required public routes', () => {
-  for (const path of ['/', '/brands/', '/creator/', '/ueber-gmvgang/', '/potenzialanalyse/', '/analyse-erhalten/', '/impressum/', '/datenschutz/']) {
+  for (const path of ['/', '/brands/', '/creator/', '/ueber-gmvgang/', '/potenzialanalyse/', '/analyse-erhalten/', '/impressum/', '/datenschutz/', '/privacy/', '/terms/']) {
     assert.ok(byPath(path), `missing ${path}`);
   }
 });
@@ -69,4 +69,35 @@ test('privacy copy reflects the current Cloudflare and Supabase intake stack', (
   assert.match(html, /Notion/);
   assert.doesNotMatch(html, /Make/);
   assert.doesNotMatch(html, /Website wird mit Webflow bereitgestellt/);
+});
+
+test('privacy pages cover the Creator portal and voluntary TikTok OAuth connection', () => {
+  const german = renderPage(byPath('/datenschutz/'));
+  const tiktok = renderPage(byPath('/privacy/'));
+
+  for (const html of [german, tiktok]) {
+    assert.match(html, /app\.gmvgang\.de/);
+    assert.match(html, /Railway/);
+    assert.match(html, /Freiwillige TikTok-Kontoverknüpfung/);
+    assert.match(html, /OAuth/);
+    assert.match(html, /Follower- und Following-Zahlen/);
+    assert.match(html, /serverseitig verschlüsselt gespeichert/);
+    assert.match(html, /TikTok-Verbindung widerrufen oder trennen/);
+  }
+});
+
+test('terms page defines account, TikTok linking and separate-contract boundaries', () => {
+  const html = renderPage(byPath('/terms/'));
+  assert.match(html, /mindestens 18 Jahre alt/);
+  assert.match(html, /TikTok-Kontoverknüpfung/);
+  assert.match(html, /grundsätzlich freiwillig/);
+  assert.match(html, /keinen Anspruch auf Aufnahme/);
+  assert.match(html, /gesonderten Vereinbarung/);
+  assert.match(html, /href="\/privacy\/"/);
+});
+
+test('footer exposes TikTok review legal URLs', () => {
+  const html = renderPage(byPath('/'));
+  assert.match(html, /href="\/terms\/"/);
+  assert.match(html, /href="\/privacy\/"/);
 });
