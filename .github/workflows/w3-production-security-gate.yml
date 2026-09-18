@@ -176,3 +176,12 @@ jobs:
           gh issue edit 285 \
             --repo "$GITHUB_REPOSITORY" \
             --body "$body"
+
+          jq -n \
+            --arg body "$body" \
+            --arg repository "$GITHUB_REPOSITORY" \
+            '{
+              action: "edited",
+              issue: { number: 285, body: $body },
+              repository: { full_name: $repository }
+            }' > /tmp/wave-event.json
