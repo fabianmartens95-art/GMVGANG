@@ -101,3 +101,29 @@ test('footer exposes TikTok review legal URLs', () => {
   assert.match(html, /href="\/terms\/"/);
   assert.match(html, /href="\/privacy\/"/);
 });
+
+test('legal pages use the quiet CI layout instead of the marketing hero system', () => {
+  for (const path of ['/impressum/', '/datenschutz/', '/privacy/', '/terms/']) {
+    const html = renderPage(byPath(path));
+    assert.match(html, /<body class="page-legal">/);
+    assert.match(html, /class="legal-hero"/);
+    assert.match(html, /class="legal-content-shell"/);
+    assert.match(html, /class="site-footer site-footer--legal"/);
+    assert.doesNotMatch(html, /class="hero-panel"/);
+    assert.doesNotMatch(html, /TikTok Shop Potenzial prüfen/);
+  }
+});
+
+test('marketing pages keep the product-led hero layout', () => {
+  const html = renderPage(byPath('/'));
+  assert.match(html, /<body class="page-marketing">/);
+  assert.match(html, /class="hero-panel"/);
+  assert.match(html, /TikTok Shop Potenzial prüfen/);
+});
+
+test('shared design tokens define the legal reading variant', async () => {
+  const tokens = await readFile(join(root, '..', '..', 'packages', 'design-system', 'tokens.css'), 'utf8');
+  assert.match(tokens, /--gmv-legal-content-width:/);
+  assert.match(tokens, /--gmv-legal-reading-line-height:/);
+  assert.match(tokens, /--gmv-legal-body-size:/);
+});
