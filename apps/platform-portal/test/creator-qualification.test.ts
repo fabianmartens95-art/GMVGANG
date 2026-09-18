@@ -65,6 +65,17 @@ describe("creator qualification module", () => {
     expect(html).toContain("Noch keine Adresse, Bank-, Steuer- oder Ausweisdaten");
   });
 
+  it("does not ask for content language twice and distinguishes Shop categories from profile niches", () => {
+    const html = renderCreatorQualification(profile("profile_complete"), null);
+    expect(html).toContain("Aus deinem Creator-Profil übernommen");
+    expect(html).toContain("Content-Sprache: Deutsch");
+    expect(html).toContain('type="hidden" name="contentLanguage" value="de"');
+    expect(html).not.toContain("<label>Content-Sprache");
+    expect(html).toContain("TikTok-Shop Produktkategorien · 1–3");
+    expect(html).toContain("Deine Profil-Nischen sind vorausgewählt");
+    expect(html).toContain('name="contentCategories" value="beauty" checked');
+  });
+
   it("locks the snapshot after internal network progression", () => {
     const html = renderCreatorQualification(profile("qualified"), qualification);
     expect(html).toContain("Qualifizierung ist gesperrt");
