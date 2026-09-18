@@ -5,7 +5,9 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
+# Dedicated Continuous Autonomous Wave Execution signal bus: issue #285.
 concurrency:
   group: w3-production-security-gate
   cancel-in-progress: false
@@ -126,3 +128,50 @@ jobs:
             echo "- Real Auth/RBAC E2E: passed"
             echo "- Promotion remains manual after this gate"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish W3 wave-gate signal
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          signal="$(
+            jq -n \
+              --arg event "wave_gate_passed" \
+              --arg schema_version "1" \
+              --arg wave "W3" \
+              --arg gate "production-security" \
+              --arg status "passed" \
+              --arg repository "${GITHUB_REPOSITORY}" \
+              --arg revision "${GITHUB_SHA}" \
+              --arg run_id "${GITHUB_RUN_ID}" \
+              --arg run_attempt "${GITHUB_RUN_ATTEMPT}" \
+              --arg run_url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+              --arg idempotency_key "W3:production-security:${GITHUB_SHA}:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}" \
+              '{
+                event: $event,
+                schema_version: $schema_version,
+                wave: $wave,
+                gate: $gate,
+                status: $status,
+                repository: $repository,
+                revision: $revision,
+                run_id: $run_id,
+                run_attempt: $run_attempt,
+                run_url: $run_url,
+                idempotency_key: $idempotency_key
+              }'
+          )"
+
+          body="$(
+            printf '%s\n\n%s\n\n```json\n%s\n```\n' \
+              'Machine-managed signal bus for GMVGANG Continuous Autonomous Wave Execution V1.' \
+              'Latest validated gate signal:' \
+              "$signal"
+          )"
+
+          gh issue edit 285 \
+            --repo "$GITHUB_REPOSITORY" \
+            --body "$body"
