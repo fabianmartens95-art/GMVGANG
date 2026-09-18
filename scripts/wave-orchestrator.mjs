@@ -203,8 +203,8 @@ async function loadControl(notion, config) {
 
 async function transition() {
   const config = loadConfig();
-  const eventPath = process.env.GITHUB_EVENT_PATH;
-  if (!eventPath) throw new Error("GITHUB_EVENT_PATH is required");
+  const eventPath = process.env.WAVE_EVENT_PATH || process.env.GITHUB_EVENT_PATH;
+  if (!eventPath) throw new Error("WAVE_EVENT_PATH or GITHUB_EVENT_PATH is required");
 
   const event = JSON.parse(readFileSync(eventPath, "utf8"));
   if (event.action !== "edited" || event.issue?.number !== config.signalIssueNumber) {
