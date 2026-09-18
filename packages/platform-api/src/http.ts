@@ -231,6 +231,44 @@ async function idempotencyComplete(
   });
 }
 
+async function idempotencyAbort(
+  dependencies: PlatformApiDependencies,
+  action: PlatformRateLimitAction,
+  subject: string,
+  started: { key: string; requestHash: string },
+): Promise<void> {
+  if (!dependencies.idempotency?.abort) return;
+  try {
+    await dependencies.idempotency.abort({
+      scope: action,
+      subject,
+      key: started.key,
+      requestHash: started.requestHash,
+    });
+  } catch (error) {
+    const code = error instanceof Error ? error.message.split(":", 1)[0] : "IDEMPOTENCY_ABORT_FAILED";
+    console.error(JSON.stringify({
+      scope: "gmvgang.platform.api",
+      level: "error",
+      event: "idempotency.abort_failed",
+      requestId: dependencies.requestId ?? null,
+      code,
+    }));
+  }
+}
+
+async function runIdempotentDomainMutation<T>(
+  mutation: () => Promise<T>,
+  abort: () => Promise<void>,
+): Promise<T> {
+  try {
+    return await mutation();
+  } catch (error) {
+    await abort();
+    throw error;
+  }
+}
+
 async function handleSession(request: Request, dependencies: PlatformApiDependencies): Promise<Response> {
   if (request.method !== "GET") return methodNotAllowed(["GET"]);
   const token = await accessToken(request, dependencies);
@@ -319,7 +357,10 @@ async function handleCreatorRegistration(request: Request, dependencies: Platfor
   );
   if (idempotency.status === "response") return idempotency.response;
 
-  const result = await dependencies.services.registerCreator(input, trustedContext);
+  const result = await runIdempotentDomainMutation(
+    () => dependencies.services.registerCreator(input, trustedContext),
+    () => idempotencyAbort(dependencies, "creator_registration", trustedContext.userId, idempotency),
+  );
   const responseBody = publicRegistrationResult(result);
   const responseStatus = result.ok ? 200 : 400;
   await idempotencyComplete(
@@ -368,7 +409,10 @@ async function handleCreatorProfile(request: Request, dependencies: PlatformApiD
   );
   if (idempotency.status === "response") return idempotency.response;
 
-  const profile = await dependencies.services.completeCreatorProfile(input, trustedContext);
+  const profile = await runIdempotentDomainMutation(
+    () => dependencies.services.completeCreatorProfile(input, trustedContext),
+    () => idempotencyAbort(dependencies, "creator_profile_completion", trustedContext.userId, idempotency),
+  );
   const responseBody = { ok: true, creatorProfile: publicCreatorProfile(profile) };
   await idempotencyComplete(
     dependencies,
@@ -423,7 +467,10 @@ async function handleCreatorQualification(request: Request, dependencies: Platfo
   );
   if (idempotency.status === "response") return idempotency.response;
 
-  const qualification = await dependencies.services.submitCreatorQualification(input, trustedContext);
+  const qualification = await runIdempotentDomainMutation(
+    () => dependencies.services.submitCreatorQualification!(input, trustedContext),
+    () => idempotencyAbort(dependencies, "creator_qualification", trustedContext.userId, idempotency),
+  );
   const responseBody = { ok: true, qualification };
   await idempotencyComplete(
     dependencies,
@@ -468,7 +515,19 @@ export function createPlatformApiHandler(dependencies: PlatformApiDependencies):
       if (pathname === "/api/creator/workspace") return await handleCreatorWorkspace(request, dependencies);
       return jsonResponse({ error: "not_found" }, 404);
     } catch (error) {
-      return publicError(error);
+      const response = publicError(error);
+      if (response.status >= 500) {
+        const code = error instanceof Error ? error.message.split(":", 1)[0] : "UNEXPECTED_ERROR";
+        console.error(JSON.stringify({
+          scope: "gmvgang.platform.api",
+          level: "error",
+          event: "api.request_failed",
+          requestId: dependencies.requestId ?? null,
+          path: new URL(request.url).pathname,
+          code,
+        }));
+      }
+      return response;
     }
   };
 }
