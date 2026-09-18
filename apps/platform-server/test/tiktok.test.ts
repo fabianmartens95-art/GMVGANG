@@ -4,6 +4,7 @@ import {
   buildTikTokAuthorizeUrl,
   decryptTikTokToken,
   encryptTikTokToken,
+  tiktokIdentityDigest,
   tiktokUserFieldsForScopes,
 } from "../src/tiktok.js";
 
@@ -15,6 +16,17 @@ describe("TikTok Creator integration helpers", () => {
     expect(encrypted).not.toContain("access-token-secret");
     expect(decryptTikTokToken(encrypted, key)).toBe("access-token-secret");
     expect(() => decryptTikTokToken(encrypted.slice(0, -2) + "aa", key)).toThrow();
+  });
+
+  it("HMAC-protects TikTok provider identities with domain separation", () => {
+    const key = "identity-hash-key-that-is-at-least-32-bytes";
+    const openId = tiktokIdentityDigest("open_id", "provider-user-id", key);
+    const unionId = tiktokIdentityDigest("union_id", "provider-user-id", key);
+
+    expect(openId).toMatch(/^[a-f0-9]{64}$/);
+    expect(unionId).toMatch(/^[a-f0-9]{64}$/);
+    expect(openId).not.toBe(unionId);
+    expect(openId).not.toContain("provider-user-id");
   });
 
   it("only requests profile and stats fields when the corresponding scopes were granted", () => {
@@ -48,6 +60,7 @@ describe("TikTok Creator integration helpers", () => {
       clientKey: "client-key",
       clientSecret: "server-only-secret",
       tokenEncryptionKey: Buffer.alloc(32, 4).toString("base64"),
+      identityHashKey: "identity-hash-key-that-is-at-least-32-bytes",
       redirectUri: "https://app.gmvgang.de/api/integrations/tiktok/callback",
       scopes: ["user.info.basic", "user.info.stats"],
     }, "csrf-state");
