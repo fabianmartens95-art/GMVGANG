@@ -124,10 +124,19 @@ function parseTimestamp(value: string, code: string): number {
 }
 
 export function createBrandTrial(input: {
+  currentKind: BrandEntitlementSource["kind"];
+  trialConsumedAt: string | null;
   onboardingCompletedAt: string;
   now: string;
   trialDays?: number;
 }): Extract<BrandEntitlementSource, { kind: "trial" }> {
+  if (input.currentKind !== "none") {
+    throw new Error("BRAND_TRIAL_ENTITLEMENT_CONFLICT");
+  }
+  if (input.trialConsumedAt !== null) {
+    parseTimestamp(input.trialConsumedAt, "BRAND_TRIAL_CONSUMED_TIMESTAMP_INVALID");
+    throw new Error("BRAND_TRIAL_ALREADY_CONSUMED");
+  }
   const onboardingMs = parseTimestamp(
     input.onboardingCompletedAt,
     "BRAND_TRIAL_ONBOARDING_TIMESTAMP_INVALID",
@@ -243,4 +252,16 @@ export function canMutateBrandWorkspace(
   now: string,
 ): boolean {
   return resolveBrandEntitlement(entitlement, now).mode === "full_access";
+}
+
+export function trialConsumptionMarkerForPaidActivation(
+  trialConsumedAt: string | null,
+  now: string,
+): string {
+  const nowMs = parseTimestamp(now, "BRAND_PLAN_START_INVALID");
+  if (trialConsumedAt !== null) {
+    parseTimestamp(trialConsumedAt, "BRAND_TRIAL_CONSUMED_TIMESTAMP_INVALID");
+    return trialConsumedAt;
+  }
+  return new Date(nowMs).toISOString();
 }
