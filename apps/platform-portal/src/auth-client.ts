@@ -1,6 +1,52 @@
 import "./auth.css";
 
-export type AuthActionResult = { ok: true } | { ok: false; error: string };
+export type AuthActionResult =
+  | { ok: true }
+  | { ok: false; error: string; suggestion?: string };
+
+const COMMON_EMAIL_DOMAIN_TYPO_SUGGESTIONS: Readonly<Record<string, string>> = Object.freeze({
+  "gmail.vom": "gmail.com",
+  "gmail.cmo": "gmail.com",
+  "gmail.con": "gmail.com",
+  "gmial.com": "gmail.com",
+  "gamil.com": "gmail.com",
+  "googlemail.vom": "googlemail.com",
+  "googlemail.cmo": "googlemail.com",
+  "googlemail.con": "googlemail.com",
+  "outlook.vom": "outlook.com",
+  "outlook.cmo": "outlook.com",
+  "outlook.con": "outlook.com",
+  "hotmail.vom": "hotmail.com",
+  "hotmail.cmo": "hotmail.com",
+  "hotmail.con": "hotmail.com",
+  "icloud.vom": "icloud.com",
+  "icloud.cmo": "icloud.com",
+  "icloud.con": "icloud.com",
+  "yahoo.vom": "yahoo.com",
+  "yahoo.cmo": "yahoo.com",
+  "yahoo.con": "yahoo.com",
+});
+
+export function emailDomainSuggestion(value: string): string | null {
+  const cleaned = value.trim().toLowerCase();
+  const separator = cleaned.lastIndexOf("@");
+  if (separator <= 0 || separator === cleaned.length - 1) return null;
+
+  const domain = cleaned.slice(separator + 1);
+  const knownSuggestion = COMMON_EMAIL_DOMAIN_TYPO_SUGGESTIONS[domain];
+  if (knownSuggestion) return knownSuggestion;
+
+  if (domain.endsWith(".vom") && domain.length > 4) {
+    return `${domain.slice(0, -4)}.com`;
+  }
+
+  return null;
+}
+
+function correctedEmail(email: string, suggestedDomain: string): string {
+  const separator = email.lastIndexOf("@");
+  return separator > 0 ? `${email.slice(0, separator)}@${suggestedDomain}` : email;
+}
 
 async function postJson(endpoint: string, payload?: unknown): Promise<AuthActionResult> {
   try {
@@ -15,8 +61,12 @@ async function postJson(endpoint: string, payload?: unknown): Promise<AuthAction
       body: JSON.stringify(payload ?? {}),
     });
     if (!response.ok) {
-      const data = await response.json().catch(() => null) as { error?: unknown } | null;
-      return { ok: false, error: typeof data?.error === "string" ? data.error : "auth_unavailable" };
+      const data = await response.json().catch(() => null) as { error?: unknown; suggestion?: unknown } | null;
+      return {
+        ok: false,
+        error: typeof data?.error === "string" ? data.error : "auth_unavailable",
+        ...(typeof data?.suggestion === "string" ? { suggestion: data.suggestion } : {}),
+      };
     }
     return { ok: true };
   } catch {
@@ -66,6 +116,7 @@ export function safeNextPath(value: string | null | undefined, fallback = "/"): 
 
 function loginErrorCopy(error: string): string {
   if (error === "invalid_credentials") return "E-Mail-Adresse oder Passwort ist nicht korrekt.";
+  if (error === "email_domain_typo") return "Die E-Mail-Domain wirkt vertippt. Bitte prüfe die Adresse.";
   if (error === "rate_limited") return "Zu viele Login-Versuche. Bitte versuche es später erneut oder nutze den Login-Link.";
   return "Der Login ist aktuell nicht verfügbar. Bitte versuche es erneut.";
 }
@@ -135,6 +186,11 @@ export function wireLogin(): void {
     const email = emailInput.value.trim();
     const password = passwordInput.value;
     const next = safeNextPath(nextInput?.value ?? "/");
+    const suggestedDomain = emailDomainSuggestion(email);
+    if (suggestedDomain) {
+      result.textContent = `Prüfe deine E-Mail-Adresse. Meintest du ${correctedEmail(email, suggestedDomain)}?`;
+      return;
+    }
     if (submitButton) submitButton.disabled = true;
     if (magicButton) magicButton.disabled = true;
     result.textContent = "Login wird geprüft …";
@@ -155,6 +211,11 @@ export function wireLogin(): void {
     if (!emailInput || !emailInput.reportValidity()) return;
     const email = emailInput.value.trim();
     const next = safeNextPath(nextInput?.value ?? "/");
+    const suggestedDomain = emailDomainSuggestion(email);
+    if (suggestedDomain) {
+      result.textContent = `Prüfe deine E-Mail-Adresse. Meintest du ${correctedEmail(email, suggestedDomain)}?`;
+      return;
+    }
     if (submitButton) submitButton.disabled = true;
     magicButton.disabled = true;
     result.textContent = "Login-Link wird gesendet …";
@@ -163,7 +224,9 @@ export function wireLogin(): void {
     if (!response.ok) {
       result.textContent = response.error === "rate_limited"
         ? "Zu viele Anfragen. Bitte versuche es später erneut."
-        : "Der Login-Link konnte aktuell nicht gesendet werden. Bitte versuche es erneut.";
+        : response.error === "email_domain_typo"
+          ? "Die E-Mail-Domain wirkt vertippt. Bitte prüfe die Adresse."
+          : "Der Login-Link konnte aktuell nicht gesendet werden. Bitte versuche es erneut.";
       if (submitButton) submitButton.disabled = false;
       magicButton.disabled = false;
       return;
