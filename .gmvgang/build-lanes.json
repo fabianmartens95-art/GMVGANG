@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "maxActiveLanes": 5,
+  "version": 2,
+  "maxActiveLanes": 6,
   "integrationBranchPrefixes": [
     "build/integration-",
     "build/parallel-",
@@ -78,5 +78,6 @@
     "packages/design-system/",
     "pnpm-lock.yaml",
     "package.json"
-  ]
+  ],
+  "minimumActiveWorkstreams": 5
 }
