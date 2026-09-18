@@ -25,7 +25,7 @@ test('Creator hero positions the Portal as the primary product', () => {
   assert.match(html, /Dein TikTok Shop Creator Hub\./);
   assert.match(html, /persönlichen GMVGANG Creator Workspace/);
   assert.match(html, /href="https:\/\/app\.gmvgang\.de\/join"[^>]*>Kostenlos als Creator starten<\/a>/);
-  assert.match(html, /href="https:\/\/app\.gmvgang\.de\/login"[^>]*>Zum Portal-Login<\/a>/);
+  assert.match(html, /href="https:\/\/app\.gmvgang\.de\/login\?next=%2Fcreator"[^>]*>Zum Portal-Login<\/a>/);
 });
 
 test('Creator page shows visual product previews for the live portal modules', () => {

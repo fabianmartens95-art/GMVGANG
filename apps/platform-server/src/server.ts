@@ -79,6 +79,47 @@ function validEmail(value: unknown): value is string {
   return cleaned.length >= 5 && cleaned.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleaned);
 }
 
+
+const COMMON_EMAIL_DOMAIN_TYPO_SUGGESTIONS: Readonly<Record<string, string>> = Object.freeze({
+  "gmail.vom": "gmail.com",
+  "gmail.cmo": "gmail.com",
+  "gmail.con": "gmail.com",
+  "gmial.com": "gmail.com",
+  "gamil.com": "gmail.com",
+  "googlemail.vom": "googlemail.com",
+  "googlemail.cmo": "googlemail.com",
+  "googlemail.con": "googlemail.com",
+  "outlook.vom": "outlook.com",
+  "outlook.cmo": "outlook.com",
+  "outlook.con": "outlook.com",
+  "hotmail.vom": "hotmail.com",
+  "hotmail.cmo": "hotmail.com",
+  "hotmail.con": "hotmail.com",
+  "icloud.vom": "icloud.com",
+  "icloud.cmo": "icloud.com",
+  "icloud.con": "icloud.com",
+  "yahoo.vom": "yahoo.com",
+  "yahoo.cmo": "yahoo.com",
+  "yahoo.con": "yahoo.com",
+});
+
+export function emailDomainSuggestion(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const cleaned = value.trim().toLowerCase();
+  const separator = cleaned.lastIndexOf("@");
+  if (separator <= 0 || separator === cleaned.length - 1) return null;
+
+  const domain = cleaned.slice(separator + 1);
+  const knownSuggestion = COMMON_EMAIL_DOMAIN_TYPO_SUGGESTIONS[domain];
+  if (knownSuggestion) return knownSuggestion;
+
+  if (domain.endsWith(".vom") && domain.length > 4) {
+    return `${domain.slice(0, -4)}.com`;
+  }
+
+  return null;
+}
+
 function validLoginPassword(value: unknown): value is string {
   return typeof value === "string" && value.length >= 1 && value.length <= 128;
 }
@@ -161,6 +202,16 @@ export async function authResponse(
 
     const email = record.email.trim().toLowerCase();
     const authMethod = record.password !== undefined ? "password" : "magic_link";
+    const suggestedDomain = emailDomainSuggestion(email);
+    if (suggestedDomain) {
+      await recordAuditBestEffort(audit, {
+        event: "auth.email.rejected_typo",
+        occurredAt: auditNow(),
+        requestId,
+        metadata: { authMethod, suggestedDomain },
+      });
+      return json({ ok: false, error: "email_domain_typo", suggestion: suggestedDomain }, 400);
+    }
     if (!signInRateLimit.consume(email)) {
       await recordAuditBestEffort(audit, {
         event: "auth.sign_in.rate_limited",
