@@ -12,6 +12,7 @@ export type PlatformCapability =
   | "creators.manage"
   | "campaigns.read_all"
   | "campaigns.manage"
+  | "products.manage"
   | "approvals.manage"
   | "creator.self.read"
   | "creator.self.update"
@@ -36,6 +37,7 @@ const ROLE_CAPABILITIES: Record<PlatformUserRole, readonly PlatformCapability[]>
     "creators.manage",
     "campaigns.read_all",
     "campaigns.manage",
+    "products.manage",
     "approvals.manage",
     "creator.self.read",
     "creator.self.update",
@@ -46,6 +48,7 @@ const ROLE_CAPABILITIES: Record<PlatformUserRole, readonly PlatformCapability[]>
     "brand.shop_connections.manage",
     "brand.campaigns.read",
     "brand.approvals.manage",
+    "products.manage",
   ],
   admin: [
     "users.manage",
@@ -67,6 +70,7 @@ const ROLE_CAPABILITIES: Record<PlatformUserRole, readonly PlatformCapability[]>
     "brands.manage",
     "campaigns.read_all",
     "campaigns.manage",
+    "products.manage",
     "approvals.manage",
   ],
   closer: ["team.workspace.read", "brands.read_all", "campaigns.read_all"],
