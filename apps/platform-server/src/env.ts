@@ -81,9 +81,11 @@ function tiktokCreatorOAuth(
   const clientSecret = env.TIKTOK_CLIENT_SECRET?.trim() ?? "";
   const tokenEncryptionKey = env.TIKTOK_TOKEN_ENCRYPTION_KEY?.trim() ?? "";
   const identityHashKey = env.TIKTOK_IDENTITY_HASH_KEY?.trim() ?? "";
-  const anyConfigured = Boolean(clientKey || clientSecret || tokenEncryptionKey || identityHashKey || env.TIKTOK_REDIRECT_URI?.trim());
+  const activationConfigured = Boolean(clientKey || clientSecret || env.TIKTOK_REDIRECT_URI?.trim());
 
-  if (!anyConfigured) return null;
+  // Encryption/hash material may be provisioned ahead of TikTok app approval.
+  // It must not activate OAuth by itself; provider-facing config does.
+  if (!activationConfigured) return null;
   if (!clientKey || !clientSecret || !tokenEncryptionKey || !identityHashKey) {
     throw new Error("TIKTOK_CREATOR_OAUTH_CONFIG_INCOMPLETE");
   }
