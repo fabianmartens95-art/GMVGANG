@@ -8,6 +8,7 @@ permissions:
   issues: write
 
 # Dedicated Continuous Autonomous Wave Execution signal bus: issue #285.
+# Native wave handoff implementation lives in scripts/wave-orchestrator.mjs.
 concurrency:
   group: w3-production-security-gate
   cancel-in-progress: false
