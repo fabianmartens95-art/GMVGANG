@@ -32,6 +32,10 @@ export function signInWithPassword(email: string, password: string): Promise<Aut
   return postJson("/api/auth/sign-in", { email, password });
 }
 
+export function requestPasswordRecovery(email: string): Promise<AuthActionResult> {
+  return postJson("/api/auth/password-recovery", { email });
+}
+
 export function updatePassword(password: string): Promise<AuthActionResult> {
   return postJson("/api/auth/password", { password });
 }
@@ -110,7 +114,8 @@ export function renderLogin(authenticated: boolean): string {
           <button type="submit" class="join-submit">Einloggen</button>
           <div class="auth-divider"><span>oder</span></div>
           <button type="button" id="auth-magic-link" class="auth-secondary-button">Sicheren Login-Link senden</button>
-          <p class="auth-help">Noch kein Passwort oder Passwort vergessen? Nutze einmal den Login-Link. Danach kannst du unter <strong>Account → Passwort</strong> ein neues Passwort festlegen.</p>
+          <button type="button" id="auth-password-recovery" class="auth-secondary-button">Passwort vergessen</button>
+          <p class="auth-help">Noch kein Passwort? Nutze den sicheren Login-Link. Bei einem vergessenen Passwort senden wir dir einen separaten Recovery-Link zum Festlegen eines neuen Passworts.</p>
           <div id="auth-login-result" class="join-result" aria-live="polite"></div>
         </form>
       </section>
@@ -121,6 +126,7 @@ export function wireLogin(): void {
   const form = document.querySelector<HTMLFormElement>("#auth-login-form");
   const result = document.querySelector<HTMLDivElement>("#auth-login-result");
   const magicButton = document.querySelector<HTMLButtonElement>("#auth-magic-link");
+  const recoveryButton = document.querySelector<HTMLButtonElement>("#auth-password-recovery");
   if (!form || !result) return;
 
   const emailInput = form.querySelector<HTMLInputElement>('input[name="email"]');
@@ -137,6 +143,7 @@ export function wireLogin(): void {
     const next = safeNextPath(nextInput?.value ?? "/");
     if (submitButton) submitButton.disabled = true;
     if (magicButton) magicButton.disabled = true;
+    if (recoveryButton) recoveryButton.disabled = true;
     result.textContent = "Login wird geprüft …";
 
     const response = await signInWithPassword(email, password);
@@ -144,6 +151,7 @@ export function wireLogin(): void {
       result.textContent = loginErrorCopy(response.error);
       if (submitButton) submitButton.disabled = false;
       if (magicButton) magicButton.disabled = false;
+      if (recoveryButton) recoveryButton.disabled = false;
       return;
     }
 
@@ -157,6 +165,7 @@ export function wireLogin(): void {
     const next = safeNextPath(nextInput?.value ?? "/");
     if (submitButton) submitButton.disabled = true;
     magicButton.disabled = true;
+    if (recoveryButton) recoveryButton.disabled = true;
     result.textContent = "Login-Link wird gesendet …";
 
     const response = await requestMagicLink(email, next);
@@ -166,26 +175,54 @@ export function wireLogin(): void {
         : "Der Login-Link konnte aktuell nicht gesendet werden. Bitte versuche es erneut.";
       if (submitButton) submitButton.disabled = false;
       magicButton.disabled = false;
+      if (recoveryButton) recoveryButton.disabled = false;
       return;
     }
 
     result.innerHTML = "<strong>Login-Link gesendet.</strong> Prüfe dein E-Mail-Postfach und öffne den Link.";
     if (submitButton) submitButton.disabled = false;
     magicButton.disabled = false;
+    if (recoveryButton) recoveryButton.disabled = false;
+  });
+
+  recoveryButton?.addEventListener("click", async () => {
+    if (!emailInput || !emailInput.reportValidity()) return;
+    const email = emailInput.value.trim();
+    if (submitButton) submitButton.disabled = true;
+    if (magicButton) magicButton.disabled = true;
+    recoveryButton.disabled = true;
+    result.textContent = "Recovery-Link wird angefordert …";
+
+    const response = await requestPasswordRecovery(email);
+    if (!response.ok) {
+      result.textContent = response.error === "rate_limited"
+        ? "Zu viele Anfragen. Bitte versuche es später erneut."
+        : "Der Recovery-Link konnte aktuell nicht angefordert werden. Bitte versuche es erneut.";
+      if (submitButton) submitButton.disabled = false;
+      if (magicButton) magicButton.disabled = false;
+      recoveryButton.disabled = false;
+      return;
+    }
+
+    result.innerHTML = "<strong>Wenn ein Account zu dieser E-Mail existiert, wurde ein Recovery-Link gesendet.</strong> Öffne ihn, um ein neues Passwort festzulegen.";
+    if (submitButton) submitButton.disabled = false;
+    if (magicButton) magicButton.disabled = false;
+    recoveryButton.disabled = false;
   });
 }
 
 export function renderPasswordSettings(authenticated: boolean): string {
   const params = new URLSearchParams(window.location.search);
   const next = safeNextPath(params.get("next"));
+  const recovery = params.get("recovery") === "1";
 
   if (!authenticated) {
     return `
       <main class="auth-page">
         <section class="auth-card">
           <div class="eyebrow">ACCOUNT SECURITY</div>
-          <h1>Passwort</h1>
-          <p>Zum Festlegen oder Ändern deines Passworts musst du eingeloggt sein. Wenn du dein Passwort vergessen hast, melde dich einmal über den sicheren Login-Link an und öffne danach <strong>Account → Passwort</strong>.</p>
+          <h1>${recovery ? "Passwort-Recovery" : "Passwort"}</h1>
+          <p>${recovery ? "Der Recovery-Link ist nicht mehr gültig oder deine Sitzung fehlt. Fordere am Login einen neuen Recovery-Link an." : "Zum Festlegen oder Ändern deines Passworts musst du eingeloggt sein."}</p>
           <a class="button" href="/login" data-nav>Zum Login</a>
         </section>
       </main>`;
@@ -195,8 +232,8 @@ export function renderPasswordSettings(authenticated: boolean): string {
     <main class="auth-page">
       <section class="auth-card">
         <div class="eyebrow">ACCOUNT SECURITY</div>
-        <h1>Passwort</h1>
-        <p>Lege ein Passwort für deinen bestehenden GMVGANG-Account fest oder ersetze dein aktuelles Passwort.</p>
+        <h1>${recovery ? "Neues Passwort festlegen" : "Passwort"}</h1>
+        <p>${recovery ? "Dein Recovery-Link wurde bestätigt. Lege jetzt ein neues Passwort für deinen GMVGANG-Account fest." : "Lege ein Passwort für deinen bestehenden GMVGANG-Account fest oder ersetze dein aktuelles Passwort."}</p>
         <form id="auth-password-form" class="auth-form">
           <label>
             <span>Neues Passwort</span>
