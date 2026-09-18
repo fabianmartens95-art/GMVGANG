@@ -128,6 +128,12 @@ export interface PlatformIdempotencyPort {
     responseBody: unknown;
     now: string;
   }): Promise<void>;
+  abort?(input: {
+    scope: PlatformRateLimitAction;
+    subject: string;
+    key: string;
+    requestHash: string;
+  }): Promise<void>;
 }
 
 export interface CreatorOperationsSyncPort {
@@ -301,4 +307,5 @@ export type PlatformApiDependencies = {
   privacyNoticeVersion: string;
   rateLimits?: PlatformRateLimitPort;
   idempotency?: PlatformIdempotencyPort;
+  requestId?: string;
 };

@@ -23,6 +23,8 @@ const profile: CreatorProfile = {
 };
 
 class MemoryIdempotency implements PlatformIdempotencyPort {
+  constructor(private readonly failComplete = false) {}
+
   private readonly records = new Map<string, {
     requestHash: string;
     state: "pending" | "completed";
@@ -61,12 +63,26 @@ class MemoryIdempotency implements PlatformIdempotencyPort {
     responseBody: unknown;
     now: string;
   }): Promise<void> {
+    if (this.failComplete) throw new Error("IDEMPOTENCY_COMPLETE_FAILED");
     this.records.set(`${input.scope}:${input.subject}:${input.key}`, {
       requestHash: input.requestHash,
       state: "completed",
       responseStatus: input.responseStatus,
       responseBody: input.responseBody,
     });
+  }
+
+  async abort(input: {
+    scope: "creator_registration" | "creator_profile_completion";
+    subject: string;
+    key: string;
+    requestHash: string;
+  }): Promise<void> {
+    const composite = `${input.scope}:${input.subject}:${input.key}`;
+    const existing = this.records.get(composite);
+    if (existing?.requestHash === input.requestHash && existing.state === "pending") {
+      this.records.delete(composite);
+    }
   }
 }
 
@@ -129,6 +145,71 @@ describe("critical mutation idempotency", () => {
     expect(replay.headers.get("Idempotency-Replayed")).toBe("true");
     expect(writes()).toBe(1);
     expect(await replay.json()).toEqual(await first.json());
+  });
+
+  it("releases a pending idempotency key when a domain mutation fails so an immediate retry can succeed", async () => {
+    let attempts = 0;
+    const idempotency = new MemoryIdempotency();
+    const dependencies: PlatformApiDependencies = {
+      accessTokens: { async getAccessToken() { return "access-token"; } },
+      clock: { now: () => NOW },
+      privacyNoticeVersion: "2026-09-16",
+      idempotency,
+      requestId: "request-retry-0001",
+      services: {
+        async resolveSessionContext() {
+          return {
+            session: { status: "authenticated", userId: "user-1", roles: [] },
+            workspaces: [],
+          };
+        },
+        async getCreatorProfile() { return profile; },
+        async registerCreator() {
+          attempts += 1;
+          if (attempts === 1) throw new Error("TRANSIENT_WRITE_FAILED");
+          return { ok: true, created: true, creatorProfile: profile, referral: { status: "none" } };
+        },
+        async completeCreatorProfile() { return profile; },
+      },
+    };
+    const handler = createPlatformApiHandler(dependencies);
+
+    expect((await handler(registration("@creator.one"))).status).toBe(500);
+    expect((await handler(registration("@creator.one"))).status).toBe(200);
+    expect(attempts).toBe(2);
+  });
+
+  it("keeps a successful domain write fail-closed when idempotency completion persistence fails", async () => {
+    let writes = 0;
+    const idempotency = new MemoryIdempotency(true);
+    const dependencies: PlatformApiDependencies = {
+      accessTokens: { async getAccessToken() { return "access-token"; } },
+      clock: { now: () => NOW },
+      privacyNoticeVersion: "2026-09-16",
+      idempotency,
+      requestId: "request-complete-failure-0001",
+      services: {
+        async resolveSessionContext() {
+          return {
+            session: { status: "authenticated", userId: "user-1", roles: [] },
+            workspaces: [],
+          };
+        },
+        async getCreatorProfile() { return profile; },
+        async registerCreator() {
+          writes += 1;
+          return { ok: true, created: true, creatorProfile: profile, referral: { status: "none" } };
+        },
+        async completeCreatorProfile() { return profile; },
+      },
+    };
+    const handler = createPlatformApiHandler(dependencies);
+
+    expect((await handler(registration("@creator.one"))).status).toBe(500);
+    const retry = await handler(registration("@creator.one"));
+    expect(retry.status).toBe(409);
+    await expect(retry.json()).resolves.toEqual({ ok: false, errors: ["idempotency_in_progress"] });
+    expect(writes).toBe(1);
   });
 
   it("rejects reuse of the same key for a different payload", async () => {
