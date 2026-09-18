@@ -4,6 +4,7 @@ import {
   buildTikTokAuthorizeUrl,
   decryptTikTokToken,
   encryptTikTokToken,
+  existingTikTokConnectionTokenFields,
   tiktokIdentityDigest,
   tiktokUserFieldsForScopes,
 } from "../src/tiktok.js";
@@ -27,6 +28,34 @@ describe("TikTok Creator integration helpers", () => {
     expect(unionId).toMatch(/^[a-f0-9]{64}$/);
     expect(openId).not.toBe(unionId);
     expect(openId).not.toContain("provider-user-id");
+  });
+
+
+  it("preserves stored token references and expiries when a connected profile is re-synced", () => {
+    expect(existingTikTokConnectionTokenFields({
+      access_token_secret_ref: "access-secret-ref",
+      refresh_token_secret_ref: "refresh-secret-ref",
+      access_token_expires_at: "2026-09-19T00:00:00.000Z",
+      refresh_token_expires_at: "2027-09-18T00:00:00.000Z",
+    })).toEqual({
+      access_token_secret_ref: "access-secret-ref",
+      refresh_token_secret_ref: "refresh-secret-ref",
+      access_token_expires_at: "2026-09-19T00:00:00.000Z",
+      refresh_token_expires_at: "2027-09-18T00:00:00.000Z",
+    });
+
+    expect(existingTikTokConnectionTokenFields(null)).toEqual({});
+    expect(existingTikTokConnectionTokenFields({
+      access_token_secret_ref: null,
+      refresh_token_secret_ref: null,
+      access_token_expires_at: null,
+      refresh_token_expires_at: null,
+    })).toEqual({
+      access_token_secret_ref: null,
+      refresh_token_secret_ref: null,
+      access_token_expires_at: null,
+      refresh_token_expires_at: null,
+    });
   });
 
   it("only requests profile and stats fields when the corresponding scopes were granted", () => {
