@@ -73,10 +73,38 @@ export function nextControlState({ control, signal, wave, transitionAt, followin
 }
 
 export function parseControlBlockText(text, marker) {
-  if (!text.startsWith(marker)) throw new Error("control marker missing");
-  const json = text.slice(marker.length).trim();
-  if (!json) throw new Error("control JSON missing");
-  return JSON.parse(json);
+  const markerIndex = text.indexOf(marker);
+  if (markerIndex < 0) throw new Error("control marker missing");
+
+  const remainder = text.slice(markerIndex + marker.length).trim();
+  if (remainder.startsWith("{")) return JSON.parse(remainder);
+
+  const fields = {};
+  for (const part of remainder.split("|")) {
+    const [rawKey, ...rest] = part.trim().split("=");
+    const key = rawKey?.trim();
+    const value = rest.join("=").trim();
+    if (key) fields[key] = value;
+  }
+
+  return {
+    schemaVersion: 1,
+    autoAdvance: true,
+    paused: false,
+    activeWave: fields.active || null,
+    nextWave: fields.next || null,
+    readyWaves: fields.next ? [fields.next] : [],
+    completedWaves: [],
+    lastTransitionKey: null,
+    activeGate: {
+      blocked: fields.blocked !== "false",
+      blockingReasons: fields.blocked === "false" ? [] : ["canonical wave marker is blocked"],
+      documentationGateComplete: true,
+      crossProjectLearningComplete: true,
+      humanGateRequired: false,
+      productionReleaseGateOpen: false
+    }
+  };
 }
 
 function serializeControl(marker, control) {
