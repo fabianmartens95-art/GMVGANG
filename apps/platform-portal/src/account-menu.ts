@@ -57,13 +57,22 @@ function enhanceAccountMenu(): void {
     signOut.setAttribute("aria-hidden", "true");
     signOut.tabIndex = -1;
 
-    panel.append(label);
-    if (workspaceSwitcher && window.matchMedia("(max-width: 700px)").matches) {
-      panel.append(workspaceSwitcher);
-    }
-    panel.append(password, logout);
+    panel.append(label, password, logout);
     menu.append(trigger, panel);
     controls.append(menu);
+
+    const mobileViewport = window.matchMedia("(max-width: 700px)");
+    const syncWorkspaceSwitcherPlacement = (): void => {
+      if (!workspaceSwitcher) return;
+      if (mobileViewport.matches) {
+        if (workspaceSwitcher.parentNode !== panel) panel.insertBefore(workspaceSwitcher, password);
+        return;
+      }
+      if (workspaceSwitcher.parentNode !== controls) controls.insertBefore(workspaceSwitcher, menu);
+    };
+
+    syncWorkspaceSwitcherPlacement();
+    mobileViewport.addEventListener("change", syncWorkspaceSwitcherPlacement);
     controls.dataset.accountMenuEnhanced = "true";
 
     menu.addEventListener("toggle", () => {
