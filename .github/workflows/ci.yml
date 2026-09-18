@@ -63,6 +63,9 @@ jobs:
       - name: Validate Integration Wave V2 policy
         run: node --check scripts/ci/integration-wave-v2.mjs
 
+      - name: Validate Portal release-readiness contract
+        run: node scripts/ci/validate-portal-release-readiness.mjs .gmvgang/portal-release-readiness.json
+
       - name: Install
         run: pnpm install --frozen-lockfile=false
 
