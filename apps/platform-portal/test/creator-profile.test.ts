@@ -151,6 +151,25 @@ describe("renderCreatorProfile", () => {
     expect(html).not.toContain('name="market" value="DE"');
   });
 
+  it("keeps unknown legacy taxonomy values visible without duplicating legacy niches", () => {
+    const html = renderCreatorProfile(parseCreatorProfileResult({
+      ...PROFILE_PAYLOAD,
+      creatorProfile: {
+        ...PROFILE_PAYLOAD.creatorProfile,
+        market: "XX",
+        language: "custom-lang",
+        niche: ["urban-art", "Urban-Art"],
+        networkStatus: "registered",
+        profileCompletionPercent: 40,
+      },
+    }));
+
+    expect(html).toContain('<option value="XX" selected>XX (bestehend)</option>');
+    expect(html).toContain('<option value="custom-lang" selected>custom-lang (bestehend)</option>');
+    expect(html.match(/name="niche" value="urban-art" checked/g)).toHaveLength(1);
+    expect(html).toContain("urban-art (bestehend)");
+  });
+
   it("shows a join path when no profile exists", () => {
     const html = renderCreatorProfile({ ok: false, errors: ["creator_profile_not_found"] });
     expect(html).toContain("Noch kein Creator-Profil");
