@@ -7,11 +7,14 @@ import {
   createBrandTrial,
   DEFAULT_BRAND_TRIAL_DAYS,
   resolveBrandEntitlement,
+  trialConsumptionMarkerForPaidActivation,
 } from "./index.js";
 
 describe("Brand entitlements", () => {
   it("starts the default 14-day trial only after onboarding completion", () => {
     const trial = createBrandTrial({
+      currentKind: "none",
+      trialConsumedAt: null,
       onboardingCompletedAt: "2026-09-18T08:00:00.000Z",
       now: "2026-09-18T09:00:00.000Z",
     });
@@ -21,9 +24,39 @@ describe("Brand entitlements", () => {
     expect(trial.trialEndsAt).toBe("2026-10-02T09:00:00.000Z");
 
     expect(() => createBrandTrial({
+      currentKind: "none",
+      trialConsumedAt: null,
       onboardingCompletedAt: "2026-09-18T10:00:00.000Z",
       now: "2026-09-18T09:00:00.000Z",
     })).toThrow("BRAND_TRIAL_BEFORE_ONBOARDING_COMPLETION");
+  });
+
+  it("never restarts a consumed Trial or starts one while another entitlement exists", () => {
+    expect(() => createBrandTrial({
+      currentKind: "none",
+      trialConsumedAt: "2026-09-01T09:00:00.000Z",
+      onboardingCompletedAt: "2026-09-18T08:00:00.000Z",
+      now: "2026-09-18T09:00:00.000Z",
+    })).toThrow("BRAND_TRIAL_ALREADY_CONSUMED");
+
+    expect(() => createBrandTrial({
+      currentKind: "paid",
+      trialConsumedAt: null,
+      onboardingCompletedAt: "2026-09-18T08:00:00.000Z",
+      now: "2026-09-18T09:00:00.000Z",
+    })).toThrow("BRAND_TRIAL_ENTITLEMENT_CONFLICT");
+  });
+
+  it("consumes future Trial eligibility when a paid plan starts first", () => {
+    expect(trialConsumptionMarkerForPaidActivation(
+      null,
+      "2026-09-18T09:00:00.000Z",
+    )).toBe("2026-09-18T09:00:00.000Z");
+
+    expect(trialConsumptionMarkerForPaidActivation(
+      "2026-09-01T09:00:00.000Z",
+      "2026-09-18T09:00:00.000Z",
+    )).toBe("2026-09-01T09:00:00.000Z");
   });
 
   it("gives full access during an active trial", () => {
