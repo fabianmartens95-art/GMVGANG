@@ -106,14 +106,25 @@
 
 @media (max-width: 700px) {
   .account-menu {
-    width: 100%;
-    max-width: 100%;
+    width: auto;
+    max-width: none;
+  }
+
+  .account-menu__trigger {
+    min-height: 44px;
+    justify-content: flex-end;
+    padding: 0;
   }
 
   .account-menu__panel {
-    left: 0;
-    right: auto;
-    width: min(100%, 320px);
+    left: auto;
+    right: 0;
+    width: min(320px, calc(100vw - 24px));
     min-height: 96px;
+  }
+
+  .account-menu__panel .workspace-switcher {
+    width: 100%;
+    min-width: 0;
   }
 }
