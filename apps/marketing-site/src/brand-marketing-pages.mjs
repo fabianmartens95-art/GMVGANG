@@ -1,5 +1,5 @@
 const BRAND_LOGIN_URL = 'https://app.gmvgang.de/login';
-const SHOWCASE_STYLESHEET = '<link rel="stylesheet" href="/brand-product-showcase.css?v=20260917-brand-product-v1">';
+const SHOWCASE_STYLESHEET = '<link rel="stylesheet" href="/brand-product-showcase.css">';
 
 const HOME_OLD = {
   title: 'GMVGANG – TikTok Shop Growth für Brands',
