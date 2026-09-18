@@ -42,12 +42,14 @@ describe("loadPlatformServerConfig", () => {
       TIKTOK_CLIENT_KEY: "client-key",
       TIKTOK_CLIENT_SECRET: "client-secret",
       TIKTOK_TOKEN_ENCRYPTION_KEY: tokenEncryptionKey,
+      TIKTOK_IDENTITY_HASH_KEY: "identity-hash-key-that-is-at-least-32-bytes",
     });
 
     expect(config.tiktokCreatorOAuth).toEqual({
       clientKey: "client-key",
       clientSecret: "client-secret",
       tokenEncryptionKey,
+      identityHashKey: "identity-hash-key-that-is-at-least-32-bytes",
       redirectUri: "https://app.gmvgang.de/api/integrations/tiktok/callback",
       scopes: ["user.info.basic", "user.info.profile", "user.info.stats", "video.list"],
     });
@@ -66,6 +68,7 @@ describe("loadPlatformServerConfig", () => {
       TIKTOK_CLIENT_KEY: "client-key",
       TIKTOK_CLIENT_SECRET: "client-secret",
       TIKTOK_TOKEN_ENCRYPTION_KEY: Buffer.alloc(16, 7).toString("base64"),
+      TIKTOK_IDENTITY_HASH_KEY: "identity-hash-key-that-is-at-least-32-bytes",
     })).toThrow("TIKTOK_TOKEN_ENCRYPTION_KEY_INVALID");
 
     expect(() => loadPlatformServerConfig({
@@ -73,6 +76,15 @@ describe("loadPlatformServerConfig", () => {
       TIKTOK_CLIENT_KEY: "client-key",
       TIKTOK_CLIENT_SECRET: "client-secret",
       TIKTOK_TOKEN_ENCRYPTION_KEY: tokenEncryptionKey,
+      TIKTOK_IDENTITY_HASH_KEY: "too-short",
+    })).toThrow("TIKTOK_IDENTITY_HASH_KEY_TOO_SHORT");
+
+    expect(() => loadPlatformServerConfig({
+      ...BASE_ENV,
+      TIKTOK_CLIENT_KEY: "client-key",
+      TIKTOK_CLIENT_SECRET: "client-secret",
+      TIKTOK_TOKEN_ENCRYPTION_KEY: tokenEncryptionKey,
+      TIKTOK_IDENTITY_HASH_KEY: "identity-hash-key-that-is-at-least-32-bytes",
       TIKTOK_REDIRECT_URI: "https://example.com/callback",
     })).toThrow("TIKTOK_REDIRECT_URI_INVALID");
   });
