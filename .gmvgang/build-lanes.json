@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "maxActiveLanes": 4,
+  "maxActiveLanes": 5,
   "integrationBranchPrefixes": [
     "build/integration-",
     "build/parallel-",
