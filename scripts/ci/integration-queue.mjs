@@ -2,9 +2,14 @@ import { appendFileSync } from "node:fs";
 
 const repository = process.env.GITHUB_REPOSITORY;
 const token = process.env.GITHUB_TOKEN;
-const requiredChecks = (process.env.QUEUE_REQUIRED_CHECKS || "")\n  .split(",")\n  .map((value) => value.trim())\n  .filter(Boolean);\nconst defaultBranch = process.env.QUEUE_BASE_BRANCH || "main";
+const requiredChecks = (process.env.QUEUE_REQUIRED_CHECKS || "")
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean);
+const defaultBranch = process.env.QUEUE_BASE_BRANCH || "main";
 
-if (!repository || !token || !requiredChecks.length) {\n  console.error("integration-queue: GITHUB_REPOSITORY, GITHUB_TOKEN and QUEUE_REQUIRED_CHECKS are required");
+if (!repository || !token || !requiredChecks.length) {
+  console.error("integration-queue: GITHUB_REPOSITORY, GITHUB_TOKEN and QUEUE_REQUIRED_CHECKS are required");
   process.exit(2);
 }
 
