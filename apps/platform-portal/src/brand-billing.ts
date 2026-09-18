@@ -188,6 +188,14 @@ function parseHistory(value: unknown): BrandBillingHistoryRow[] {
       throw new Error("BRAND_BILLING_SURFACE_AMOUNT_INVALID");
     }
 
+    const historicalShare = shareBps(
+      raw.revenueShareBps,
+      kind === "revenue_share",
+    );
+    if (kind !== "revenue_share" && historicalShare !== null) {
+      throw new Error("BRAND_BILLING_SURFACE_HISTORY_SHARE_CONFLICT");
+    }
+
     return {
       id,
       kind,
@@ -198,7 +206,7 @@ function parseHistory(value: unknown): BrandBillingHistoryRow[] {
       recordedAt: timestamp(raw.recordedAt),
       amountCents,
       currency: currency(raw.currency),
-      revenueShareBps: shareBps(raw.revenueShareBps, kind === "revenue_share"),
+      revenueShareBps: historicalShare,
       reference: nullableString(raw.reference, 200, "BRAND_BILLING_SURFACE_REFERENCE_INVALID"),
     };
   });
