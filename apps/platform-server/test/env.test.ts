@@ -32,6 +32,49 @@ describe("loadPlatformServerConfig", () => {
     expect(config.notionCreatorSync).toBeNull();
     expect(config.notionCreatorWorkspace).toBeNull();
     expect(config.affiliatePerformanceRead).toBeNull();
+    expect(config.tiktokCreatorOAuth).toBeNull();
+  });
+
+  it("loads TikTok Creator OAuth only with complete server-side credentials", () => {
+    const tokenEncryptionKey = Buffer.alloc(32, 7).toString("base64");
+    const config = loadPlatformServerConfig({
+      ...BASE_ENV,
+      TIKTOK_CLIENT_KEY: "client-key",
+      TIKTOK_CLIENT_SECRET: "client-secret",
+      TIKTOK_TOKEN_ENCRYPTION_KEY: tokenEncryptionKey,
+    });
+
+    expect(config.tiktokCreatorOAuth).toEqual({
+      clientKey: "client-key",
+      clientSecret: "client-secret",
+      tokenEncryptionKey,
+      redirectUri: "https://app.gmvgang.de/api/integrations/tiktok/callback",
+      scopes: ["user.info.basic", "user.info.profile", "user.info.stats", "video.list"],
+    });
+  });
+
+  it("fails closed for partial TikTok OAuth config, invalid encryption keys, or off-origin redirects", () => {
+    const tokenEncryptionKey = Buffer.alloc(32, 7).toString("base64");
+
+    expect(() => loadPlatformServerConfig({
+      ...BASE_ENV,
+      TIKTOK_CLIENT_KEY: "client-key",
+    })).toThrow("TIKTOK_CREATOR_OAUTH_CONFIG_INCOMPLETE");
+
+    expect(() => loadPlatformServerConfig({
+      ...BASE_ENV,
+      TIKTOK_CLIENT_KEY: "client-key",
+      TIKTOK_CLIENT_SECRET: "client-secret",
+      TIKTOK_TOKEN_ENCRYPTION_KEY: Buffer.alloc(16, 7).toString("base64"),
+    })).toThrow("TIKTOK_TOKEN_ENCRYPTION_KEY_INVALID");
+
+    expect(() => loadPlatformServerConfig({
+      ...BASE_ENV,
+      TIKTOK_CLIENT_KEY: "client-key",
+      TIKTOK_CLIENT_SECRET: "client-secret",
+      TIKTOK_TOKEN_ENCRYPTION_KEY: tokenEncryptionKey,
+      TIKTOK_REDIRECT_URI: "https://example.com/callback",
+    })).toThrow("TIKTOK_REDIRECT_URI_INVALID");
   });
 
   it("loads the Notion Creator sync only when the creator data source and shared server token exist", () => {
