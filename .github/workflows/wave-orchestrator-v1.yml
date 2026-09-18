@@ -1,0 +1,74 @@
+name: Wave Orchestrator V1
+
+on:
+  workflow_run:
+    workflows:
+      - W3 Production Security Gate
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      wave:
+        description: Wave id, e.g. W3
+        required: true
+        default: W3
+      gate:
+        description: Gate id
+        required: true
+        default: production-security
+      revision:
+        description: Exact verified revision SHA
+        required: true
+      source_run_id:
+        description: Verified source workflow run id
+        required: true
+      source_run_url:
+        description: Verified GitHub Actions run URL
+        required: true
+      mode:
+        description: dry-run or apply
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - apply
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gmvgang-wave-transition
+  cancel-in-progress: false
+
+jobs:
+  orchestrate:
+    name: Verify and advance product wave
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      WAVE_CONFIG_PATH: .gmvgang/waves.json
+      NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+      EVENT_WAVE: ${{ github.event_name == 'workflow_dispatch' && inputs.wave || 'W3' }}
+      EVENT_GATE: ${{ github.event_name == 'workflow_dispatch' && inputs.gate || 'production-security' }}
+      EVENT_STATUS: passed
+      EVENT_REVISION: ${{ github.event_name == 'workflow_dispatch' && inputs.revision || github.event.workflow_run.head_sha }}
+      EVENT_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.source_run_id || github.event.workflow_run.id }}
+      EVENT_RUN_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.source_run_url || github.event.workflow_run.html_url }}
+      ORCHESTRATOR_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'apply' }}
+
+    steps:
+      - name: Checkout orchestrator
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run fail-closed wave orchestrator
+        run: node scripts/wave-orchestrator.mjs
