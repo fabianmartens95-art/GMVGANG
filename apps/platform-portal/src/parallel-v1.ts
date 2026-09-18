@@ -266,7 +266,7 @@ export function renderCreatorOnboarding(snapshot: ParallelV1Snapshot | null): st
         <div class="gmv-result gmv-tiktok__feedback" data-tiktok-result aria-live="polite" aria-atomic="true"></div>
       </aside>`;
   } else if (tiktok.available) {
-    const reconnect = Boolean(connection && connection.status !== "connected");
+    const reconnect = Boolean(connection);
     tiktokBlock = `
       <aside class="gmv-tiktok gmv-tiktok--disconnected" data-tiktok-state="disconnected">
         <div>
