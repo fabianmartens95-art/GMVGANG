@@ -62,6 +62,21 @@ type StoredConnection = {
   refresh_token_expires_at: string | null;
 };
 
+export function existingTikTokConnectionTokenFields(connection: {
+  access_token_secret_ref: string | null;
+  refresh_token_secret_ref: string | null;
+  access_token_expires_at: string | null;
+  refresh_token_expires_at: string | null;
+} | null): Record<string, string | null> {
+  if (!connection) return {};
+  return {
+    access_token_secret_ref: connection.access_token_secret_ref,
+    refresh_token_secret_ref: connection.refresh_token_secret_ref,
+    access_token_expires_at: connection.access_token_expires_at,
+    refresh_token_expires_at: connection.refresh_token_expires_at,
+  };
+}
+
 function json(payload: unknown, status = 200, headers?: HeadersInit): Response {
   return new Response(JSON.stringify(payload), {
     status,
@@ -467,6 +482,8 @@ async function persistProfileSnapshot(
     video_count: typeof user.video_count === "number" ? user.video_count : null,
     last_synced_at: deps.now,
   };
+
+  Object.assign(connection, existingTikTokConnectionTokenFields(existing));
 
   const createdSecretRefs: string[] = [];
   if (token) {
