@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "maxActiveLanes": 5,
+  "integrationBranchPrefixes": [
+    "build/integration-",
+    "build/parallel-",
+    "integration/wave-v2-"
+  ],
+  "lanes": {
+    "foundation": {
+      "priority": 0,
+      "owns": [
+        "packages/platform-foundation/",
+        "packages/platform-api/",
+        "apps/platform-server/src/",
+        "supabase/migrations/"
+      ],
+      "blocks": [
+        "creator",
+        "brand",
+        "commerce"
+      ],
+      "productionGate": true
+    },
+    "creator": {
+      "priority": 1,
+      "owns": [
+        "apps/platform-portal/src/creator-",
+        "packages/creator-"
+      ],
+      "blocks": [],
+      "productionGate": false
+    },
+    "brand": {
+      "priority": 1,
+      "owns": [
+        "apps/platform-portal/src/brand-",
+        "packages/brand-"
+      ],
+      "blocks": [],
+      "productionGate": false
+    },
+    "commerce": {
+      "priority": 1,
+      "owns": [
+        "packages/economics/",
+        "packages/affiliate-performance/",
+        "packages/campaign-"
+      ],
+      "blocks": [],
+      "productionGate": false
+    },
+    "web": {
+      "priority": 2,
+      "owns": [
+        "apps/marketing-site/"
+      ],
+      "blocks": [],
+      "productionGate": false
+    },
+    "devops": {
+      "priority": 0,
+      "owns": [
+        ".github/",
+        ".gmvgang/",
+        "scripts/ci/",
+        "railway",
+        "Dockerfile"
+      ],
+      "blocks": [],
+      "productionGate": true
+    }
+  },
+  "sharedCore": [
+    "apps/platform-portal/src/main.ts",
+    "apps/platform-portal/src/routing.ts",
+    "apps/platform-server/src/server.ts",
+    "packages/design-system/",
+    "pnpm-lock.yaml",
+    "package.json"
+  ]
+}
