@@ -127,3 +127,14 @@ test('shared design tokens define the legal reading variant', async () => {
   assert.match(tokens, /--gmv-legal-reading-line-height:/);
   assert.match(tokens, /--gmv-legal-body-size:/);
 });
+
+test('legal hero headings avoid arbitrary mid-word breaks on mobile', async () => {
+  const styles = await readFile(join(root, 'src/styles.css'), 'utf8');
+  const legalHeadingBlocks = [...styles.matchAll(/\.legal-hero h1\s*\{([\s\S]*?)\}/g)].map((match) => match[1]).join('\n');
+
+  assert.match(legalHeadingBlocks, /overflow-wrap:\s*normal/);
+  assert.match(legalHeadingBlocks, /word-break:\s*normal/);
+  assert.match(legalHeadingBlocks, /hyphens:\s*none/);
+  assert.doesNotMatch(legalHeadingBlocks, /overflow-wrap:\s*anywhere/);
+  assert.match(styles, /font-size:\s*clamp\(28px,\s*9\.2vw,\s*36px\)/);
+});
