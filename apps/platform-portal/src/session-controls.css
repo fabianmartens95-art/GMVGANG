@@ -105,11 +105,18 @@
 
 @media (max-width: 700px) {
   .session-controls {
+    grid-column: 2;
+    grid-row: 1;
     width: auto;
     max-width: none;
     gap: 0;
     justify-self: end;
     padding: 0;
+  }
+
+  .nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 
   .session-chip {
