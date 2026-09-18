@@ -1,4 +1,4 @@
-const BRAND_LOGIN_URL = 'https://app.gmvgang.de/login';
+const BRAND_LOGIN_URL = 'https://app.gmvgang.de/login?next=%2Fbrand';
 const SHOWCASE_STYLESHEET = '<link rel="stylesheet" href="/brand-product-showcase.css">';
 
 const HOME_OLD = {

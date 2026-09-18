@@ -1,6 +1,6 @@
 const LEGACY_CREATOR_CTA_URL = 'https://tally.so/r/68BbAO';
 const PORTAL_JOIN_URL = 'https://app.gmvgang.de/join';
-const PORTAL_LOGIN_URL = 'https://app.gmvgang.de/login';
+const PORTAL_LOGIN_URL = 'https://app.gmvgang.de/login?next=%2Fcreator';
 const SHOWCASE_STYLESHEET = '/creator-portal-showcase.css';
 
 const legacyCreatorBody = `

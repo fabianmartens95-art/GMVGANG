@@ -1,3 +1,5 @@
+const PORTAL_LOGIN_URL = 'https://app.gmvgang.de/login';
+
 const nav = [
   ['/brands/', 'Für Brands'],
   ['/creator/', 'Creator'],
@@ -422,7 +424,7 @@ export function renderPage(page) {
         <button class="menu-button" type="button" aria-expanded="false" aria-controls="main-nav">Menü</button>
         <nav id="main-nav" class="main-nav${isLegal ? ' main-nav--legal' : ''}" aria-label="${navigationLabel}">
           ${navigation.map(([href, label]) => `<a href="${href}">${label}</a>`).join('')}
-          ${isLegal ? '' : '<a class="nav-cta" href="/potenzialanalyse/">TikTok Shop Potenzial prüfen</a>'}
+          ${isLegal ? '' : `<a href="${PORTAL_LOGIN_URL}">Portal Login</a><a class="nav-cta" href="/potenzialanalyse/">TikTok Shop Potenzial prüfen</a>`}
         </nav>
       </div>
     </header>
