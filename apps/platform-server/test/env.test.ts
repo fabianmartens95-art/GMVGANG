@@ -35,6 +35,16 @@ describe("loadPlatformServerConfig", () => {
     expect(config.tiktokCreatorOAuth).toBeNull();
   });
 
+  it("keeps TikTok Creator OAuth disabled when only security keys are pre-provisioned", () => {
+    const config = loadPlatformServerConfig({
+      ...BASE_ENV,
+      TIKTOK_TOKEN_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
+      TIKTOK_IDENTITY_HASH_KEY: "identity-hash-key-that-is-at-least-32-bytes",
+    });
+
+    expect(config.tiktokCreatorOAuth).toBeNull();
+  });
+
   it("loads TikTok Creator OAuth only with complete server-side credentials", () => {
     const tokenEncryptionKey = Buffer.alloc(32, 7).toString("base64");
     const config = loadPlatformServerConfig({
