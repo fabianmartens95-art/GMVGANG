@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes, timingSafeEqual } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { parse as parseCookie, serialize as serializeCookie } from "cookie";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -51,12 +51,13 @@ type TikTokUser = {
 };
 
 type StoredConnection = {
+  id: string;
   creator_profile_id: string;
-  tiktok_open_id: string;
+  external_account_digest: string;
   status: string;
   granted_scopes: string[];
-  access_token_ciphertext: string | null;
-  refresh_token_ciphertext: string | null;
+  access_token_secret_ref: string | null;
+  refresh_token_secret_ref: string | null;
   access_token_expires_at: string | null;
   refresh_token_expires_at: string | null;
 };
@@ -151,6 +152,65 @@ export function decryptTikTokToken(value: string, encodedKey: string): string {
     decipher.update(Buffer.from(ciphertextRaw, "base64url")),
     decipher.final(),
   ]).toString("utf8");
+}
+
+export function tiktokIdentityDigest(
+  kind: "open_id" | "union_id",
+  value: string,
+  hashKey: string,
+): string {
+  const cleaned = value.trim();
+  if (!cleaned) throw new Error("TIKTOK_IDENTITY_REQUIRED");
+  if (Buffer.byteLength(hashKey, "utf8") < 32) throw new Error("TIKTOK_IDENTITY_HASH_KEY_TOO_SHORT");
+  return createHmac("sha256", hashKey)
+    .update(`gmvgang:tiktok-login:v1:${kind}\0${cleaned}`, "utf8")
+    .digest("hex");
+}
+
+async function createTokenSecret(
+  deps: TikTokDependencies,
+  purpose: "tiktok_creator_access_token" | "tiktok_creator_refresh_token",
+  token: string,
+  config: TikTokConfig,
+): Promise<string> {
+  const { data, error } = await deps.adminClient
+    .from("integration_secret_store")
+    .insert({
+      purpose,
+      ciphertext: encryptTikTokToken(token, config.tokenEncryptionKey),
+    })
+    .select("id")
+    .single();
+  if (error || !data?.id) throw new Error("TIKTOK_SECRET_WRITE_FAILED");
+  return data.id;
+}
+
+async function readTokenSecret(
+  deps: TikTokDependencies,
+  secretRef: string | null,
+  config: TikTokConfig,
+): Promise<string> {
+  if (!secretRef) throw new Error("TIKTOK_REAUTHORIZATION_REQUIRED");
+  const { data, error } = await deps.adminClient
+    .from("integration_secret_store")
+    .select("ciphertext")
+    .eq("id", secretRef)
+    .maybeSingle();
+  if (error || !data?.ciphertext) throw new Error("TIKTOK_REAUTHORIZATION_REQUIRED");
+  return decryptTikTokToken(data.ciphertext, config.tokenEncryptionKey);
+}
+
+async function updateTokenSecret(
+  deps: TikTokDependencies,
+  secretRef: string,
+  token: string,
+  config: TikTokConfig,
+): Promise<void> {
+  const { error } = await deps.adminClient
+    .from("integration_secret_store")
+    .update({ ciphertext: encryptTikTokToken(token, config.tokenEncryptionKey) })
+    .eq("id", secretRef);
+  if (error) throw new Error("TIKTOK_SECRET_WRITE_FAILED");
 }
 
 function parseScopes(raw: string): string[] {
@@ -360,27 +420,41 @@ async function persistProfileSnapshot(
   identity: CreatorIdentity,
   config: TikTokConfig,
   token: TikTokTokenResponse | null,
-  accessToken: string,
   scopes: string[],
   user: TikTokUser,
 ): Promise<void> {
   const openId = token?.open_id || user.open_id;
   if (!openId) throw new Error("TIKTOK_PROFILE_SYNC_FAILED");
+  const externalAccountDigest = tiktokIdentityDigest("open_id", openId, config.identityHashKey);
+  const unionIdDigest = user.union_id
+    ? tiktokIdentityDigest("union_id", user.union_id, config.identityHashKey)
+    : null;
 
-  const { data: owner, error: ownerError } = await deps.adminClient
-    .from("creator_tiktok_connections")
-    .select("creator_profile_id")
-    .eq("tiktok_open_id", openId)
-    .maybeSingle();
-  if (ownerError) throw new Error("TIKTOK_CONNECTION_READ_FAILED");
+  const [{ data: owner, error: ownerError }, { data: existing, error: existingError }] = await Promise.all([
+    deps.adminClient
+      .from("creator_tiktok_connections")
+      .select("creator_profile_id")
+      .eq("external_account_digest", externalAccountDigest)
+      .maybeSingle(),
+    deps.adminClient
+      .from("creator_tiktok_connections")
+      .select("id,creator_profile_id,external_account_digest,status,granted_scopes,access_token_secret_ref,refresh_token_secret_ref,access_token_expires_at,refresh_token_expires_at")
+      .eq("creator_profile_id", identity.creatorProfileId)
+      .maybeSingle(),
+  ]);
+  if (ownerError || existingError) throw new Error("TIKTOK_CONNECTION_READ_FAILED");
   if (owner && owner.creator_profile_id !== identity.creatorProfileId) {
     throw new Error("TIKTOK_ACCOUNT_ALREADY_CONNECTED");
+  }
+  if (existing && existing.external_account_digest !== externalAccountDigest) {
+    throw new Error("TIKTOK_DIFFERENT_ACCOUNT_REQUIRES_DISCONNECT");
   }
 
   const connection: Record<string, unknown> = {
     creator_profile_id: identity.creatorProfileId,
-    tiktok_open_id: openId,
-    union_id: user.union_id ?? null,
+    provider: "tiktok_creator",
+    external_account_digest: externalAccountDigest,
+    union_id_digest: unionIdDigest,
     username: user.username ?? null,
     display_name: user.display_name ?? null,
     avatar_url: user.avatar_url ?? null,
@@ -394,9 +468,26 @@ async function persistProfileSnapshot(
     last_synced_at: deps.now,
   };
 
+  const createdSecretRefs: string[] = [];
   if (token) {
-    connection.access_token_ciphertext = encryptTikTokToken(token.access_token, config.tokenEncryptionKey);
-    connection.refresh_token_ciphertext = encryptTikTokToken(token.refresh_token, config.tokenEncryptionKey);
+    let accessRef = existing?.access_token_secret_ref ?? null;
+    let refreshRef = existing?.refresh_token_secret_ref ?? null;
+
+    if (accessRef) {
+      await updateTokenSecret(deps, accessRef, token.access_token, config);
+    } else {
+      accessRef = await createTokenSecret(deps, "tiktok_creator_access_token", token.access_token, config);
+      createdSecretRefs.push(accessRef);
+    }
+    if (refreshRef) {
+      await updateTokenSecret(deps, refreshRef, token.refresh_token, config);
+    } else {
+      refreshRef = await createTokenSecret(deps, "tiktok_creator_refresh_token", token.refresh_token, config);
+      createdSecretRefs.push(refreshRef);
+    }
+
+    connection.access_token_secret_ref = accessRef;
+    connection.refresh_token_secret_ref = refreshRef;
     connection.access_token_expires_at = expiry(deps.now, token.expires_in);
     connection.refresh_token_expires_at = expiry(deps.now, token.refresh_expires_in);
     connection.connected_at = deps.now;
@@ -405,11 +496,15 @@ async function persistProfileSnapshot(
   const { error: connectionError } = await deps.adminClient
     .from("creator_tiktok_connections")
     .upsert(connection, { onConflict: "creator_profile_id" });
-  if (connectionError) throw new Error("TIKTOK_CONNECTION_WRITE_FAILED");
+  if (connectionError) {
+    if (createdSecretRefs.length) {
+      await deps.adminClient.from("integration_secret_store").delete().in("id", createdSecretRefs);
+    }
+    throw new Error("TIKTOK_CONNECTION_WRITE_FAILED");
+  }
 
   const { error: metricError } = await deps.adminClient.from("creator_tiktok_metrics").insert({
     creator_profile_id: identity.creatorProfileId,
-    tiktok_open_id: openId,
     follower_count: typeof user.follower_count === "number" ? user.follower_count : null,
     following_count: typeof user.following_count === "number" ? user.following_count : null,
     likes_count: typeof user.likes_count === "number" ? user.likes_count : null,
@@ -427,7 +522,7 @@ async function loadConnection(
 ): Promise<StoredConnection> {
   const { data, error } = await deps.adminClient
     .from("creator_tiktok_connections")
-    .select("creator_profile_id,tiktok_open_id,status,granted_scopes,access_token_ciphertext,refresh_token_ciphertext,access_token_expires_at,refresh_token_expires_at")
+    .select("id,creator_profile_id,external_account_digest,status,granted_scopes,access_token_secret_ref,refresh_token_secret_ref,access_token_expires_at,refresh_token_expires_at")
     .eq("creator_profile_id", identity.creatorProfileId)
     .maybeSingle();
   if (error) throw new Error("TIKTOK_CONNECTION_READ_FAILED");
@@ -441,14 +536,14 @@ async function usableAccessToken(
   config: TikTokConfig,
 ): Promise<{ accessToken: string; scopes: string[] }> {
   if (connection.status !== "connected") throw new Error("TIKTOK_REAUTHORIZATION_REQUIRED");
-  if (!connection.access_token_ciphertext || !connection.refresh_token_ciphertext) {
+  if (!connection.access_token_secret_ref || !connection.refresh_token_secret_ref) {
     throw new Error("TIKTOK_REAUTHORIZATION_REQUIRED");
   }
 
   const expiryTime = connection.access_token_expires_at ? new Date(connection.access_token_expires_at).valueOf() : 0;
   if (Number.isFinite(expiryTime) && expiryTime > Date.now() + ACCESS_REFRESH_SKEW_MS) {
     return {
-      accessToken: decryptTikTokToken(connection.access_token_ciphertext, config.tokenEncryptionKey),
+      accessToken: await readTokenSecret(deps, connection.access_token_secret_ref, config),
       scopes: connection.granted_scopes ?? [],
     };
   }
@@ -456,7 +551,7 @@ async function usableAccessToken(
   let refreshed: TikTokTokenResponse;
   try {
     refreshed = await refreshAccessToken(
-      decryptTikTokToken(connection.refresh_token_ciphertext, config.tokenEncryptionKey),
+      await readTokenSecret(deps, connection.refresh_token_secret_ref, config),
       config,
     );
   } catch {
@@ -468,11 +563,13 @@ async function usableAccessToken(
   }
 
   const scopes = parseScopes(refreshed.scope);
+  await Promise.all([
+    updateTokenSecret(deps, connection.access_token_secret_ref, refreshed.access_token, config),
+    updateTokenSecret(deps, connection.refresh_token_secret_ref, refreshed.refresh_token, config),
+  ]);
   const { error } = await deps.adminClient
     .from("creator_tiktok_connections")
     .update({
-      access_token_ciphertext: encryptTikTokToken(refreshed.access_token, config.tokenEncryptionKey),
-      refresh_token_ciphertext: encryptTikTokToken(refreshed.refresh_token, config.tokenEncryptionKey),
       access_token_expires_at: expiry(deps.now, refreshed.expires_in),
       refresh_token_expires_at: expiry(deps.now, refreshed.refresh_expires_in),
       granted_scopes: scopes,
@@ -511,7 +608,7 @@ async function callback(request: Request, deps: TikTokDependencies, config: TikT
     const token = await exchangeAuthorizationCode(code, config);
     const scopes = parseScopes(token.scope);
     const user = await fetchUserInfo(token.access_token, scopes);
-    await persistProfileSnapshot(deps, identity, config, token, token.access_token, scopes, user);
+    await persistProfileSnapshot(deps, identity, config, token, scopes, user);
     await writeActivity(deps, identity, "creator.tiktok.connected", "TikTok-Konto verbunden", {
       scopes,
       username: user.username ?? null,
@@ -531,7 +628,7 @@ async function sync(request: Request, deps: TikTokDependencies, config: TikTokCo
   const connection = await loadConnection(deps, identity);
   const token = await usableAccessToken(deps, connection, config);
   const user = await fetchUserInfo(token.accessToken, token.scopes);
-  await persistProfileSnapshot(deps, identity, config, null, token.accessToken, token.scopes, user);
+  await persistProfileSnapshot(deps, identity, config, null, token.scopes, user);
   await writeActivity(deps, identity, "creator.tiktok.synced", "TikTok-Daten synchronisiert", {
     username: user.username ?? null,
   });
@@ -543,10 +640,10 @@ async function disconnect(request: Request, deps: TikTokDependencies, config: Ti
   const identity = await creatorIdentity(deps);
   const connection = await loadConnection(deps, identity);
 
-  if (connection.access_token_ciphertext) {
+  if (connection.access_token_secret_ref) {
     try {
       await revokeAccessToken(
-        decryptTikTokToken(connection.access_token_ciphertext, config.tokenEncryptionKey),
+        await readTokenSecret(deps, connection.access_token_secret_ref, config),
         config,
       );
     } catch {
@@ -554,17 +651,28 @@ async function disconnect(request: Request, deps: TikTokDependencies, config: Ti
     }
   }
 
+  const secretRefs = [connection.access_token_secret_ref, connection.refresh_token_secret_ref]
+    .filter((value): value is string => Boolean(value));
+
   const { error } = await deps.adminClient
     .from("creator_tiktok_connections")
     .update({
       status: "revoked",
-      access_token_ciphertext: null,
-      refresh_token_ciphertext: null,
+      access_token_secret_ref: null,
+      refresh_token_secret_ref: null,
       access_token_expires_at: null,
       refresh_token_expires_at: null,
     })
     .eq("creator_profile_id", identity.creatorProfileId);
   if (error) throw new Error("TIKTOK_CONNECTION_WRITE_FAILED");
+
+  if (secretRefs.length) {
+    const { error: secretDeleteError } = await deps.adminClient
+      .from("integration_secret_store")
+      .delete()
+      .in("id", secretRefs);
+    if (secretDeleteError) console.warn("GMVGANG_TIKTOK_SECRET_DELETE_FAILED", { requestId: deps.requestId });
+  }
 
   await writeActivity(deps, identity, "creator.tiktok.disconnected", "TikTok-Konto getrennt");
   return json({ ok: true });
