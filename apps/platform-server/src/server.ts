@@ -131,7 +131,7 @@ export function safeConfirmationNextPath(value: unknown, publicOrigin: string): 
   }
 }
 
-async function authResponse(
+export async function authResponse(
   request: Request,
   client: ReturnType<typeof createRequestSupabaseClient>,
   config: PlatformServerConfig,
