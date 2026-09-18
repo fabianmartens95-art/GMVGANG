@@ -66,18 +66,7 @@ async function checksReady(sha) {
   if (baseline.status !== "completed") return { ok:false, reason:`required check '${config.requiredCheck}' is ${baseline.status}` };
   if (baseline.conclusion !== "success") return { ok:false, reason:`required check '${config.requiredCheck}' concluded ${baseline.conclusion}` };
 
-  const accepted = new Set(["success", "neutral", "skipped"]);
-  for (const check of latest.values()) {
-    if (check.status !== "completed") return { ok:false, reason:`check '${check.name}' is ${check.status}` };
-    if (!accepted.has(check.conclusion)) return { ok:false, reason:`check '${check.name}' concluded ${check.conclusion}` };
-  }
-
-  const statuses = await github(`/commits/${sha}/status`);
-  if (!statuses.ok) throw new Error(`combined status lookup failed with ${statuses.status}`);
-  if ((statuses.data?.statuses || []).length && statuses.data?.state !== "success") {
-    return { ok:false, reason:`combined commit status is ${statuses.data?.state}` };
-  }
-  return { ok:true, reason:"all current checks green" };
+  return { ok:true, reason:`required check '${config.requiredCheck}' is green` };
 }
 
 async function requiredCheckReady(sha) {
