@@ -93,21 +93,26 @@ describe("Creator TikTok connection surface", () => {
     })).toThrow("CREATOR_TIKTOK_CONNECTION_LIST_INVALID");
   });
 
-  it("rejects impossible disconnected and connected metadata combinations", () => {
-    expect(() => parseCreatorTikTokConnection({
+  it("does not invent metadata invariants beyond the canonical lifecycle core", () => {
+    expect(parseCreatorTikTokConnection({
       state: "disconnected",
       nextAction: "connect_tiktok",
-      market: null,
+      market: "DE",
       externalShopIds: ["shop-1"],
-      grantedScopes: [],
-      lastSyncAt: null,
-      lastErrorCode: null,
-    })).toThrow("CREATOR_TIKTOK_CONNECTION_STATE_INCONSISTENT");
+      grantedScopes: ["data.shop.public.read"],
+      lastSyncAt: "2026-09-18T12:00:00.000Z",
+      lastErrorCode: "PREVIOUS_ERROR",
+    })).toMatchObject({
+      state: "disconnected",
+      nextAction: "connect_tiktok",
+      market: "DE",
+      lastErrorCode: "PREVIOUS_ERROR",
+    });
 
-    expect(() => parseCreatorTikTokConnection({
+    expect(parseCreatorTikTokConnection({
       ...CONNECTED,
-      lastErrorCode: "TOKEN_EXPIRED",
-    })).toThrow("CREATOR_TIKTOK_CONNECTION_STATE_INCONSISTENT");
+      lastErrorCode: "PREVIOUS_ERROR",
+    }).lastErrorCode).toBe("PREVIOUS_ERROR");
   });
 
   it("validates timestamps and public metadata", () => {
