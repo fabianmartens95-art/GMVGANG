@@ -5,6 +5,7 @@ import {
   renderCreatorOnboarding,
 } from "../src/creator-onboarding.js";
 import type { CreatorProfileResult } from "../src/creator-profile.js";
+import { creatorNetworkStatusPresentation } from "../src/creator-status.js";
 
 function profile(
   networkStatus: "registered" | "profile_complete" | "qualified" | "active" | "rejected",
@@ -45,23 +46,32 @@ const qualification: CreatorQualification = {
 };
 
 describe("creator onboarding progress", () => {
-  it("sends an incomplete creator to the profile", () => {
+  it("sends an incomplete creator to the profile without inventing setup percentages", () => {
     const model = buildCreatorOnboardingModel(profile("registered", 40), null);
-    expect(model.overallProgress).toBe(35);
+
+    expect(model.setupCompletedSteps).toBe(1);
+    expect(model.setupTotalSteps).toBe(4);
+    expect(model.profileCompletionPercent).toBe(40);
+    expect(model.networkStatusLabel).toBe("Profilaufbau");
     expect(model.nextAction.href).toBe("/creator/profile");
     expect(model.steps[1]?.state).toBe("current");
   });
 
-  it("unlocks qualification after a complete profile", () => {
+  it("unlocks qualification after the profile phase", () => {
     const model = buildCreatorOnboardingModel(profile("profile_complete"), null);
-    expect(model.overallProgress).toBe(50);
+
+    expect(model.setupCompletedSteps).toBe(2);
+    expect(model.profileCompletionPercent).toBe(100);
+    expect(model.networkStatusLabel).toBe("Freigabe ausstehend");
     expect(model.nextAction.href).toBe("/creator/qualification");
     expect(model.steps[2]?.state).toBe("current");
   });
 
-  it("shows review as the next state after qualification submission", () => {
+  it("shows review as a status after qualification submission", () => {
     const model = buildCreatorOnboardingModel(profile("profile_complete"), qualification);
-    expect(model.overallProgress).toBe(75);
+
+    expect(model.setupCompletedSteps).toBe(3);
+    expect(model.profileCompletionPercent).toBe(100);
     expect(model.nextAction.href).toBeUndefined();
     expect(model.nextAction.label).toBe("Review läuft");
     expect(model.steps[3]?.state).toBe("current");
@@ -69,25 +79,42 @@ describe("creator onboarding progress", () => {
 
   it("routes qualified creators into matches", () => {
     const model = buildCreatorOnboardingModel(profile("qualified"), qualification);
-    expect(model.overallProgress).toBe(100);
+
+    expect(model.setupCompletedSteps).toBe(4);
+    expect(model.networkStatusLabel).toBe("Qualifiziert");
     expect(model.nextAction.href).toBe("/creator/matches");
     expect(model.steps.every((step) => step.state === "complete")).toBe(true);
   });
 
   it("keeps rejected network status visible without claiming approval", () => {
     const model = buildCreatorOnboardingModel(profile("rejected"), qualification);
-    expect(model.overallProgress).toBe(75);
+
+    expect(model.setupCompletedSteps).toBe(3);
+    expect(model.networkStatusTone).toBe("attention");
+    expect(model.networkStatusLabel).toBe("Nicht freigegeben");
     expect(model.steps[3]?.state).toBe("attention");
     expect(model.nextAction.label).toBe("Review abgeschlossen");
   });
 
-  it("renders the progress and next best action", () => {
+  it("renders setup, profile completion and network status as separate truths", () => {
     const html = renderCreatorOnboarding(
-      buildCreatorOnboardingModel(profile("profile_complete"), null),
+      buildCreatorOnboardingModel(profile("profile_complete"), qualification),
     );
-    expect(html).toContain("ONBOARDING PROGRESS");
-    expect(html).toContain('value="50"');
+
+    expect(html).toContain("CREATOR SETUP");
+    expect(html).toContain("3/4");
+    expect(html).toContain("PROFILVOLLSTÄNDIGKEIT");
+    expect(html).toContain("100%");
+    expect(html).toContain("NETWORK STATUS");
+    expect(html).toContain("Freigabe ausstehend");
     expect(html).toContain("NEXT BEST ACTION");
-    expect(html).toContain('href="/creator/qualification"');
+    expect(html).not.toContain("75%");
+  });
+
+  it("keeps raw lifecycle identifiers behind the presentation boundary", () => {
+    const status = creatorNetworkStatusPresentation("profile_complete");
+
+    expect(status.label).toBe("Freigabe ausstehend");
+    expect(status.label).not.toContain("_");
   });
 });
