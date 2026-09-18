@@ -203,6 +203,35 @@ describe("password recovery route security", () => {
     expect(JSON.stringify(audit.events)).not.toContain("creator@example.com");
   });
 
+  it("normalizes recovery email casing before applying the rate-limit key", async () => {
+    const provider = passwordRecoveryClient();
+    const audit = collectingAudit();
+    const limiter = createFixedWindowRateLimiter({ limit: 1, windowMs: 15 * 60 * 1000 });
+
+    const first = await authResponse(
+      passwordRecoveryRequest("Creator@Example.com"),
+      provider.client,
+      AUTH_CONFIG,
+      limiter,
+      audit.audit,
+      "req_recovery_case_first",
+    );
+    const second = await authResponse(
+      passwordRecoveryRequest("creator@example.com"),
+      provider.client,
+      AUTH_CONFIG,
+      limiter,
+      audit.audit,
+      "req_recovery_case_second",
+    );
+
+    expect(first?.status).toBe(202);
+    expect(second?.status).toBe(429);
+    expect(provider.calls).toHaveLength(1);
+    expect(provider.calls[0]?.email).toBe("creator@example.com");
+    expect(JSON.stringify(audit.events)).not.toContain("creator@example.com");
+  });
+
   it("rate-limits repeated recovery requests without writing PII to audit events", async () => {
     const provider = passwordRecoveryClient();
     const audit = collectingAudit();
