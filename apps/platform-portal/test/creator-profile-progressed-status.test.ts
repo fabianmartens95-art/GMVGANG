@@ -25,7 +25,7 @@ describe("progressed creator profile states", () => {
 
   it("keeps identity fields protected after network progression", () => {
     const html = renderCreatorProfile(parseCreatorProfileResult(base));
-    expect(html).toContain("QUALIFIED");
+    expect(html).toContain("Qualifiziert");
     expect(html.match(/readonly aria-readonly=\"true\"/g)).toHaveLength(4);
   });
 });

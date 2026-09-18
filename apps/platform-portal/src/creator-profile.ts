@@ -1,15 +1,11 @@
 import type { CreatorProfileCompletionCommand } from "@gmvgang/creator-registration";
+import {
+  CREATOR_NETWORK_STATUSES,
+  creatorNetworkStatusPresentation,
+  type CreatorPortalNetworkStatus,
+} from "./creator-status.js";
 
-export type CreatorPortalNetworkStatus =
-  | "registered"
-  | "profile_complete"
-  | "qualified"
-  | "invited"
-  | "contracted"
-  | "active"
-  | "performing"
-  | "rejected"
-  | "paused";
+export type { CreatorPortalNetworkStatus } from "./creator-status.js";
 
 export type CreatorPortalProfile = {
   id: string;
@@ -59,18 +55,6 @@ function optionalText(value: unknown): string | undefined {
   const cleaned = value.trim();
   return cleaned || undefined;
 }
-
-const CREATOR_NETWORK_STATUSES: readonly CreatorPortalNetworkStatus[] = [
-  "registered",
-  "profile_complete",
-  "qualified",
-  "invited",
-  "contracted",
-  "active",
-  "performing",
-  "rejected",
-  "paused",
-];
 
 export function parseCreatorProfileResult(payload: unknown): CreatorProfileResult {
   if (!isRecord(payload) || typeof payload.ok !== "boolean") throw new Error("CREATOR_PROFILE_PAYLOAD_INVALID");
@@ -200,6 +184,7 @@ export function renderCreatorProfile(result: CreatorProfileResult): string {
   }
 
   const profile = result.creatorProfile;
+  const networkStatus = creatorNetworkStatusPresentation(profile.networkStatus);
   const verified = profile.networkStatus !== "registered";
   const locked = verified ? ' readonly aria-readonly="true"' : "";
   const verifiedHint = verified ? '<small>Verifiziert · Änderung nur über GMVGANG Review.</small>' : "";
@@ -212,7 +197,7 @@ export function renderCreatorProfile(result: CreatorProfileResult): string {
         <p>@${escapeHtml(profile.tiktokHandle)} · <span id="creator-profile-completion">${profile.profileCompletionPercent}% Profilvollständigkeit</span></p>
       </div>
       <div class="creator-profile-state">
-        <span>${escapeHtml(profile.networkStatus.toUpperCase())}</span>
+        <span>${escapeHtml(networkStatus.label)}</span>
         <code>${escapeHtml(profile.referralCode)}</code>
       </div>
     </div>

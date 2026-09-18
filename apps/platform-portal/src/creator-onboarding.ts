@@ -1,8 +1,9 @@
 import type { CreatorQualification } from "@gmvgang/creator-qualification";
-import type {
-  CreatorPortalNetworkStatus,
-  CreatorProfileResult,
-} from "./creator-profile.js";
+import type { CreatorProfileResult } from "./creator-profile.js";
+import {
+  creatorNetworkStatusPresentation,
+  type CreatorPortalNetworkStatus,
+} from "./creator-status.js";
 
 type CreatorOnboardingStepState = "complete" | "current" | "pending" | "attention";
 
@@ -20,8 +21,13 @@ export type CreatorOnboardingAction = {
 };
 
 export type CreatorOnboardingModel = {
-  overallProgress: number;
-  lifecycleLabel: string;
+  setupCompletedSteps: number;
+  setupTotalSteps: 4;
+  profileCompletionPercent: number | null;
+  profileCompletionLabel: string;
+  networkStatusLabel: string;
+  networkStatusDescription: string;
+  networkStatusTone: "pending" | "ready" | "attention";
   steps: CreatorOnboardingStep[];
   nextAction: CreatorOnboardingAction;
 };
@@ -44,20 +50,12 @@ const NETWORK_APPROVED = new Set<CreatorPortalNetworkStatus>([
   "performing",
 ]);
 
-const LIFECYCLE_LABELS: Record<CreatorPortalNetworkStatus, string> = {
-  registered: "Profil wird aufgebaut",
-  profile_complete: "Qualifizierung / Review",
-  qualified: "Qualifiziert",
-  invited: "Für Opportunities freigegeben",
-  contracted: "Vertraglich aktiviert",
-  active: "Aktiv im Netzwerk",
-  performing: "Aktiv · Performance",
-  rejected: "Review abgeschlossen",
-  paused: "Pausiert",
-};
-
 function clampPercent(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function completedSteps(steps: readonly CreatorOnboardingStep[]): number {
+  return steps.filter((step) => step.state === "complete").length;
 }
 
 export function buildCreatorOnboardingModel(
@@ -65,15 +63,22 @@ export function buildCreatorOnboardingModel(
   qualification: CreatorQualification | null,
 ): CreatorOnboardingModel {
   if (!profileResult.ok) {
+    const steps: CreatorOnboardingStep[] = [
+      { id: "account", label: "GMVGANG Account", detail: "Account ist aktiv.", state: "complete" },
+      { id: "profile", label: "Creator-Profil", detail: "Profil konnte noch nicht vollständig geladen werden.", state: "current" },
+      { id: "qualification", label: "Qualifizierung", detail: "Wird nach dem Profil freigeschaltet.", state: "pending" },
+      { id: "network", label: "Netzwerkfreigabe", detail: "Erfolgt nach der Qualifizierung.", state: "pending" },
+    ];
+
     return {
-      overallProgress: 25,
-      lifecycleLabel: "Creator-Profil erforderlich",
-      steps: [
-        { id: "account", label: "GMVGANG Account", detail: "Account ist aktiv.", state: "complete" },
-        { id: "profile", label: "Creator-Profil", detail: "Profil konnte noch nicht vollständig geladen werden.", state: "current" },
-        { id: "qualification", label: "Qualifizierung", detail: "Wird nach dem Profil freigeschaltet.", state: "pending" },
-        { id: "network", label: "Netzwerkfreigabe", detail: "Erfolgt nach der Qualifizierung.", state: "pending" },
-      ],
+      setupCompletedSteps: completedSteps(steps),
+      setupTotalSteps: 4,
+      profileCompletionPercent: null,
+      profileCompletionLabel: "Profilstatus konnte gerade nicht geladen werden.",
+      networkStatusLabel: "Noch nicht verfügbar",
+      networkStatusDescription: "Der Netzwerkstatus wird angezeigt, sobald dein Creator-Profil verfügbar ist.",
+      networkStatusTone: "pending",
+      steps,
       nextAction: {
         label: "Creator-Profil öffnen",
         description: "Prüfe deine Creator-Basisdaten und vervollständige dein Profil.",
@@ -87,29 +92,47 @@ export function buildCreatorOnboardingModel(
   const profileDone = profileProgress === 100 || profile.networkStatus !== "registered";
   const qualificationDone = qualification !== null || PROGRESSED_AFTER_QUALIFICATION.has(profile.networkStatus);
   const networkApproved = NETWORK_APPROVED.has(profile.networkStatus);
-
-  const overallProgress = clampPercent(
-    25 +
-    (profileProgress * 0.25) +
-    (qualificationDone ? 25 : 0) +
-    (networkApproved ? 25 : 0),
-  );
+  const networkPresentation = creatorNetworkStatusPresentation(profile.networkStatus);
 
   let networkState: CreatorOnboardingStepState = "pending";
-  let networkDetail = "Wird nach der Qualifizierung geprüft.";
   if (networkApproved) {
     networkState = "complete";
-    networkDetail = "GMVGANG Netzwerkstatus ist freigegeben.";
-  } else if (profile.networkStatus === "rejected") {
+  } else if (profile.networkStatus === "rejected" || profile.networkStatus === "paused") {
     networkState = "attention";
-    networkDetail = "Review abgeschlossen; aktuell keine Netzwerkfreigabe.";
-  } else if (profile.networkStatus === "paused") {
-    networkState = "attention";
-    networkDetail = "Der Creator-Status ist aktuell pausiert.";
   } else if (qualificationDone) {
     networkState = "current";
-    networkDetail = "Deine Angaben liegen vor und werden von GMVGANG geprüft.";
   }
+
+  const steps: CreatorOnboardingStep[] = [
+    {
+      id: "account",
+      label: "GMVGANG Account",
+      detail: "Account ist aktiv und der Creator-Rolle zugeordnet.",
+      state: "complete",
+    },
+    {
+      id: "profile",
+      label: "Creator-Profil",
+      detail: profileDone
+        ? "Profilphase ist abgeschlossen."
+        : `${profileProgress}% der Basisdaten sind vollständig.`,
+      state: profileDone ? "complete" : "current",
+    },
+    {
+      id: "qualification",
+      label: "Qualifizierung",
+      detail: qualificationDone
+        ? "Runde 2 wurde eingereicht."
+        : "Shop-, Content- und Umsetzungsdaten fehlen noch.",
+      state: qualificationDone ? "complete" : profileDone ? "current" : "pending",
+    },
+    {
+      id: "network",
+      label: "Netzwerkfreigabe",
+      detail: networkPresentation.description,
+      state: networkState,
+    },
+  ];
 
   let nextAction: CreatorOnboardingAction;
   if (!profileDone) {
@@ -154,34 +177,14 @@ export function buildCreatorOnboardingModel(
   }
 
   return {
-    overallProgress,
-    lifecycleLabel: LIFECYCLE_LABELS[profile.networkStatus],
-    steps: [
-      {
-        id: "account",
-        label: "GMVGANG Account",
-        detail: "Account ist aktiv und der Creator-Rolle zugeordnet.",
-        state: "complete",
-      },
-      {
-        id: "profile",
-        label: "Creator-Profil",
-        detail: profileDone ? "Basisprofil ist vollständig." : `${profileProgress}% der Basisdaten sind vollständig.`,
-        state: profileDone ? "complete" : "current",
-      },
-      {
-        id: "qualification",
-        label: "Qualifizierung",
-        detail: qualificationDone ? "Runde 2 wurde eingereicht." : "Shop-, Content- und Umsetzungsdaten fehlen noch.",
-        state: qualificationDone ? "complete" : profileDone ? "current" : "pending",
-      },
-      {
-        id: "network",
-        label: "Netzwerkfreigabe",
-        detail: networkDetail,
-        state: networkState,
-      },
-    ],
+    setupCompletedSteps: completedSteps(steps),
+    setupTotalSteps: 4,
+    profileCompletionPercent: profileProgress,
+    profileCompletionLabel: "Basisdaten laut deinem Creator-Profil.",
+    networkStatusLabel: networkPresentation.label,
+    networkStatusDescription: networkPresentation.description,
+    networkStatusTone: networkPresentation.tone,
+    steps,
     nextAction,
   };
 }
@@ -198,18 +201,42 @@ export function renderCreatorOnboarding(model: CreatorOnboardingModel): string {
     ? `<a class="button creator-onboarding-action__button" href="${model.nextAction.href}" data-nav>${model.nextAction.label}</a>`
     : `<span class="creator-onboarding-action__status">${model.nextAction.label}</span>`;
 
+  const profileValue = model.profileCompletionPercent === null
+    ? "—"
+    : `${model.profileCompletionPercent}%`;
+
   return `
     <section class="creator-onboarding">
       <div class="creator-onboarding__hero">
         <div>
-          <div class="eyebrow">ONBOARDING PROGRESS</div>
+          <div class="eyebrow">CREATOR SETUP</div>
           <h2>Dein Weg ins GMVGANG Netzwerk.</h2>
-          <p>${model.lifecycleLabel}</p>
+          <p>Account, Profil, Qualifizierung und Netzwerkfreigabe sind getrennte Statusbereiche.</p>
         </div>
-        <strong class="creator-onboarding__percent">${model.overallProgress}%</strong>
+        <strong class="creator-onboarding__setup-count">
+          <span>${model.setupCompletedSteps}/${model.setupTotalSteps}</span>
+          <small>Schritte</small>
+        </strong>
       </div>
 
-      <progress class="creator-onboarding__progress" value="${model.overallProgress}" max="100">${model.overallProgress}%</progress>
+      <progress
+        class="creator-onboarding__progress"
+        value="${model.setupCompletedSteps}"
+        max="${model.setupTotalSteps}"
+      >${model.setupCompletedSteps} von ${model.setupTotalSteps} Schritten</progress>
+
+      <div class="creator-onboarding__truth-grid">
+        <article class="creator-onboarding-truth">
+          <span>PROFILVOLLSTÄNDIGKEIT</span>
+          <strong>${profileValue}</strong>
+          <p>${model.profileCompletionLabel}</p>
+        </article>
+        <article class="creator-onboarding-truth creator-onboarding-truth--${model.networkStatusTone}">
+          <span>NETWORK STATUS</span>
+          <strong>${model.networkStatusLabel}</strong>
+          <p>${model.networkStatusDescription}</p>
+        </article>
+      </div>
 
       <div class="creator-onboarding__steps">
         ${model.steps.map((step, index) => `

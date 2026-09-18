@@ -23,11 +23,25 @@
   color: var(--muted);
 }
 
-.creator-onboarding__percent {
+.creator-onboarding__setup-count {
+  display: grid;
+  justify-items: end;
   color: var(--yellow);
-  font-size: clamp(2rem, 6vw, 4.25rem);
   line-height: 0.9;
+}
+
+.creator-onboarding__setup-count span {
+  font-size: clamp(2rem, 6vw, 4.25rem);
   letter-spacing: -0.06em;
+}
+
+.creator-onboarding__setup-count small {
+  margin-top: 0.4rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .creator-onboarding__progress {
@@ -47,6 +61,51 @@
 
 .creator-onboarding__progress::-moz-progress-bar {
   background: var(--yellow);
+}
+
+.creator-onboarding__truth-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.creator-onboarding-truth {
+  min-width: 0;
+  padding: 1.2rem;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.creator-onboarding-truth > span {
+  display: block;
+  margin-bottom: 0.75rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.creator-onboarding-truth > strong {
+  display: block;
+  color: var(--white);
+  font-size: clamp(1.45rem, 4vw, 2.15rem);
+  line-height: 1.05;
+}
+
+.creator-onboarding-truth:first-child > strong,
+.creator-onboarding-truth--ready > strong {
+  color: var(--yellow);
+}
+
+.creator-onboarding-truth--attention > strong {
+  color: var(--purple);
+}
+
+.creator-onboarding-truth > p {
+  margin: 0.65rem 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.5;
 }
 
 .creator-onboarding__steps {
@@ -175,6 +234,14 @@
   .creator-onboarding__hero,
   .creator-onboarding-action {
     display: grid;
+  }
+
+  .creator-onboarding__setup-count {
+    justify-items: start;
+  }
+
+  .creator-onboarding__truth-grid {
+    grid-template-columns: 1fr;
   }
 
   .creator-onboarding__steps {
