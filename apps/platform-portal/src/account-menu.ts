@@ -58,7 +58,9 @@ function enhanceAccountMenu(): void {
     signOut.tabIndex = -1;
 
     panel.append(label);
-    if (workspaceSwitcher) panel.append(workspaceSwitcher);
+    if (workspaceSwitcher && window.matchMedia("(max-width: 700px)").matches) {
+      panel.append(workspaceSwitcher);
+    }
     panel.append(password, logout);
     menu.append(trigger, panel);
     controls.append(menu);
