@@ -264,7 +264,7 @@ export function renderCreatorTikTokConnection(
   ].filter((value): value is string => Boolean(value));
 
   const error = response.lastErrorCode
-    ? `<p class="creator-tiktok-connection__error">Statuscode: ${escapeHtml(response.lastErrorCode)}</p>`
+    ? `<p class="creator-tiktok-connection__error">Die letzte TikTok-Aktualisierung wurde nicht erfolgreich abgeschlossen. Nutze die angezeigte Aktion, falls eine erneute Verbindung erforderlich ist.</p>`
     : "";
 
   return `<section class="creator-tiktok-connection creator-tiktok-connection--${response.state}">
