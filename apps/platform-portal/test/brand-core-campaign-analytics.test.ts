@@ -37,6 +37,27 @@ describe("Brand Campaign Core analytics surface", () => {
     expect(result.model.totals.postedCreators).toBe(3);
   });
 
+  it("rejects unknown fields instead of silently widening the browser contract", () => {
+    expect(() => parseBrandCampaignAnalytics({
+      ...payload,
+      model: {
+        ...payload.model,
+        creatorEmail: "private@example.com",
+      },
+    })).toThrow("BRAND_CAMPAIGN_ANALYTICS_MODEL_INVALID");
+
+    expect(() => parseBrandCampaignAnalytics({
+      ...payload,
+      model: {
+        ...payload.model,
+        campaigns: [{
+          ...payload.model.campaigns[0],
+          internalCreatorIds: ["creator-1"],
+        }],
+      },
+    })).toThrow("BRAND_CAMPAIGN_ANALYTICS_CAMPAIGN_INVALID");
+  });
+
   it("rejects profit/contribution fields on this performance-only boundary", () => {
     expect(() => parseBrandCampaignAnalytics({
       ...payload,
@@ -60,6 +81,68 @@ describe("Brand Campaign Core analytics surface", () => {
       ...payload,
       model: { ...payload.model, campaigns: [payload.model.campaigns[0], payload.model.campaigns[0]] },
     })).toThrow("BRAND_CAMPAIGN_ANALYTICS_DUPLICATE_CAMPAIGN");
+  });
+
+  it("fails closed when financial totals or freshness contradict Campaign rows", () => {
+    expect(() => parseBrandCampaignAnalytics({
+      ...payload,
+      model: {
+        ...payload.model,
+        totals: {
+          ...payload.model.totals,
+          gmvCents: 25001,
+        },
+      },
+    })).toThrow("BRAND_CAMPAIGN_ANALYTICS_TOTALS_INCONSISTENT");
+
+    expect(() => parseBrandCampaignAnalytics({
+      ...payload,
+      model: {
+        ...payload.model,
+        generatedAt: "2026-09-18T05:00:00.000Z",
+      },
+    })).toThrow("BRAND_CAMPAIGN_ANALYTICS_FRESHNESS_INVALID");
+  });
+
+  it("allows deduplicated Creator totals but never counts more Creators than Campaign rows provide", () => {
+    const sharedCreatorTotals = parseBrandCampaignAnalytics({
+      ...payload,
+      model: {
+        ...payload.model,
+        totals: {
+          ...payload.model.totals,
+          assignedCreators: 3,
+          postedCreators: 2,
+        },
+      },
+    });
+    expect(sharedCreatorTotals.model.totals.assignedCreators).toBe(3);
+
+    expect(() => parseBrandCampaignAnalytics({
+      ...payload,
+      model: {
+        ...payload.model,
+        totals: {
+          ...payload.model.totals,
+          assignedCreators: 5,
+        },
+      },
+    })).toThrow("BRAND_CAMPAIGN_ANALYTICS_CREATOR_COUNTS_INVALID");
+  });
+
+  it("renders canonical economics copy instead of trusting arbitrary server wording", () => {
+    const response = parseBrandCampaignAnalytics({
+      ...payload,
+      model: {
+        ...payload.model,
+        economicsNotice: "Guaranteed profit.",
+      },
+    });
+
+    expect(response.model.economicsNotice).toContain(
+      "keine vollständige Profitabilitätsberechnung",
+    );
+    expect(response.model.economicsNotice).not.toContain("Guaranteed profit");
   });
 
   it("renders Performance ≠ Profit and escapes Campaign names", () => {
