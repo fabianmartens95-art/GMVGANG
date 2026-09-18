@@ -110,9 +110,7 @@ export function renderCreatorQualification(profile: CreatorProfile, qualificatio
         <span class="qualification-version">r2-v3.0</span>
       </div>
 
-      <div id="qualification-message" class="qualification-message" hidden></div>
-
-      <form id="creator-qualification-form" class="qualification-form" novalidate>
+      <form id="creator-qualification-form" class="qualification-form">
         <fieldset>
           <legend>01 · TikTok Shop</legend>
           <label>TikTok Shop für Creator freigeschaltet?
@@ -249,6 +247,7 @@ export function renderCreatorQualification(profile: CreatorProfile, qualificatio
         </fieldset>
 
         <div class="qualification-actions">
+          <div id="qualification-message" class="qualification-message" role="status" aria-live="polite" hidden></div>
           <button class="button" type="submit">${q ? "R2 aktualisieren" : "R2 einreichen"}</button>
           <span>Interne Freigabe erfolgt separat. Diese Selbstauskunft qualifiziert dich nicht automatisch.</span>
         </div>
@@ -285,14 +284,40 @@ export function wireCreatorQualification(port: CreatorQualificationPort): void {
   const live = [...form.querySelectorAll<HTMLInputElement>('input[name="contentFormats"]')];
   const violation = form.elements.namedItem("violationStatus") as HTMLSelectElement | null;
   const message = document.querySelector<HTMLElement>("#qualification-message");
+  const shopGmvSelect = form.elements.namedItem("shopGmv30dBand") as HTMLSelectElement | null;
+  const liveExperience = form.elements.namedItem("liveExperience") as HTMLSelectElement | null;
+  const liveFrequency = form.elements.namedItem("liveFrequency") as HTMLSelectElement | null;
+  const liveConcurrentViewers = form.elements.namedItem("liveConcurrentViewers") as HTMLSelectElement | null;
+  const violationReasonInput = form.elements.namedItem("violationReason") as HTMLTextAreaElement | null;
 
   const refreshConditional = () => {
     const shopGmv = form.querySelector<HTMLElement>("[data-shop-gmv]");
-    if (shopGmv) shopGmv.hidden = shop?.value !== "yes";
+    const shopRequiresGmv = shop?.value === "yes";
+    if (shopGmv) shopGmv.hidden = !shopRequiresGmv;
+    if (shopGmvSelect) {
+      shopGmvSelect.disabled = !shopRequiresGmv;
+      shopGmvSelect.required = shopRequiresGmv;
+      if (!shopRequiresGmv) shopGmvSelect.value = "";
+    }
+
     const liveFields = form.querySelector<HTMLElement>("[data-live-fields]");
-    if (liveFields) liveFields.hidden = !live.some((input) => input.value === "live_shopping" && input.checked);
+    const hasLiveShopping = live.some((input) => input.value === "live_shopping" && input.checked);
+    if (liveFields) liveFields.hidden = !hasLiveShopping;
+    for (const field of [liveExperience, liveFrequency, liveConcurrentViewers]) {
+      if (!field) continue;
+      field.disabled = !hasLiveShopping;
+      field.required = hasLiveShopping;
+      if (!hasLiveShopping) field.value = "";
+    }
+
     const violationReason = form.querySelector<HTMLElement>("[data-violation-reason]");
-    if (violationReason) violationReason.hidden = !violation?.value || violation.value === "none";
+    const needsViolationReason = Boolean(violation?.value && violation.value !== "none");
+    if (violationReason) violationReason.hidden = !needsViolationReason;
+    if (violationReasonInput) {
+      violationReasonInput.disabled = !needsViolationReason;
+      violationReasonInput.required = needsViolationReason;
+      if (!needsViolationReason) violationReasonInput.value = "";
+    }
   };
 
   shop?.addEventListener("change", refreshConditional);
@@ -305,9 +330,19 @@ export function wireCreatorQualification(port: CreatorQualificationPort): void {
     const input = values(form);
     if (!input) {
       if (message) {
+        const data = new FormData(form);
+        const contentFormats = data.getAll("contentFormats");
+        const contentCategories = data.getAll("contentCategories");
         message.hidden = false;
         message.dataset.tone = "error";
-        message.textContent = "Bitte prüfe die Pflichtfelder, LIVE-Angaben, Kategorien und mögliche Warnhinweise.";
+        message.textContent = contentFormats.length === 0
+          ? "Bitte mindestens ein Content-Format auswählen."
+          : contentCategories.length === 0
+            ? "Bitte mindestens eine Produktkategorie auswählen."
+            : contentCategories.length > 3
+              ? "Bitte höchstens drei Produktkategorien auswählen."
+              : "Bitte prüfe die markierten Pflichtfelder, LIVE-Angaben und mögliche Warnhinweise.";
+        message.scrollIntoView({ behavior: "smooth", block: "center" });
       }
       return;
     }

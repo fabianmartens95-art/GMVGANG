@@ -48,6 +48,9 @@ describe("creator qualification module", () => {
   it("renders the native R2 form for profile-complete creators", () => {
     const html = renderCreatorQualification(profile("profile_complete"), qualification);
     expect(html).toContain('id="creator-qualification-form"');
+    expect(html).not.toContain("novalidate");
+    expect(html).toContain('aria-live="polite"');
+    expect(html.indexOf('id="qualification-message"')).toBeGreaterThan(html.indexOf('class="qualification-actions"'));
     expect(html).toContain("r2-v3.0");
     expect(html).toContain('value="500_2500" selected');
     expect(html).toContain("Noch keine Adresse, Bank-, Steuer- oder Ausweisdaten");
