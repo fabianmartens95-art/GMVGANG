@@ -35,7 +35,7 @@ begin
   if not exists (
     select 1 from pg_indexes
     where schemaname = 'public'
-      and indexname = 'platform_audit_events_organization_id_idx'
+      and indexname = 'platform_audit_events_org_occurred_idx'
   ) then
     raise exception 'VERIFY_PLATFORM_AUDIT_ORGANIZATION_INDEX_MISSING';
   end if;
