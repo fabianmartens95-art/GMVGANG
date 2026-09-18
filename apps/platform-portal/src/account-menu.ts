@@ -1,4 +1,5 @@
 import "./account-menu.css";
+import "./workspace-switcher.css";
 
 function closeOtherMenus(active: HTMLDetailsElement): void {
   document.querySelectorAll<HTMLDetailsElement>("details.account-menu[open]").forEach((menu) => {
@@ -12,6 +13,7 @@ function enhanceAccountMenu(): void {
 
     const chip = controls.querySelector<HTMLElement>(".session-chip");
     const signOut = controls.querySelector<HTMLButtonElement>("#sign-out");
+    const workspaceSwitcher = controls.querySelector<HTMLElement>(".workspace-switcher");
     if (!chip || !signOut) return;
 
     const menu = document.createElement("details");
@@ -56,7 +58,9 @@ function enhanceAccountMenu(): void {
     signOut.setAttribute("aria-hidden", "true");
     signOut.tabIndex = -1;
 
-    panel.append(label, password, logout);
+    panel.append(label);
+    if (workspaceSwitcher) panel.append(workspaceSwitcher);
+    panel.append(password, logout);
     menu.append(trigger, panel);
     controls.append(menu);
     controls.dataset.accountMenuEnhanced = "true";
