@@ -4,6 +4,13 @@ const nav = [
   ['/ueber-gmvgang/', 'Über GMVGANG'],
 ];
 
+const legalNav = [
+  ['/', 'Startseite'],
+  ['/impressum/', 'Impressum'],
+  ['/terms/', 'Nutzungsbedingungen'],
+  ['/privacy/', 'Datenschutz'],
+];
+
 const cards = (items) => `<div class="card-grid">${items
   .map(([title, text]) => `<article class="card"><h3>${title}</h3><p>${text}</p></article>`)
   .join('')}</div>`;
@@ -343,6 +350,7 @@ export const pages = [
   },
   {
     path: '/impressum/',
+    layout: 'legal',
     title: 'Impressum | GMVGANG',
     description: 'Anbieterkennzeichnung von GMVGANG.',
     eyebrow: 'Rechtliche Angaben',
@@ -363,6 +371,7 @@ export const pages = [
   },
   {
     path: '/datenschutz/',
+    layout: 'legal',
     title: 'Datenschutz | GMVGANG',
     description: 'Datenschutzhinweise für die GMVGANG Website, Plattform und freiwillige TikTok-Kontoverknüpfung.',
     eyebrow: 'Datenschutzhinweise',
@@ -373,6 +382,7 @@ export const pages = [
   },
   {
     path: '/privacy/',
+    layout: 'legal',
     title: 'Privacy Policy | GMVGANG',
     description: 'Datenschutzhinweise für die GMVGANG Website, Plattform und freiwillige TikTok-Kontoverknüpfung.',
     eyebrow: 'Privacy Policy',
@@ -383,6 +393,7 @@ export const pages = [
   },
   {
     path: '/terms/',
+    layout: 'legal',
     title: 'Nutzungsbedingungen | GMVGANG',
     description: 'Nutzungsbedingungen für die GMVGANG Website, Plattform und freiwillige TikTok-Kontoverknüpfung.',
     eyebrow: 'Terms of Service',
@@ -400,6 +411,74 @@ const actionMarkup = (actions = []) => actions.length
 export function renderPage(page) {
   const canonical = `https://gmvgang.de${page.path}`;
   const robots = SITE_INDEXABLE && page.index !== false ? 'index,follow' : 'noindex,nofollow';
+  const isLegal = page.layout === 'legal';
+  const navigation = isLegal ? legalNav : nav;
+  const navigationLabel = isLegal ? 'Rechtliche Navigation' : 'Hauptnavigation';
+
+  const header = `
+    <header class="site-header${isLegal ? ' site-header--legal' : ''}">
+      <div class="shell nav-shell">
+        <a class="brand" href="/" aria-label="GMVGANG Startseite">GMVGANG</a>
+        <button class="menu-button" type="button" aria-expanded="false" aria-controls="main-nav">Menü</button>
+        <nav id="main-nav" class="main-nav${isLegal ? ' main-nav--legal' : ''}" aria-label="${navigationLabel}">
+          ${navigation.map(([href, label]) => `<a href="${href}">${label}</a>`).join('')}
+          ${isLegal ? '' : '<a class="nav-cta" href="/potenzialanalyse/">TikTok Shop Potenzial prüfen</a>'}
+        </nav>
+      </div>
+    </header>
+  `;
+
+  const hero = isLegal
+    ? `
+      <section class="legal-hero">
+        <div class="shell legal-hero-inner">
+          <p class="eyebrow">${page.eyebrow}</p>
+          <h1>${page.heading}</h1>
+          <p class="legal-hero-lead">${page.lead}</p>
+        </div>
+      </section>
+    `
+    : `
+      <section class="hero">
+        <div class="shell hero-grid">
+          <div>
+            <p class="eyebrow">${page.eyebrow}</p>
+            <h1>${page.heading}</h1>
+            <p class="hero-lead">${page.lead}</p>
+            ${actionMarkup(page.actions)}
+            ${page.microcopy ? `<p class="microcopy">${page.microcopy}</p>` : ''}
+          </div>
+          <div class="hero-panel" aria-label="GMVGANG System">
+            <span>Shop</span><b>→</b><span>Creator</span><b>→</b><span>Content</span><b>→</b><span>Scale</span>
+          </div>
+        </div>
+      </section>
+    `;
+
+  const footer = isLegal
+    ? `
+      <footer class="site-footer site-footer--legal">
+        <div class="shell legal-footer">
+          <div><strong>GMVGANG</strong><p>Rechtliche Informationen</p></div>
+          <nav aria-label="Rechtliche Links">
+            <a href="/impressum/">Impressum</a>
+            <a href="/terms/">Nutzungsbedingungen</a>
+            <a href="/privacy/">Datenschutz</a>
+            <a href="/">Zur Website</a>
+          </nav>
+        </div>
+      </footer>
+    `
+    : `
+      <footer class="site-footer">
+        <div class="shell footer-grid">
+          <div><strong>GMVGANG</strong><p>TikTok Shop Growth System</p></div>
+          <div><a href="/brands/">Für Brands</a><a href="/creator/">Creator</a><a href="/ueber-gmvgang/">Über GMVGANG</a></div>
+          <div><a href="/impressum/">Impressum</a><a href="/terms/">Nutzungsbedingungen</a><a href="/privacy/">Datenschutz</a></div>
+        </div>
+      </footer>
+    `;
+
   return `<!doctype html>
 <html lang="de">
 <head>
@@ -416,42 +495,14 @@ export function renderPage(page) {
   <link rel="stylesheet" href="/styles.css">
   <script src="/client.js" defer></script>
 </head>
-<body>
+<body class="${isLegal ? 'page-legal' : 'page-marketing'}">
   <a class="skip-link" href="#main">Zum Inhalt springen</a>
-  <header class="site-header">
-    <div class="shell nav-shell">
-      <a class="brand" href="/" aria-label="GMVGANG Startseite">GMVGANG</a>
-      <button class="menu-button" type="button" aria-expanded="false" aria-controls="main-nav">Menü</button>
-      <nav id="main-nav" class="main-nav" aria-label="Hauptnavigation">
-        ${nav.map(([href, label]) => `<a href="${href}">${label}</a>`).join('')}
-        <a class="nav-cta" href="/potenzialanalyse/">TikTok Shop Potenzial prüfen</a>
-      </nav>
-    </div>
-  </header>
+  ${header}
   <main id="main">
-    <section class="hero">
-      <div class="shell hero-grid">
-        <div>
-          <p class="eyebrow">${page.eyebrow}</p>
-          <h1>${page.heading}</h1>
-          <p class="hero-lead">${page.lead}</p>
-          ${actionMarkup(page.actions)}
-          ${page.microcopy ? `<p class="microcopy">${page.microcopy}</p>` : ''}
-        </div>
-        <div class="hero-panel" aria-label="GMVGANG System">
-          <span>Shop</span><b>→</b><span>Creator</span><b>→</b><span>Content</span><b>→</b><span>Scale</span>
-        </div>
-      </div>
-    </section>
-    <div class="shell">${page.body}</div>
+    ${hero}
+    <div class="${isLegal ? 'legal-content-shell' : 'shell'}">${page.body}</div>
   </main>
-  <footer class="site-footer">
-    <div class="shell footer-grid">
-      <div><strong>GMVGANG</strong><p>TikTok Shop Growth System</p></div>
-      <div><a href="/brands/">Für Brands</a><a href="/creator/">Creator</a><a href="/ueber-gmvgang/">Über GMVGANG</a></div>
-      <div><a href="/impressum/">Impressum</a><a href="/terms/">Nutzungsbedingungen</a><a href="/privacy/">Datenschutz</a></div>
-    </div>
-  </footer>
+  ${footer}
 </body>
 </html>`;
 }
