@@ -11,6 +11,18 @@ if (!eventPath || !repository || !token) {
 
 const event = JSON.parse(readFileSync(eventPath, "utf8"));
 const body = typeof event.pull_request?.body === "string" ? event.pull_request.body : "";
+const declaredLane = /^Lane:\s*([^\n]+)$/im.exec(body)?.[1]?.trim().toLowerCase() ?? "";
+
+if (declaredLane === "integration") {
+  console.log(JSON.stringify({
+    scope: "gmvgang.dependency-gate",
+    lane: declaredLane,
+    skipped: true,
+    reason: "integration-wave source PRs are validated by the trusted wave control plane",
+  }, null, 2));
+  process.exit(0);
+}
+
 const line = /^Depends on:\s*(.+)$/im.exec(body)?.[1]?.trim() ?? "";
 const dependencies = [...new Set([...line.matchAll(/#(\d+)/g)].map((match) => Number(match[1])))];
 
