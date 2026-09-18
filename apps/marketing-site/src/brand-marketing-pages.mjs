@@ -17,7 +17,7 @@ const BRAND_OLD = {
   lead: 'GMVGANG verbindet Strategie, Shop-Setup, Creator, Affiliate, Content, LIVE und Paid Media zu einem nachvollziehbaren Commerce-System.',
 };
 
-const shellPattern = /<\/section>\n    <div class="shell">[\s\S]*?<\/div>\n  <\/main>/;
+const shellPattern = /<\/section>\s*<div class="shell">[\s\S]*?<\/div>\s*<\/main>/;
 
 function injectStylesheet(html) {
   if (html.includes('/brand-product-showcase.css')) return html;
