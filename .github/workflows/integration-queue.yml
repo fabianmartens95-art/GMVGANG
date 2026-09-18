@@ -2,10 +2,8 @@ name: Automatic Integration Queue
 
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["CI", "Parallel Build Guard"]
     types: [completed]
-  pull_request_target:
-    types: [edited, reopened, ready_for_review]
   workflow_dispatch:
 
 permissions:
@@ -39,6 +37,6 @@ jobs:
       - name: Process one safe queue action
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          QUEUE_REQUIRED_CHECK: quality
+          QUEUE_REQUIRED_CHECKS: quality,lane-guard
           QUEUE_BASE_BRANCH: main
         run: node scripts/ci/integration-queue.mjs
