@@ -2,11 +2,9 @@ import { appendFileSync } from "node:fs";
 
 const repository = process.env.GITHUB_REPOSITORY;
 const token = process.env.GITHUB_TOKEN;
-const requiredCheck = process.env.QUEUE_REQUIRED_CHECK;
-const defaultBranch = process.env.QUEUE_BASE_BRANCH || "main";
+const requiredChecks = (process.env.QUEUE_REQUIRED_CHECKS || "")\n  .split(",")\n  .map((value) => value.trim())\n  .filter(Boolean);\nconst defaultBranch = process.env.QUEUE_BASE_BRANCH || "main";
 
-if (!repository || !token || !requiredCheck) {
-  console.error("integration-queue: GITHUB_REPOSITORY, GITHUB_TOKEN and QUEUE_REQUIRED_CHECK are required");
+if (!repository || !token || !requiredChecks.length) {\n  console.error("integration-queue: GITHUB_REPOSITORY, GITHUB_TOKEN and QUEUE_REQUIRED_CHECKS are required");
   process.exit(2);
 }
 
@@ -118,15 +116,17 @@ async function checksReady(sha) {
     if (!previous || Number(check.id) > Number(previous.id)) latest.set(check.name, check);
   }
 
-  const baseline = latest.get(requiredCheck);
-  if (!baseline) {
-    return { ok: false, reason: `required check '${requiredCheck}' has not started` };
-  }
-  if (baseline.status !== "completed") {
-    return { ok: false, reason: `required check '${requiredCheck}' is ${baseline.status}` };
-  }
-  if (baseline.conclusion !== "success") {
-    return { ok: false, reason: `required check '${requiredCheck}' concluded ${baseline.conclusion}` };
+  for (const requiredCheck of requiredChecks) {
+    const required = latest.get(requiredCheck);
+    if (!required) {
+      return { ok: false, reason: `required check '${requiredCheck}' has not started` };
+    }
+    if (required.status !== "completed") {
+      return { ok: false, reason: `required check '${requiredCheck}' is ${required.status}` };
+    }
+    if (required.conclusion !== "success") {
+      return { ok: false, reason: `required check '${requiredCheck}' concluded ${required.conclusion}` };
+    }
   }
 
   const accepted = new Set(["success", "neutral", "skipped"]);
