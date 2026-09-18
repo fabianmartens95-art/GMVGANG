@@ -6,6 +6,7 @@ import {
   renderCreatorOnboarding,
 } from "./creator-onboarding.js";
 import type { CreatorProfileResult } from "./creator-profile.js";
+import { creatorNetworkStatusPresentation } from "./creator-status.js";
 
 function profile(
   networkStatus: "registered" | "profile_complete" | "qualified" | "rejected",
@@ -30,6 +31,13 @@ function profile(
 const submittedQualification = {} as CreatorQualification;
 
 describe("creator onboarding status model", () => {
+  it("keeps raw lifecycle identifiers behind the presentation boundary", () => {
+    const status = creatorNetworkStatusPresentation("profile_complete");
+
+    expect(status.label).toBe("Freigabe ausstehend");
+    expect(status.label).not.toContain("_");
+  });
+
   it("keeps setup progress separate from profile completion", () => {
     const model = buildCreatorOnboardingModel(profile("registered", 40), null);
 
