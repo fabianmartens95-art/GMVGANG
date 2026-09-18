@@ -1,26 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildBrandBillingReadModel } from "./brand-billing-read-model.js";
+import {\n  buildBrandBillingReadModel,\n  type BrandBillingHistoryEntryInput,\n} from "./brand-billing-read-model.js";
 
 const base = {
   organizationId: "org-1",
   billingModel: "revenue_share" as const,
   revenueShareBps: 1500,
   partnerAuthorizationStatus: "authorized" as const,
-  history: [
-    {
-      id: "rev-2026-09",
-      kind: "revenue_share" as const,
-      status: "settled" as const,
-      source: "tiktok_partner_payment" as const,
-      periodStart: "2026-09-01T00:00:00.000Z",
-      periodEnd: "2026-10-01T00:00:00.000Z",
-      recordedAt: "2026-10-02T10:00:00.000Z",
-      amountCents: 12_345,
-      currency: "eur",
-      revenueShareBps: 1500,
-      reference: "partner-settlement-001",
-    },
-  ],
+  history: [HISTORY_ENTRY],
 };
 
 describe("Brand Billing & Revenue Share read model", () => {
@@ -129,7 +115,7 @@ describe("Brand Billing & Revenue Share read model", () => {
     expect(() => buildBrandBillingReadModel({
       ...base,
       history: [{
-        ...base.history[0],
+        ...HISTORY_ENTRY,
         revenueShareBps: null,
       }],
     })).toThrow("BRAND_BILLING_HISTORY_SHARE_REQUIRED");
@@ -137,7 +123,7 @@ describe("Brand Billing & Revenue Share read model", () => {
     expect(() => buildBrandBillingReadModel({
       ...base,
       history: [{
-        ...base.history[0],
+        ...HISTORY_ENTRY,
         kind: "retainer",
         revenueShareBps: 1500,
       }],
@@ -147,23 +133,23 @@ describe("Brand Billing & Revenue Share read model", () => {
   it("fails closed on invalid money, currency, timestamps, and periods", () => {
     expect(() => buildBrandBillingReadModel({
       ...base,
-      history: [{ ...base.history[0], amountCents: -1 }],
+      history: [{ ...HISTORY_ENTRY, amountCents: -1 }],
     })).toThrow("BRAND_BILLING_HISTORY_AMOUNT_INVALID");
 
     expect(() => buildBrandBillingReadModel({
       ...base,
-      history: [{ ...base.history[0], currency: "EURO" }],
+      history: [{ ...HISTORY_ENTRY, currency: "EURO" }],
     })).toThrow("BRAND_BILLING_CURRENCY_INVALID");
 
     expect(() => buildBrandBillingReadModel({
       ...base,
-      history: [{ ...base.history[0], recordedAt: "invalid" }],
+      history: [{ ...HISTORY_ENTRY, recordedAt: "invalid" }],
     })).toThrow("BRAND_BILLING_HISTORY_TIMESTAMP_INVALID");
 
     expect(() => buildBrandBillingReadModel({
       ...base,
       history: [{
-        ...base.history[0],
+        ...HISTORY_ENTRY,
         periodStart: "2026-10-01T00:00:00.000Z",
         periodEnd: "2026-10-01T00:00:00.000Z",
       }],
@@ -173,7 +159,7 @@ describe("Brand Billing & Revenue Share read model", () => {
   it("rejects duplicate history ids", () => {
     expect(() => buildBrandBillingReadModel({
       ...base,
-      history: [base.history[0], { ...base.history[0] }],
+      history: [HISTORY_ENTRY, { ...HISTORY_ENTRY }],
     })).toThrow("BRAND_BILLING_HISTORY_DUPLICATE_ID");
   });
 
