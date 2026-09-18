@@ -59,6 +59,50 @@ function checked(values: readonly string[] | undefined, value: string): string {
   return values?.includes(value) ? " checked" : "";
 }
 
+function qualificationLanguageFromProfile(language: string | undefined): "de" | "en" | "de_en" | "other" {
+  const normalized = language?.trim().toLowerCase() ?? "";
+  if (["de", "deutsch", "german"].includes(normalized)) return "de";
+  if (["en", "englisch", "english"].includes(normalized)) return "en";
+  if (["de_en", "de-en", "de & en", "deutsch & englisch"].includes(normalized)) return "de_en";
+  return "other";
+}
+
+function qualificationCategoriesFromProfile(niches: readonly string[] | undefined): string[] {
+  const mapping: Record<string, string> = {
+    beauty: "beauty",
+    fashion: "fashion",
+    lifestyle: "lifestyle",
+    food: "food",
+    "food-cooking": "food",
+    tech: "tech",
+    technik: "tech",
+    fitness: "fitness",
+    "fitness-sport": "fitness",
+    gaming: "gaming",
+    family: "family",
+    "family-parenting": "family",
+    familie: "family",
+    entertainment: "entertainment",
+    "home_living": "home_living",
+    "home-living": "home_living",
+    "home & living": "home_living",
+    "health_wellness": "health_wellness",
+    "health-wellness": "health_wellness",
+    pets: "pet",
+    pet: "pet",
+  };
+  const mapped = (niches ?? [])
+    .map((value) => mapping[value.trim().toLowerCase()] ?? "other");
+  return [...new Set(mapped)].slice(0, 3);
+}
+
+function contentLanguageLabel(value: "de" | "en" | "de_en" | "other"): string {
+  if (value === "de") return "Deutsch";
+  if (value === "en") return "Englisch";
+  if (value === "de_en") return "Deutsch & Englisch";
+  return "Andere";
+}
+
 export function shouldDisableCategoryOption(checkedCount: number, isChecked: boolean): boolean {
   return checkedCount >= 3 && !isChecked;
 }
@@ -103,6 +147,8 @@ export function renderCreatorQualification(profile: CreatorProfile, qualificatio
   }
 
   const q = qualification;
+  const inheritedContentLanguage = q?.contentLanguage ?? qualificationLanguageFromProfile(profile.language);
+  const inheritedCategories = q?.contentCategories ?? qualificationCategoriesFromProfile(profile.niche);
   return `
     <section class="qualification-shell">
       <div class="qualification-head">
@@ -184,23 +230,21 @@ export function renderCreatorQualification(profile: CreatorProfile, qualificatio
               <option value="mixed"${selected(q?.productionStyle, "mixed")}>Gemischt</option>
             </select>
           </label>
-          <label>Content-Sprache
-            <select name="contentLanguage" required>
-              <option value="">Bitte wählen</option>
-              <option value="de"${selected(q?.contentLanguage, "de")}>Deutsch</option>
-              <option value="en"${selected(q?.contentLanguage, "en")}>Englisch</option>
-              <option value="de_en"${selected(q?.contentLanguage, "de_en")}>Deutsch & Englisch</option>
-              <option value="other"${selected(q?.contentLanguage, "other")}>Andere</option>
-            </select>
-          </label>
+          <div class="qualification-profile-source">
+            <span>Aus deinem Creator-Profil übernommen</span>
+            <strong>Content-Sprache: ${escapeHtml(contentLanguageLabel(inheritedContentLanguage))}</strong>
+            <small>Diese Angabe musst du hier nicht erneut machen.</small>
+            <input type="hidden" name="contentLanguage" value="${escapeHtml(inheritedContentLanguage)}" />
+          </div>
           <div class="qualification-checks qualification-checks--categories">
-            <span>Beste Produktkategorien · 1–3</span>
+            <span>TikTok-Shop Produktkategorien · 1–3</span>
+            <small class="qualification-checks__hint">Deine Profil-Nischen sind vorausgewählt. Ändere die Auswahl nur, wenn deine Shop-Schwerpunkte davon abweichen.</small>
             ${[
               ["beauty", "Beauty"], ["fashion", "Fashion"], ["lifestyle", "Lifestyle"], ["food", "Food"],
               ["tech", "Technik"], ["fitness", "Fitness"], ["gaming", "Gaming"], ["family", "Familie"],
               ["entertainment", "Entertainment"], ["home_living", "Home & Living"], ["health_wellness", "Health & Wellness"],
               ["pet", "Pet"], ["other", "Sonstiges"],
-            ].map(([value, label]) => `<label><input type="checkbox" name="contentCategories" value="${value}"${checked(q?.contentCategories, value ?? "")}> ${label}</label>`).join("")}
+            ].map(([value, label]) => `<label><input type="checkbox" name="contentCategories" value="${value}"${checked(inheritedCategories, value ?? "")}> ${label}</label>`).join("")}
           </div>
           <label>Optional: repräsentatives TikTok-Video
             <input name="representativeVideoUrl" type="url" inputmode="url" placeholder="https://www.tiktok.com/..." value="${escapeHtml(q?.representativeVideoUrl ?? "")}">
