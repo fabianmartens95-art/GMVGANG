@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
@@ -16,6 +17,10 @@ import {
   createRequestSupabaseClient,
   type ResponseMutations,
 } from "./auth.js";
+import {
+  CompanyOsCreatorWorkspaceReadPort,
+  type CompanyOsSnapshotSource,
+} from "./company-os-creator-workspace.js";
 import { loadPlatformServerConfig, type PlatformServerConfig } from "./env.js";
 import {
   createSupabaseIdempotencyClient,
@@ -33,6 +38,8 @@ import { handleTikTokCreatorIntegration } from "./tiktok.js";
 import { requestIdFromHeader, requestLogEntry, withRequestId } from "./request-context.js";
 
 const MAX_REQUEST_BYTES = 1024 * 1024;
+const MAX_SYNC_REQUEST_BYTES = 5_000_000;
+const COMPANY_OS_SYNC_PREFIX = "/api/internal/company-os-sync/";
 const MIME: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
@@ -357,6 +364,32 @@ async function readRequestBody(request: IncomingMessage): Promise<string | undef
   return Buffer.concat(chunks).toString("utf8");
 }
 
+async function readSyncPayload(request: IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of request) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    size += buffer.length;
+    if (size > MAX_SYNC_REQUEST_BYTES) throw new Error("REQUEST_TOO_LARGE");
+    chunks.push(buffer);
+  }
+  const text = Buffer.concat(chunks).toString("utf8");
+  if (!text) throw new Error("COMPANY_OS_SYNC_PAYLOAD_REQUIRED");
+  const parsed: unknown = JSON.parse(text);
+  if (typeof parsed === "string") return JSON.parse(parsed) as unknown;
+  if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+    const body = (parsed as Record<string, unknown>).body;
+    if (typeof body === "string") {
+      try {
+        return JSON.parse(body) as unknown;
+      } catch {
+        return parsed;
+      }
+    }
+  }
+  return parsed;
+}
+
 function webHeaders(request: IncomingMessage): Headers {
   const headers = new Headers();
   for (const [key, raw] of Object.entries(request.headers)) {
@@ -444,13 +477,61 @@ async function writeNodeResponse(response: Response, target: ServerResponse): Pr
   target.end(Buffer.from(await response.arrayBuffer()));
 }
 
+function secureSecretEquals(provided: string | string[] | undefined, expected: string): boolean {
+  if (typeof provided !== "string") return false;
+  const left = Buffer.from(provided);
+  const right = Buffer.from(expected);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
+function syncSource(path: string): CompanyOsSnapshotSource | null {
+  if (!path.startsWith(COMPANY_OS_SYNC_PREFIX)) return null;
+  const source = path.slice(COMPANY_OS_SYNC_PREFIX.length);
+  return source === "creators" || source === "campaigns" || source === "assignments" ? source : null;
+}
+
+async function companyOsSyncResponse(
+  incoming: IncomingMessage,
+  path: string,
+  store: CompanyOsCreatorWorkspaceReadPort | undefined,
+  secret: string | null,
+): Promise<Response | null> {
+  if (!path.startsWith(COMPANY_OS_SYNC_PREFIX)) return null;
+  if (!store || !secret) return json({ error: "not_found" }, 404);
+  if (incoming.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+  if (!secureSecretEquals(incoming.headers["x-company-os-sync-secret"], secret)) {
+    return json({ error: "invalid_sync_secret" }, 401);
+  }
+  const source = syncSource(path);
+  if (!source) return json({ error: "unknown_source" }, 404);
+  if (!incoming.headers["content-type"]?.toLowerCase().includes("application/json")) {
+    return json({ error: "json_required" }, 415);
+  }
+
+  try {
+    const payload = await readSyncPayload(incoming);
+    const syncedAt = new Date().toISOString();
+    const result = store.replaceSource(source, payload, syncedAt);
+    return json({ ok: true, source, rows: result.rows, syncedAt });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "COMPANY_OS_SYNC_FAILED";
+    if (code === "REQUEST_TOO_LARGE") return json({ error: "request_too_large" }, 413);
+    return json({ error: "invalid_payload" }, 400);
+  }
+}
+
 export function createPlatformServer(config: PlatformServerConfig) {
   const creatorOperationsSync = config.notionCreatorSync
     ? new NotionCreatorOperationsSync(config.notionCreatorSync)
     : undefined;
-  const creatorWorkspace = config.notionCreatorWorkspace
-    ? new NotionCreatorWorkspaceReadPort(config.notionCreatorWorkspace)
+  const companyOsCreatorWorkspace = config.companyOsSyncSecret
+    ? new CompanyOsCreatorWorkspaceReadPort()
     : undefined;
+  const creatorWorkspace = companyOsCreatorWorkspace ?? (
+    config.notionCreatorWorkspace
+      ? new NotionCreatorWorkspaceReadPort(config.notionCreatorWorkspace)
+      : undefined
+  );
   const services = createSupabasePlatformApiServices(
     {
       url: config.supabaseUrl,
@@ -494,17 +575,31 @@ export function createPlatformServer(config: PlatformServerConfig) {
     });
 
     try {
+      const syncResponse = await companyOsSyncResponse(
+        incoming,
+        path,
+        companyOsCreatorWorkspace,
+        config.companyOsSyncSecret,
+      );
+      if (syncResponse) {
+        await writeNodeResponse(syncResponse, outgoing);
+        return;
+      }
+
       let request = await webRequest(incoming, config);
       request = withRequestId(request, requestId);
       const url = new URL(request.url);
 
       if (url.pathname === "/health") {
+        const companyOsStatus = companyOsCreatorWorkspace?.sourceStatus();
         await writeNodeResponse(json({
           ok: true,
           service: "gmvgang-platform",
           revision: config.deploymentRevision,
           creatorOperationsSync: creatorOperationsSync ? "configured" : "not_configured",
-          creatorWorkspaceRead: creatorWorkspace ? "configured" : "not_configured",
+          creatorWorkspaceRead: companyOsCreatorWorkspace
+            ? companyOsStatus?.configuredSources.length === 3 ? "company_os_ready" : "company_os_waiting"
+            : creatorWorkspace ? "notion_direct" : "not_configured",
           affiliatePerformanceRead: config.affiliatePerformanceRead ? "configured" : "disabled",
           requestId,
         }), outgoing);

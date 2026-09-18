@@ -19,6 +19,7 @@ export type PlatformServerConfig = {
     token: string;
     assignmentDataSourceId: string;
   } | null;
+  companyOsSyncSecret: string | null;
   affiliatePerformanceRead: BrandAffiliatePerformancePolicy | null;
   tiktokCreatorOAuth: {
     clientKey: string;
@@ -145,6 +146,13 @@ function notionCreatorWorkspace(env: NodeJS.ProcessEnv): PlatformServerConfig["n
   return { token, assignmentDataSourceId };
 }
 
+function companyOsSyncSecret(env: NodeJS.ProcessEnv): string | null {
+  const secret = env.COMPANY_OS_SYNC_SECRET?.trim() ?? "";
+  if (!secret) return null;
+  if (secret.length < 32) throw new Error("COMPANY_OS_SYNC_SECRET_TOO_SHORT");
+  return secret;
+}
+
 function explicitFeatureFlag(value: string | undefined): boolean {
   const cleaned = value?.trim() ?? "";
   if (!cleaned || cleaned === "0") return false;
@@ -237,6 +245,7 @@ export function loadPlatformServerConfig(env: NodeJS.ProcessEnv = process.env): 
     deploymentRevision: deploymentRevision(env),
     notionCreatorSync: notionCreatorSync(env),
     notionCreatorWorkspace: notionCreatorWorkspace(env),
+    companyOsSyncSecret: companyOsSyncSecret(env),
     affiliatePerformanceRead: affiliatePerformanceRead(env),
     tiktokCreatorOAuth: tiktokCreatorOAuth(env, publicOrigin),
     production,

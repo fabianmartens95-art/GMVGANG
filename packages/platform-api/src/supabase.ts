@@ -220,8 +220,17 @@ export function createSupabasePlatformApiServices(
       if (!options.creatorWorkspace) {
         return unavailableCreatorWorkspaceReadModel(input.now, "source_not_configured");
       }
-      const source = await options.creatorWorkspace.readForCreator({ creatorMasterId, now: input.now });
-      return buildCreatorWorkspaceReadModel(source, input.now);
+      try {
+        const source = await options.creatorWorkspace.readForCreator({ creatorMasterId, now: input.now });
+        return buildCreatorWorkspaceReadModel(source, input.now);
+      } catch (error) {
+        const code = error instanceof Error ? (error.message.split(":", 1)[0] ?? "") : "";
+        if (code.startsWith("COMPANY_OS_CREATOR_WORKSPACE_")) {
+          console.warn("GMVGANG_CREATOR_WORKSPACE_SOURCE_UNAVAILABLE", { code });
+          return unavailableCreatorWorkspaceReadModel(input.now, "source_not_configured");
+        }
+        throw error;
+      }
     },
     async registerCreator(input, context) {
       const result = await registerCreator(input, context, registrationPorts);
