@@ -7,6 +7,7 @@ permissions:
   contents: read
   issues: write
 
+# Dedicated Continuous Autonomous Wave Execution signal bus: issue #285.
 concurrency:
   group: w3-production-security-gate
   cancel-in-progress: false
