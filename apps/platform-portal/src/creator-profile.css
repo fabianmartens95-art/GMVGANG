@@ -75,7 +75,8 @@
   color: var(--muted);
 }
 
-.creator-profile-form input {
+.creator-profile-form input,
+.creator-profile-form select {
   width: 100%;
   box-sizing: border-box;
   padding: 0.8rem 0.9rem;
@@ -83,6 +84,88 @@
   background: var(--background);
   color: var(--text);
   font: inherit;
+}
+
+.creator-profile-form select {
+  min-height: 3rem;
+  cursor: pointer;
+}
+
+.creator-profile-form select:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.creator-profile-niches {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.creator-profile-niches legend {
+  margin: 0 0 0.15rem;
+  padding: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.creator-profile-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.creator-profile-tag {
+  position: relative;
+  display: inline-flex !important;
+  gap: 0 !important;
+  cursor: pointer;
+}
+
+.creator-profile-tag input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.creator-profile-tag span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.4rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  background: var(--background);
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.creator-profile-tag input:checked + span {
+  border-color: var(--yellow);
+  background: color-mix(in srgb, var(--yellow) 12%, var(--background));
+  color: var(--text);
+}
+
+.creator-profile-tag input:focus-visible + span {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+.creator-profile-tag input:disabled + span {
+  cursor: not-allowed;
+  opacity: 0.72;
 }
 
 .creator-profile-form small {

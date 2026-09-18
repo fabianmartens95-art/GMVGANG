@@ -72,6 +72,59 @@ const CREATOR_NETWORK_STATUSES: readonly CreatorPortalNetworkStatus[] = [
   "paused",
 ];
 
+type CreatorProfileOption = {
+  value: string;
+  label: string;
+};
+
+const CREATOR_MARKETS: readonly CreatorProfileOption[] = [
+  { value: "DE", label: "Deutschland" },
+  { value: "AT", label: "Österreich" },
+  { value: "CH", label: "Schweiz" },
+  { value: "FR", label: "Frankreich" },
+  { value: "IT", label: "Italien" },
+  { value: "ES", label: "Spanien" },
+  { value: "NL", label: "Niederlande" },
+  { value: "BE", label: "Belgien" },
+  { value: "PL", label: "Polen" },
+  { value: "GB", label: "Vereinigtes Königreich" },
+  { value: "IE", label: "Irland" },
+  { value: "INT", label: "International / mehrere Märkte" },
+];
+
+const CREATOR_LANGUAGES: readonly CreatorProfileOption[] = [
+  { value: "de", label: "Deutsch" },
+  { value: "en", label: "Englisch" },
+  { value: "fr", label: "Französisch" },
+  { value: "it", label: "Italienisch" },
+  { value: "es", label: "Spanisch" },
+  { value: "nl", label: "Niederländisch" },
+  { value: "pl", label: "Polnisch" },
+  { value: "tr", label: "Türkisch" },
+  { value: "ar", label: "Arabisch" },
+  { value: "other", label: "Andere Sprache" },
+];
+
+const CREATOR_NICHES: readonly CreatorProfileOption[] = [
+  { value: "beauty", label: "Beauty" },
+  { value: "fashion", label: "Fashion" },
+  { value: "lifestyle", label: "Lifestyle" },
+  { value: "fitness-sport", label: "Fitness & Sport" },
+  { value: "food-cooking", label: "Food & Kochen" },
+  { value: "home-living", label: "Home & Living" },
+  { value: "tech", label: "Tech" },
+  { value: "gaming", label: "Gaming" },
+  { value: "family-parenting", label: "Familie & Parenting" },
+  { value: "health-wellness", label: "Health & Wellness" },
+  { value: "travel", label: "Travel" },
+  { value: "automotive", label: "Automotive" },
+  { value: "pets", label: "Pets" },
+  { value: "finance-business", label: "Finance & Business" },
+  { value: "education", label: "Education" },
+  { value: "entertainment", label: "Entertainment" },
+  { value: "diy-crafts", label: "DIY & Crafts" },
+];
+
 export function parseCreatorProfileResult(payload: unknown): CreatorProfileResult {
   if (!isRecord(payload) || typeof payload.ok !== "boolean") throw new Error("CREATOR_PROFILE_PAYLOAD_INVALID");
   if (!payload.ok) {
@@ -172,6 +225,46 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#039;");
 }
 
+function renderProfileSelectOptions(options: readonly CreatorProfileOption[], currentValue: string | undefined): string {
+  const current = currentValue?.trim() ?? "";
+  const known = options.some((option) => option.value.toLowerCase() === current.toLowerCase());
+  const currentOption = current && !known
+    ? [{ value: current, label: `${current} (bestehend)` }]
+    : [];
+
+  return [
+    '<option value="">Bitte auswählen</option>',
+    ...currentOption,
+    ...options,
+  ].map((option) => {
+    if (typeof option === "string") return option;
+    const selected = current && option.value.toLowerCase() === current.toLowerCase() ? " selected" : "";
+    return `<option value="${escapeHtml(option.value)}"${selected}>${escapeHtml(option.label)}</option>`;
+  }).join("");
+}
+
+function renderNicheTags(selectedNiches: readonly string[], disabled: boolean): string {
+  const selected = new Set(selectedNiches.map((item) => item.trim().toLowerCase()).filter(Boolean));
+  const knownValues = new Set(CREATOR_NICHES.map((option) => option.value.toLowerCase()));
+  const legacyOptions = [...selectedNiches.reduce((options, item) => {
+    const value = item.trim();
+    const key = value.toLowerCase();
+    if (value && !knownValues.has(key) && !options.has(key)) {
+      options.set(key, { value, label: `${value} (bestehend)` });
+    }
+    return options;
+  }, new Map<string, CreatorProfileOption>()).values()];
+
+  return [...CREATOR_NICHES, ...legacyOptions].map((option) => {
+    const checked = selected.has(option.value.toLowerCase()) ? " checked" : "";
+    const lock = disabled ? ' disabled aria-disabled="true"' : "";
+    return `<label class="creator-profile-tag">
+      <input type="checkbox" name="niche" value="${escapeHtml(option.value)}"${checked}${lock} />
+      <span>${escapeHtml(option.label)}</span>
+    </label>`;
+  }).join("");
+}
+
 function profileError(code: string): string {
   const labels: Record<string, string> = {
     creator_profile_not_found: "Für diesen Account wurde noch kein Creator-Profil angelegt.",
@@ -201,8 +294,15 @@ export function renderCreatorProfile(result: CreatorProfileResult): string {
 
   const profile = result.creatorProfile;
   const verified = profile.networkStatus !== "registered";
-  const locked = verified ? ' readonly aria-readonly="true"' : "";
+  const textLocked = verified ? ' readonly aria-readonly="true"' : "";
+  const selectLocked = verified ? ' disabled aria-disabled="true"' : "";
   const verifiedHint = verified ? '<small>Verifiziert · Änderung nur über GMVGANG Review.</small>' : "";
+  const selectedNiches = profile.niche ?? [];
+  const lockedMarketValue = verified ? `<input type="hidden" name="market" value="${escapeHtml(profile.market ?? "")}" />` : "";
+  const lockedLanguageValue = verified ? `<input type="hidden" name="language" value="${escapeHtml(profile.language ?? "")}" />` : "";
+  const lockedNicheValues = verified
+    ? selectedNiches.map((item) => `<input type="hidden" name="niche" value="${escapeHtml(item)}" />`).join("")
+    : "";
 
   return `<section class="creator-profile-shell">
     <div class="creator-profile-summary">
@@ -222,7 +322,7 @@ export function renderCreatorProfile(result: CreatorProfileResult): string {
     <form id="creator-profile-form" class="creator-profile-form" novalidate>
       <label>
         <span>TikTok Username *</span>
-        <input name="tiktokHandle" value="${escapeHtml(profile.tiktokHandle)}" required minlength="2" maxlength="25" autocomplete="off"${locked} />
+        <input name="tiktokHandle" value="${escapeHtml(profile.tiktokHandle)}" required minlength="2" maxlength="25" autocomplete="off"${textLocked} />
         ${verifiedHint}
       </label>
       <label>
@@ -232,19 +332,28 @@ export function renderCreatorProfile(result: CreatorProfileResult): string {
       </label>
       <label>
         <span>Markt *</span>
-        <input name="market" value="${escapeHtml(profile.market ?? "")}" required placeholder="DE" autocomplete="country"${locked} />
+        ${lockedMarketValue}
+        <select name="market" required autocomplete="country"${selectLocked}>
+          ${renderProfileSelectOptions(CREATOR_MARKETS, profile.market)}
+        </select>
         ${verifiedHint}
       </label>
       <label>
         <span>Content-Sprache *</span>
-        <input name="language" value="${escapeHtml(profile.language ?? "")}" required placeholder="de"${locked} />
+        ${lockedLanguageValue}
+        <select name="language" required${selectLocked}>
+          ${renderProfileSelectOptions(CREATOR_LANGUAGES, profile.language)}
+        </select>
         ${verifiedHint}
       </label>
-      <label class="creator-profile-form__wide">
-        <span>Kategorien / Nischen *</span>
-        <input name="niche" value="${escapeHtml((profile.niche ?? []).join(", "))}" required placeholder="Beauty, Fashion, Lifestyle"${locked} />
-        ${verified ? verifiedHint : "<small>Mehrere Kategorien mit Komma trennen.</small>"}
-      </label>
+      <fieldset class="creator-profile-form__wide creator-profile-niches">
+        <legend>Kategorien / Nischen *</legend>
+        ${lockedNicheValues}
+        <div class="creator-profile-tags" role="group" aria-label="Kategorien und Nischen">
+          ${renderNicheTags(selectedNiches, verified)}
+        </div>
+        ${verified ? verifiedHint : "<small>Wähle alle Schlagwörter aus, die zu deinem Content passen.</small>"}
+      </fieldset>
       <div class="creator-profile-form__actions creator-profile-form__wide">
         <button type="submit" class="creator-profile-submit">${verified ? "Anzeigename speichern" : "Profil speichern"}</button>
         <div id="creator-profile-result" class="creator-profile-result" aria-live="polite"></div>
@@ -271,10 +380,17 @@ export function wireCreatorProfile(port: CreatorProfilePort): void {
 
     const data = new FormData(form);
     const button = form.querySelector<HTMLButtonElement>("button[type=submit]");
-    const niche = String(data.get("niche") ?? "")
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
+    const niche = [...data.getAll("niche").reduce((values, item) => {
+      const value = String(item).trim();
+      const key = value.toLowerCase();
+      if (value && !values.has(key)) values.set(key, value);
+      return values;
+    }, new Map<string, string>()).values()];
+
+    if (niche.length === 0) {
+      result.textContent = "Bitte wähle mindestens eine Kategorie oder Nische aus.";
+      return;
+    }
 
     const input: CreatorProfileCompletionCommand = {
       tiktokHandle: String(data.get("tiktokHandle") ?? ""),
