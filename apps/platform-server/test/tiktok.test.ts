@@ -45,6 +45,17 @@ describe("TikTok Creator integration helpers", () => {
     });
 
     expect(existingTikTokConnectionTokenFields(null)).toEqual({});
+    expect(existingTikTokConnectionTokenFields({
+      access_token_secret_ref: null,
+      refresh_token_secret_ref: null,
+      access_token_expires_at: null,
+      refresh_token_expires_at: null,
+    })).toEqual({
+      access_token_secret_ref: null,
+      refresh_token_secret_ref: null,
+      access_token_expires_at: null,
+      refresh_token_expires_at: null,
+    });
   });
 
   it("only requests profile and stats fields when the corresponding scopes were granted", () => {
