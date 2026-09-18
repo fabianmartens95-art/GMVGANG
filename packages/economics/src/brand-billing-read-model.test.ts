@@ -1,6 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {\n  buildBrandBillingReadModel,\n  type BrandBillingHistoryEntryInput,\n} from "./brand-billing-read-model.js";
 
+const HISTORY_ENTRY: BrandBillingHistoryEntryInput = {
+  id: "rev-2026-09",
+  kind: "revenue_share",
+  status: "settled",
+  source: "tiktok_partner_payment",
+  periodStart: "2026-09-01T00:00:00.000Z",
+  periodEnd: "2026-10-01T00:00:00.000Z",
+  recordedAt: "2026-10-02T10:00:00.000Z",
+  amountCents: 12_345,
+  currency: "eur",
+  revenueShareBps: 1500,
+  reference: "partner-settlement-001",
+};
+
 const base = {
   organizationId: "org-1",
   billingModel: "revenue_share" as const,
