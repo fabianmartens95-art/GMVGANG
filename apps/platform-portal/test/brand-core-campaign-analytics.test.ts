@@ -104,19 +104,45 @@ describe("Brand Campaign Core analytics surface", () => {
     })).toThrow("BRAND_CAMPAIGN_ANALYTICS_FRESHNESS_INVALID");
   });
 
-  it("allows deduplicated Creator totals but never counts more Creators than Campaign rows provide", () => {
+  it("bounds deduplicated Creator totals between max Campaign count and summed Campaign counts", () => {
+    const secondCampaign = {
+      ...payload.model.campaigns[0],
+      campaignId: "campaign-2",
+      campaignName: "Launch B",
+      gmvCents: 5000,
+      orders: 2,
+      recordedCommissionCents: 750,
+      assignedCreators: 3,
+      postedCreators: 2,
+      performanceUpdatedAt: "2026-09-18T05:45:00.000Z",
+    };
+
     const sharedCreatorTotals = parseBrandCampaignAnalytics({
+      ...payload,
+      model: {
+        ...payload.model,
+        totals: {
+          gmvCents: 30000,
+          orders: 12,
+          recordedCommissionCents: 4500,
+          assignedCreators: 5,
+          postedCreators: 4,
+        },
+        campaigns: [payload.model.campaigns[0], secondCampaign],
+      },
+    });
+    expect(sharedCreatorTotals.model.totals.assignedCreators).toBe(5);
+
+    expect(() => parseBrandCampaignAnalytics({
       ...payload,
       model: {
         ...payload.model,
         totals: {
           ...payload.model.totals,
           assignedCreators: 3,
-          postedCreators: 2,
         },
       },
-    });
-    expect(sharedCreatorTotals.model.totals.assignedCreators).toBe(3);
+    })).toThrow("BRAND_CAMPAIGN_ANALYTICS_CREATOR_COUNTS_INVALID");
 
     expect(() => parseBrandCampaignAnalytics({
       ...payload,
