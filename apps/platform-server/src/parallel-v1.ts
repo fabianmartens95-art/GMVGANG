@@ -228,11 +228,13 @@ async function readWorkspace(request: Request, deps: ParallelV1Dependencies): Pr
         .eq("creator_profile_id", auth.creatorProfileId)
         .order("updated_at", { ascending: false })
         .limit(100),
-      deps.adminClient
-        .from("creator_tiktok_connections")
-        .select("status,username,display_name,avatar_url,is_verified,granted_scopes,follower_count,following_count,likes_count,video_count,connected_at,last_synced_at")
-        .eq("creator_profile_id", auth.creatorProfileId)
-        .maybeSingle(),
+      deps.tiktokConfigured
+        ? deps.adminClient
+            .from("creator_tiktok_connections")
+            .select("status,username,display_name,avatar_url,is_verified,granted_scopes,follower_count,following_count,likes_count,video_count,connected_at,last_synced_at")
+            .eq("creator_profile_id", auth.creatorProfileId)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
     ]);
     if (onboarding.error || assignments.error || tiktokConnection.error) throw new Error("CREATOR_WORKSPACE_READ_FAILED");
 
@@ -400,12 +402,15 @@ async function mutateWorkspace(request: Request, deps: ParallelV1Dependencies): 
     if (formats.some((item) => !CONTENT_FORMATS.has(item)) || formats.length > 8) throw new Error("INVALID_CONTENT_FORMATS");
     const liveStatus = String(payload.liveStatus ?? "unknown");
     if (!LIVE_STATUSES.has(liveStatus)) throw new Error("INVALID_LIVE_STATUS");
-    const { data: tiktokConnection, error: tiktokError } = await deps.adminClient
-      .from("creator_tiktok_connections")
-      .select("status,follower_count,last_synced_at")
-      .eq("creator_profile_id", auth.creatorProfileId)
-      .maybeSingle();
-    if (tiktokError) throw new Error("TIKTOK_CONNECTION_READ_FAILED");
+    const tiktokResult = deps.tiktokConfigured
+      ? await deps.adminClient
+          .from("creator_tiktok_connections")
+          .select("status,follower_count,last_synced_at")
+          .eq("creator_profile_id", auth.creatorProfileId)
+          .maybeSingle()
+      : { data: null, error: null };
+    if (tiktokResult.error) throw new Error("TIKTOK_CONNECTION_READ_FAILED");
+    const tiktokConnection = tiktokResult.data;
 
     const verifiedFollowerCount = tiktokConnection?.status === "connected"
       && typeof tiktokConnection.follower_count === "number"
@@ -424,21 +429,23 @@ async function mutateWorkspace(request: Request, deps: ParallelV1Dependencies): 
       contentFormats: formats,
       liveStatus,
     });
+    const onboardingPayload: Record<string, unknown> = {
+      creator_profile_id: auth.creatorProfileId,
+      follower_count: followerCount,
+      content_formats: formats,
+      live_status: liveStatus,
+      onboarding_status: completion.percent === 100 ? "complete" : "in_progress",
+      onboarding_completion_percent: completion.percent,
+      next_best_action: completion.next,
+    };
+    if (followerSource === "tiktok") {
+      onboardingPayload.follower_count_source = "tiktok";
+      onboardingPayload.follower_count_verified_at = tiktokConnection?.last_synced_at ?? deps.now;
+    }
+
     const { data, error } = await deps.adminClient
       .from("creator_onboarding")
-      .upsert({
-        creator_profile_id: auth.creatorProfileId,
-        follower_count: followerCount,
-        follower_count_source: followerSource,
-        follower_count_verified_at: followerSource === "tiktok"
-          ? (tiktokConnection?.last_synced_at ?? deps.now)
-          : null,
-        content_formats: formats,
-        live_status: liveStatus,
-        onboarding_status: completion.percent === 100 ? "complete" : "in_progress",
-        onboarding_completion_percent: completion.percent,
-        next_best_action: completion.next,
-      }, { onConflict: "creator_profile_id" })
+      .upsert(onboardingPayload, { onConflict: "creator_profile_id" })
       .select("*")
       .single();
     if (error) throw new Error("CREATOR_ONBOARDING_WRITE_FAILED");
