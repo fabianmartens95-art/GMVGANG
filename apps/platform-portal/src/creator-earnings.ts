@@ -134,6 +134,9 @@ export function parseCreatorEarningsResponse(payload: unknown): CreatorEarningsR
 
   const model = payload.model;
   assertNoSettlementClaims(model);
+  if (isRecord(model.totals)) assertNoSettlementClaims(model.totals);
+  if (isRecord(model.settlement)) assertNoSettlementClaims(model.settlement);
+
   if (
     !hasOnlyKeys(model, [
       "generatedAt",
@@ -155,8 +158,6 @@ export function parseCreatorEarningsResponse(payload: unknown): CreatorEarningsR
   ) {
     throw new Error("CREATOR_EARNINGS_MODEL_INVALID");
   }
-  assertNoSettlementClaims(model.totals);
-  assertNoSettlementClaims(model.settlement);
 
   const currency = requiredText(model.currency, "CREATOR_EARNINGS_CURRENCY_INVALID").toUpperCase();
   if (!/^[A-Z]{3}$/.test(currency)) throw new Error("CREATOR_EARNINGS_CURRENCY_INVALID");
