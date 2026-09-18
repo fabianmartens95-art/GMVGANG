@@ -110,7 +110,7 @@ async function listChildren(notion, blockId) {
 
 async function findControlBlock(notion, pageId, marker) {
   const blocks = await listChildren(notion, pageId);
-  const matches = blocks.filter((block) => block.type === "code" && richText(block).startsWith(marker));
+  const matches = blocks.filter((block) => richText(block).includes(marker));
   if (matches.length !== 1) {
     throw new Error(`Expected exactly one ${marker} code block, found ${matches.length}`);
   }
