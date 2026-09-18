@@ -1,10 +1,19 @@
 .module-nav {
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   align-items: center;
   gap: 6px;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
   padding: 16px 0;
   border-bottom: 1px solid var(--border);
+}
+
+.module-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .module-nav__link {

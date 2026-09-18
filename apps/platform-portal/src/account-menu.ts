@@ -12,6 +12,7 @@ function enhanceAccountMenu(): void {
 
     const chip = controls.querySelector<HTMLElement>(".session-chip");
     const signOut = controls.querySelector<HTMLButtonElement>("#sign-out");
+    const workspaceSwitcher = controls.querySelector<HTMLElement>(".workspace-switcher");
     if (!chip || !signOut) return;
 
     const menu = document.createElement("details");
@@ -56,7 +57,11 @@ function enhanceAccountMenu(): void {
     signOut.setAttribute("aria-hidden", "true");
     signOut.tabIndex = -1;
 
-    panel.append(label, password, logout);
+    panel.append(label);
+    if (workspaceSwitcher && window.matchMedia("(max-width: 700px)").matches) {
+      panel.append(workspaceSwitcher);
+    }
+    panel.append(password, logout);
     menu.append(trigger, panel);
     controls.append(menu);
     controls.dataset.accountMenuEnhanced = "true";
