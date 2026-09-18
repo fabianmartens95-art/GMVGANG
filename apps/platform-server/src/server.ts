@@ -607,6 +607,7 @@ export function createPlatformServer(config: PlatformServerConfig) {
           privacyNoticeVersion: config.privacyNoticeVersion,
           rateLimits: mutationRateLimits,
           idempotency,
+          requestId,
         });
         const response = await handler(request);
         await writeNodeResponse(applyResponseMutations(response, mutations), outgoing);
