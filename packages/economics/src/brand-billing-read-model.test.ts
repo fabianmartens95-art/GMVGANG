@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import {\n  buildBrandBillingReadModel,\n  type BrandBillingHistoryEntryInput,\n} from "./brand-billing-read-model.js";
+import {
+  buildBrandBillingReadModel,
+  type BrandBillingHistoryEntryInput,
+} from "./brand-billing-read-model.js";
 
 const HISTORY_ENTRY: BrandBillingHistoryEntryInput = {
   id: "rev-2026-09",
