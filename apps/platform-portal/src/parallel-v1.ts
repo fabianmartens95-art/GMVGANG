@@ -10,11 +10,28 @@ type ActivityItem = {
 type CreatorOnboarding = {
   creator_profile_id: string;
   follower_count: number | null;
+  follower_count_source?: "manual" | "tiktok";
+  follower_count_verified_at?: string | null;
   content_formats: string[];
   live_status: string;
   onboarding_status: string;
   onboarding_completion_percent: number;
   next_best_action: string;
+};
+
+type TikTokConnection = {
+  status: "connected" | "reauthorization_required" | "revoked" | "error";
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  is_verified: boolean | null;
+  granted_scopes: string[];
+  follower_count: number | null;
+  following_count: number | null;
+  likes_count: number | null;
+  video_count: number | null;
+  connected_at: string;
+  last_synced_at: string | null;
 };
 
 type BrandProfile = {
@@ -82,6 +99,10 @@ export type ParallelV1Snapshot = {
   creator: null | {
     creatorProfileId: string;
     onboarding: CreatorOnboarding | null;
+    tiktok: {
+      available: boolean;
+      connection: TikTokConnection | null;
+    };
     assignments: Assignment[];
     campaigns: Campaign[];
   };
@@ -167,21 +188,65 @@ function panelHeader(kicker: string, title: string, badge?: string): string {
 
 export function renderCreatorOnboarding(snapshot: ParallelV1Snapshot | null): string {
   const onboarding = snapshot?.creator?.onboarding ?? null;
+  const tiktok = snapshot?.creator?.tiktok ?? { available: false, connection: null };
+  const connection = tiktok.connection;
   const completion = onboarding?.onboarding_completion_percent ?? 0;
   const formats = new Set(onboarding?.content_formats ?? []);
+  const verifiedFollowerCount = connection?.status === "connected" && typeof connection.follower_count === "number"
+    ? connection.follower_count
+    : null;
+  const followerValue = verifiedFollowerCount ?? onboarding?.follower_count ?? "";
   const checkbox = (value: string, label: string) =>
     `<label class="gmv-field"><span><input type="checkbox" name="contentFormats" value="${value}"${formats.has(value) ? " checked" : ""} /> ${label}</span></label>`;
+
+  let tiktokBlock = "";
+  if (connection?.status === "connected") {
+    const accountLabel = connection.username
+      ? `@${escapeHtml(connection.username)}`
+      : escapeHtml(connection.display_name ?? "TikTok verbunden");
+    const metrics = [
+      typeof connection.follower_count === "number" ? `${connection.follower_count.toLocaleString("de-DE")} Follower` : null,
+      typeof connection.video_count === "number" ? `${connection.video_count.toLocaleString("de-DE")} Videos` : null,
+      connection.last_synced_at ? `Sync ${dateTime(connection.last_synced_at)}` : null,
+    ].filter(Boolean).join(" · ");
+    tiktokBlock = `
+      <aside class="gmv-tiktok gmv-tiktok--connected">
+        <div>
+          <span class="gmv-kicker">TIKTOK VERBUNDEN</span>
+          <h3>${accountLabel}${connection.is_verified ? " · ✓ verifiziert" : ""}</h3>
+          <p class="gmv-help">${escapeHtml(metrics || "Account erfolgreich verbunden.")}</p>
+        </div>
+        <div class="gmv-actions">
+          <button class="gmv-button gmv-button--secondary" type="button" data-tiktok-action="sync">Jetzt synchronisieren</button>
+          <button class="gmv-button gmv-button--secondary" type="button" data-tiktok-action="disconnect">Verbindung trennen</button>
+        </div>
+        <div class="gmv-result" data-tiktok-result aria-live="polite"></div>
+      </aside>`;
+  } else if (tiktok.available) {
+    const reconnect = connection?.status === "reauthorization_required" || connection?.status === "revoked";
+    tiktokBlock = `
+      <aside class="gmv-tiktok">
+        <div>
+          <span class="gmv-kicker">TIKTOK ACCOUNT</span>
+          <h3>${reconnect ? "TikTok erneut verbinden" : "TikTok-Konto verbinden"}</h3>
+          <p class="gmv-help">Verbinde deinen Account, damit Profil- und Followerwerte direkt über TikTok synchronisiert und als verifiziert markiert werden können.</p>
+        </div>
+        <a class="gmv-button" href="/api/integrations/tiktok/connect">${reconnect ? "Erneut verbinden" : "TikTok verbinden"}</a>
+      </aside>`;
+  }
 
   return `
     <section class="gmv-panel">
       ${panelHeader("CREATOR ONBOARDING", "Dein Setup", `${completion}%`)}
       <div class="gmv-progress"><span style="width:${Math.max(0, Math.min(100, completion))}%"></span></div>
       <p class="gmv-help">Next Best Action: <strong>${escapeHtml(onboarding?.next_best_action ?? "complete_creator_onboarding")}</strong></p>
+      ${tiktokBlock}
       <form class="gmv-form" data-parallel-action="creator_onboarding_upsert">
         <div class="gmv-grid">
           <label class="gmv-field">
-            <span>Follower</span>
-            <input class="gmv-input" name="followerCount" type="number" min="0" step="1" value="${onboarding?.follower_count ?? ""}" placeholder="z. B. 25000" />
+            <span>Follower${verifiedFollowerCount !== null ? ' · <strong class="gmv-verified-source">TikTok synchronisiert</strong>' : ""}</span>
+            <input class="gmv-input" name="followerCount" type="number" min="0" step="1" value="${followerValue}" placeholder="z. B. 25000"${verifiedFollowerCount !== null ? " disabled" : ""} />
+            ${verifiedFollowerCount !== null ? `<input type="hidden" name="followerCount" value="${verifiedFollowerCount}" />` : ""}
           </label>
           <label class="gmv-field">
             <span>LIVE Status</span>
@@ -473,6 +538,44 @@ export function wireParallelV1(organizationId?: string): void {
         result.textContent = "Gespeichert.";
       }
       window.location.reload();
+    });
+  });
+
+  document.querySelectorAll<HTMLButtonElement>("button[data-tiktok-action]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const action = button.dataset.tiktokAction;
+      if (action !== "sync" && action !== "disconnect") return;
+      const container = button.closest<HTMLElement>(".gmv-tiktok");
+      const result = container?.querySelector<HTMLElement>("[data-tiktok-result]");
+      button.disabled = true;
+      if (result) {
+        result.dataset.tone = "";
+        result.textContent = action === "sync" ? "TikTok wird synchronisiert …" : "Verbindung wird getrennt …";
+      }
+
+      try {
+        const response = await fetch(`/api/integrations/tiktok/${action}`, {
+          method: "POST",
+          credentials: "include",
+          headers: { Accept: "application/json" },
+        });
+        const payload = await response.json().catch(() => null) as { error?: unknown } | null;
+        if (!response.ok) {
+          if (result) {
+            result.dataset.tone = "error";
+            result.textContent = typeof payload?.error === "string" ? `Fehler: ${payload.error}` : "TikTok-Aktion fehlgeschlagen.";
+          }
+          button.disabled = false;
+          return;
+        }
+        window.location.reload();
+      } catch {
+        if (result) {
+          result.dataset.tone = "error";
+          result.textContent = "TikTok-Aktion aktuell nicht erreichbar.";
+        }
+        button.disabled = false;
+      }
     });
   });
 
