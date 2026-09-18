@@ -268,6 +268,8 @@ export function parseBrandCampaignAnalytics(
   }
 
   if (
+    !Number.isSafeInteger(campaignTotals.assignedCreators) ||
+    !Number.isSafeInteger(campaignTotals.postedCreators) ||
     totals.assignedCreators > campaignTotals.assignedCreators ||
     totals.postedCreators > campaignTotals.postedCreators
   ) {
