@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { createCookieAccessTokenPort, ensureInitializedSignOut } from "../src/auth.js";
+import {
+  createCookieAccessTokenPort,
+  ensureInitializedSignOut,
+  passwordRecoveryRedirect,
+} from "../src/auth.js";
 
 function fakeClient(options?: { token?: string | null; error?: boolean }) {
   let sessionReads = 0;
@@ -100,5 +104,15 @@ describe("SSR sign-out", () => {
     await initialized.auth.signOut({ scope: "local" });
 
     expect(calls).toEqual(["getSession", "signOut:local"]);
+  });
+});
+
+
+describe("password recovery redirect", () => {
+  it("returns to the authenticated password page after the provider callback", () => {
+    const redirect = new URL(passwordRecoveryRedirect("https://app.gmvgang.de"));
+    expect(redirect.origin).toBe("https://app.gmvgang.de");
+    expect(redirect.pathname).toBe("/auth/callback");
+    expect(redirect.searchParams.get("next")).toBe("/account/password?recovery=1");
   });
 });
