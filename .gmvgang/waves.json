@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "notion": {
+    "productWavesPageId": "3df76c68-17ac-81a9-9c24-c670195871d6",
+    "ceoControlCenterPageId": "3d076c68-17ac-814a-8332-f5f10ce3aeb8",
+    "controlMarker": "GMVGANG_WAVE_CONTROL_V1"
+  },
+  "sequence": [
+    "W3",
+    "W4",
+    "W5",
+    "W6",
+    "W7",
+    "W8",
+    "W9",
+    "W10",
+    "W11"
+  ],
+  "waves": {
+    "W3": {
+      "name": "Production Security",
+      "next": "W4",
+      "requiredGate": "production-security",
+      "gateWorkflow": "W3 Production Security Gate"
+    },
+    "W4": {
+      "name": "Campaign Core",
+      "next": "W5",
+      "requiredGate": "campaign-core",
+      "gateWorkflow": "W4 Campaign Core Gate"
+    },
+    "W5": {
+      "name": "Performance & Money Loop",
+      "next": "W6",
+      "requiredGate": "performance-money-loop",
+      "gateWorkflow": "W5 Performance & Money Loop Gate"
+    },
+    "W6": {
+      "name": "Intelligence Layer",
+      "next": "W7",
+      "requiredGate": "intelligence-layer",
+      "gateWorkflow": "W6 Intelligence Layer Gate"
+    },
+    "W7": {
+      "name": "Beta Monetization",
+      "next": "W8",
+      "requiredGate": "beta-monetization",
+      "gateWorkflow": "W7 Beta Monetization Gate"
+    },
+    "W8": {
+      "name": "Relationship, Trust & Rights",
+      "next": "W9",
+      "requiredGate": "relationship-trust-rights",
+      "gateWorkflow": "W8 Relationship, Trust & Rights Gate"
+    },
+    "W9": {
+      "name": "Commerce Optimization & Activation",
+      "next": "W10",
+      "requiredGate": "commerce-optimization",
+      "gateWorkflow": "W9 Commerce Optimization & Activation Gate"
+    },
+    "W10": {
+      "name": "Measurement, Simulation & Learning",
+      "next": "W11",
+      "requiredGate": "measurement-learning",
+      "gateWorkflow": "W10 Measurement, Simulation & Learning Gate"
+    },
+    "W11": {
+      "name": "Network Intelligence & Platform",
+      "next": null,
+      "requiredGate": "network-platform",
+      "gateWorkflow": "W11 Network Intelligence & Platform Gate"
+    }
+  },
+  "requiredControlState": {
+    "auto_advance": true,
+    "next_wave_ready": true,
+    "exit_gate_status": "ready",
+    "documentation_gate": "complete",
+    "cross_project_learning": "complete",
+    "human_gate_required": false,
+    "production_release_gate_open": false,
+    "paused": false,
+    "blocked": false
+  }
+}
