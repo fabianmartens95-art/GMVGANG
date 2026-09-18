@@ -98,4 +98,22 @@ export class SupabasePlatformIdempotencyPort implements PlatformIdempotencyPort 
     ensureNoError(error, "IDEMPOTENCY_COMPLETE_FAILED");
     if (!data) throw new Error("IDEMPOTENCY_COMPLETE_CONFLICT");
   }
+
+
+  async abort(input: {
+    scope: string;
+    subject: string;
+    key: string;
+    requestHash: string;
+  }): Promise<void> {
+    const { error } = await this.client
+      .from("mutation_idempotency")
+      .delete()
+      .eq("scope", input.scope)
+      .eq("subject", input.subject)
+      .eq("idempotency_key", input.key)
+      .eq("request_hash", input.requestHash)
+      .eq("state", "pending");
+    ensureNoError(error, "IDEMPOTENCY_ABORT_FAILED");
+  }
 }
