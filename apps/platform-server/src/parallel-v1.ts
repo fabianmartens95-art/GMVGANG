@@ -5,6 +5,7 @@ type ParallelV1Dependencies = {
   adminClient: SupabaseClient;
   now: string;
   requestId: string;
+  tiktokConfigured: boolean;
 };
 
 type AuthenticatedIdentity = {
@@ -219,7 +220,7 @@ async function readWorkspace(request: Request, deps: ParallelV1Dependencies): Pr
   }
 
   if (auth.creatorProfileId) {
-    const [onboarding, assignments] = await Promise.all([
+    const [onboarding, assignments, tiktokConnection] = await Promise.all([
       deps.adminClient.from("creator_onboarding").select("*").eq("creator_profile_id", auth.creatorProfileId).maybeSingle(),
       deps.adminClient
         .from("campaign_creator_assignments")
@@ -227,8 +228,15 @@ async function readWorkspace(request: Request, deps: ParallelV1Dependencies): Pr
         .eq("creator_profile_id", auth.creatorProfileId)
         .order("updated_at", { ascending: false })
         .limit(100),
+      deps.tiktokConfigured
+        ? deps.adminClient
+            .from("creator_tiktok_connections")
+            .select("status,username,display_name,avatar_url,is_verified,granted_scopes,follower_count,following_count,likes_count,video_count,connected_at,last_synced_at")
+            .eq("creator_profile_id", auth.creatorProfileId)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
     ]);
-    if (onboarding.error || assignments.error) throw new Error("CREATOR_WORKSPACE_READ_FAILED");
+    if (onboarding.error || assignments.error || tiktokConnection.error) throw new Error("CREATOR_WORKSPACE_READ_FAILED");
 
     const campaignIds = (assignments.data ?? []).map((item) => item.campaign_id);
     const campaigns = campaignIds.length
@@ -242,6 +250,10 @@ async function readWorkspace(request: Request, deps: ParallelV1Dependencies): Pr
     creator = {
       creatorProfileId: auth.creatorProfileId,
       onboarding: onboarding.data ?? null,
+      tiktok: {
+        available: deps.tiktokConfigured,
+        connection: tiktokConnection.data ?? null,
+      },
       assignments: assignments.data ?? [],
       campaigns: campaigns.data ?? [],
     };
@@ -390,25 +402,50 @@ async function mutateWorkspace(request: Request, deps: ParallelV1Dependencies): 
     if (formats.some((item) => !CONTENT_FORMATS.has(item)) || formats.length > 8) throw new Error("INVALID_CONTENT_FORMATS");
     const liveStatus = String(payload.liveStatus ?? "unknown");
     if (!LIVE_STATUSES.has(liveStatus)) throw new Error("INVALID_LIVE_STATUS");
-    const followerCount = payload.followerCount === null || payload.followerCount === undefined
-      ? null
-      : nonNegativeInteger(payload.followerCount);
+    const tiktokResult = deps.tiktokConfigured
+      ? await deps.adminClient
+          .from("creator_tiktok_connections")
+          .select("status,follower_count,last_synced_at")
+          .eq("creator_profile_id", auth.creatorProfileId)
+          .maybeSingle()
+      : { data: null, error: null };
+    if (tiktokResult.error) throw new Error("TIKTOK_CONNECTION_READ_FAILED");
+    const tiktokConnection = tiktokResult.data;
+
+    const verifiedFollowerCount = tiktokConnection?.status === "connected"
+      && typeof tiktokConnection.follower_count === "number"
+      && Number.isSafeInteger(tiktokConnection.follower_count)
+      && tiktokConnection.follower_count >= 0
+        ? tiktokConnection.follower_count
+        : null;
+    const followerCount = verifiedFollowerCount ?? (
+      payload.followerCount === null || payload.followerCount === undefined
+        ? null
+        : nonNegativeInteger(payload.followerCount)
+    );
+    const followerSource = verifiedFollowerCount !== null ? "tiktok" : "manual";
     const completion = creatorOnboardingCompletion({
       followerCount,
       contentFormats: formats,
       liveStatus,
     });
+    const onboardingPayload: Record<string, unknown> = {
+      creator_profile_id: auth.creatorProfileId,
+      follower_count: followerCount,
+      content_formats: formats,
+      live_status: liveStatus,
+      onboarding_status: completion.percent === 100 ? "complete" : "in_progress",
+      onboarding_completion_percent: completion.percent,
+      next_best_action: completion.next,
+    };
+    if (followerSource === "tiktok") {
+      onboardingPayload.follower_count_source = "tiktok";
+      onboardingPayload.follower_count_verified_at = tiktokConnection?.last_synced_at ?? deps.now;
+    }
+
     const { data, error } = await deps.adminClient
       .from("creator_onboarding")
-      .upsert({
-        creator_profile_id: auth.creatorProfileId,
-        follower_count: followerCount,
-        content_formats: formats,
-        live_status: liveStatus,
-        onboarding_status: completion.percent === 100 ? "complete" : "in_progress",
-        onboarding_completion_percent: completion.percent,
-        next_best_action: completion.next,
-      }, { onConflict: "creator_profile_id" })
+      .upsert(onboardingPayload, { onConflict: "creator_profile_id" })
       .select("*")
       .single();
     if (error) throw new Error("CREATOR_ONBOARDING_WRITE_FAILED");

@@ -24,7 +24,7 @@ export type BrandStatus = "lead" | "qualified" | "onboarding" | "active" | "paus
 
 export type OrganizationType = "gmvgang" | "brand";
 
-export type ConnectionProvider = "tiktok_shop_seller" | "tiktok_shop_creator";
+export type ConnectionProvider = "tiktok_creator" | "tiktok_shop_seller" | "tiktok_shop_creator";
 export type ConnectionStatus = "not_connected" | "pending" | "connected" | "expired" | "revoked" | "error";
 
 export type ReferralStatus =

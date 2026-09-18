@@ -29,6 +29,7 @@ import {
   type FixedWindowRateLimiter,
 } from "./rate-limit.js";
 import { handleParallelV1 } from "./parallel-v1.js";
+import { handleTikTokCreatorIntegration } from "./tiktok.js";
 import { requestIdFromHeader, requestLogEntry, withRequestId } from "./request-context.js";
 
 const MAX_REQUEST_BYTES = 1024 * 1024;
@@ -524,11 +525,24 @@ export function createPlatformServer(config: PlatformServerConfig) {
       }
 
       if (url.pathname.startsWith("/api/")) {
+        const tiktokIntegration = await handleTikTokCreatorIntegration(request, {
+          requestClient: authClient,
+          adminClient: parallelAdminClient,
+          config,
+          now: new Date().toISOString(),
+          requestId,
+        });
+        if (tiktokIntegration) {
+          await writeNodeResponse(applyResponseMutations(tiktokIntegration, mutations), outgoing);
+          return;
+        }
+
         const parallelV1 = await handleParallelV1(request, {
           requestClient: authClient,
           adminClient: parallelAdminClient,
           now: new Date().toISOString(),
           requestId,
+          tiktokConfigured: Boolean(config.tiktokCreatorOAuth),
         });
         if (parallelV1) {
           await writeNodeResponse(applyResponseMutations(parallelV1, mutations), outgoing);

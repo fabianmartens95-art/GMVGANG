@@ -20,8 +20,23 @@ export type PlatformServerConfig = {
     assignmentDataSourceId: string;
   } | null;
   affiliatePerformanceRead: BrandAffiliatePerformancePolicy | null;
+  tiktokCreatorOAuth: {
+    clientKey: string;
+    clientSecret: string;
+    tokenEncryptionKey: string;
+    identityHashKey: string;
+    redirectUri: string;
+    scopes: string[];
+  } | null;
   production: boolean;
 };
+
+const TIKTOK_CREATOR_SCOPES = [
+  "user.info.basic",
+  "user.info.profile",
+  "user.info.stats",
+  "video.list",
+] as const;
 
 const AFFILIATE_POLICY_ENV = [
   "AFFILIATE_PERFORMANCE_SCHEMA_VERIFIED",
@@ -56,6 +71,60 @@ function deploymentRevision(env: NodeJS.ProcessEnv): string {
   return [env.APP_REVISION, env.RAILWAY_GIT_COMMIT_SHA, env.GITHUB_SHA]
     .map((value) => value?.trim() ?? "")
     .find(Boolean) || "unknown";
+}
+
+function tiktokCreatorOAuth(
+  env: NodeJS.ProcessEnv,
+  publicOrigin: string,
+): PlatformServerConfig["tiktokCreatorOAuth"] {
+  const clientKey = env.TIKTOK_CLIENT_KEY?.trim() ?? "";
+  const clientSecret = env.TIKTOK_CLIENT_SECRET?.trim() ?? "";
+  const tokenEncryptionKey = env.TIKTOK_TOKEN_ENCRYPTION_KEY?.trim() ?? "";
+  const identityHashKey = env.TIKTOK_IDENTITY_HASH_KEY?.trim() ?? "";
+  const anyConfigured = Boolean(clientKey || clientSecret || tokenEncryptionKey || identityHashKey || env.TIKTOK_REDIRECT_URI?.trim());
+
+  if (!anyConfigured) return null;
+  if (!clientKey || !clientSecret || !tokenEncryptionKey || !identityHashKey) {
+    throw new Error("TIKTOK_CREATOR_OAUTH_CONFIG_INCOMPLETE");
+  }
+
+  let decodedKey: Buffer;
+  try {
+    decodedKey = Buffer.from(tokenEncryptionKey, "base64");
+  } catch {
+    throw new Error("TIKTOK_TOKEN_ENCRYPTION_KEY_INVALID");
+  }
+  if (decodedKey.length !== 32) throw new Error("TIKTOK_TOKEN_ENCRYPTION_KEY_INVALID");
+  if (Buffer.byteLength(identityHashKey, "utf8") < 32) {
+    throw new Error("TIKTOK_IDENTITY_HASH_KEY_TOO_SHORT");
+  }
+
+  const redirectUri = env.TIKTOK_REDIRECT_URI?.trim()
+    || new URL("/api/integrations/tiktok/callback", publicOrigin).toString();
+  let parsed: URL;
+  try {
+    parsed = new URL(redirectUri);
+  } catch {
+    throw new Error("TIKTOK_REDIRECT_URI_INVALID");
+  }
+
+  if (
+    parsed.protocol !== "https:"
+    || parsed.origin !== new URL(publicOrigin).origin
+    || Boolean(parsed.search)
+    || Boolean(parsed.hash)
+  ) {
+    throw new Error("TIKTOK_REDIRECT_URI_INVALID");
+  }
+
+  return {
+    clientKey,
+    clientSecret,
+    tokenEncryptionKey,
+    identityHashKey,
+    redirectUri: parsed.toString(),
+    scopes: [...TIKTOK_CREATOR_SCOPES],
+  };
 }
 
 function notionCreatorSync(env: NodeJS.ProcessEnv): PlatformServerConfig["notionCreatorSync"] {
@@ -167,6 +236,7 @@ export function loadPlatformServerConfig(env: NodeJS.ProcessEnv = process.env): 
     notionCreatorSync: notionCreatorSync(env),
     notionCreatorWorkspace: notionCreatorWorkspace(env),
     affiliatePerformanceRead: affiliatePerformanceRead(env),
+    tiktokCreatorOAuth: tiktokCreatorOAuth(env, publicOrigin),
     production,
   };
 }
