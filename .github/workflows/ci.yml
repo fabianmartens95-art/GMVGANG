@@ -12,7 +12,7 @@ permissions:
   pull-requests: read
 
 jobs:
-  quality:
+  base-quality:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -71,3 +71,90 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  security-invariants:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gmvgang_security
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d gmvgang_security"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/gmvgang_security
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Authorization regression tests
+        run: |
+          pnpm --filter @gmvgang/platform-server exec vitest run test/auth.test.ts
+          pnpm --filter @gmvgang/platform-api exec vitest run \
+            test/membership-http.test.ts \
+            test/creator-workspace-http.test.ts \
+            test/brand-overview.test.ts
+
+      - name: Verify PostgreSQL client
+        run: psql --version
+
+      - name: Bootstrap isolated Supabase-compatible database
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/test/ci_bootstrap.sql
+
+      - name: Apply all Supabase migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r migration; do
+            echo "::group::Applying ${migration}"
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
+            echo "::endgroup::"
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+
+      - name: Verify platform foundation security
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/verify/platform_foundation.sql
+
+      - name: Verify append-only audit hardening
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/verify/platform_audit_hardening.sql
+
+      - name: Verify RLS and cross-tenant isolation
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/verify/security_invariants.sql
+
+  quality:
+    if: ${{ always() }}
+    needs:
+      - base-quality
+      - security-invariants
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require base quality and security invariants
+        env:
+          BASE_QUALITY_RESULT: ${{ needs.base-quality.result }}
+          SECURITY_INVARIANTS_RESULT: ${{ needs.security-invariants.result }}
+        run: |
+          echo "base-quality=${BASE_QUALITY_RESULT}"
+          echo "security-invariants=${SECURITY_INVARIANTS_RESULT}"
+          test "${BASE_QUALITY_RESULT}" = "success"
+          test "${SECURITY_INVARIANTS_RESULT}" = "success"
