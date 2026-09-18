@@ -21,7 +21,7 @@ A pull request is eligible only when all of the following are explicit and true:
 - `Production gate: no`;
 - `Founder decision: no`;
 - declared `Depends on` references are already merged/closed;
-- the baseline `quality` check exists and succeeds;
+- both required checks, `quality` and `lane-guard`, exist and succeed;
 - every current check run is completed with success/neutral/skipped;
 - no active review has requested changes;
 - no blocking label such as `queue:hold`, `gate:production`, `gate:founder` or `do-not-merge` exists.
@@ -30,7 +30,7 @@ Anything ambiguous fails closed and remains open.
 
 ## Serialization model
 
-The queue performs at most one repository mutation per run.
+The queue performs at most one repository mutation per run. It is triggered only after CI or the Parallel Build Guard completes (or by an explicit workflow dispatch); PR-body edits alone never trigger a merge evaluation.
 
 1. Prefer one fully green, current PR and squash-merge its exact verified head SHA.
 2. If no current PR is merge-ready, update one green-but-behind PR onto current `main`.
