@@ -1,0 +1,10 @@
+# Default owner until GMVGANG is moved into a company GitHub organization.
+* @fabianmartens95-art
+
+# Security- and production-sensitive surfaces.
+/.github/ @fabianmartens95-art
+/.env.example @fabianmartens95-art
+/supabase/ @fabianmartens95-art
+/apps/platform-server/ @fabianmartens95-art
+/packages/platform-api/ @fabianmartens95-art
+/packages/platform-foundation/ @fabianmartens95-art
