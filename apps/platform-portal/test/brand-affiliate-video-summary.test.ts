@@ -91,12 +91,27 @@ describe("Brand Affiliate Video Performance summary", () => {
     }
   });
 
-  it("keeps incomplete metrics unavailable instead of converting them to zero", () => {
-    const parsed = parseBrandAffiliateVideoSummary(SUMMARY);
-    expect(parsed.slice.metrics.clicks).toBeNull();
-    expect(renderBrandAffiliateVideoSummary(parsed)).toContain(
-      "Nicht verfügbar",
+  it("keeps incomplete rendered metrics unavailable instead of converting them to zero", () => {
+    const parsed = parseBrandAffiliateVideoSummary({
+      ...SUMMARY,
+      slice: {
+        ...SUMMARY.slice,
+        metrics: { ...SUMMARY.slice.metrics, views: null },
+        completeness: { ...SUMMARY.slice.completeness, views: 0.5 },
+        ratios: {
+          ...SUMMARY.slice.ratios,
+          gmvPerThousandViews: null,
+        },
+      },
+    });
+    const html = renderBrandAffiliateVideoSummary(parsed);
+
+    expect(parsed.slice.metrics.views).toBeNull();
+    expect(html).toContain("<span>Views</span><strong>Nicht verfügbar</strong>");
+    expect(html).toContain(
+      "<span>GMV / 1.000 Views</span><strong>Nicht verfügbar</strong>",
     );
+    expect(html).not.toContain("<span>Views</span><strong>0</strong>");
 
     expect(() => parseBrandAffiliateVideoSummary({
       ...SUMMARY,
