@@ -12,6 +12,7 @@ function enhanceAccountMenu(): void {
 
     const chip = controls.querySelector<HTMLElement>(".session-chip");
     const signOut = controls.querySelector<HTMLButtonElement>("#sign-out");
+    const workspaceSwitcher = controls.querySelector<HTMLElement>(".workspace-switcher");
     if (!chip || !signOut) return;
 
     const menu = document.createElement("details");
@@ -59,6 +60,19 @@ function enhanceAccountMenu(): void {
     panel.append(label, password, logout);
     menu.append(trigger, panel);
     controls.append(menu);
+
+    const mobileViewport = window.matchMedia("(max-width: 700px)");
+    const syncWorkspaceSwitcherPlacement = (): void => {
+      if (!workspaceSwitcher) return;
+      if (mobileViewport.matches) {
+        if (workspaceSwitcher.parentNode !== panel) panel.insertBefore(workspaceSwitcher, password);
+        return;
+      }
+      if (workspaceSwitcher.parentNode !== controls) controls.insertBefore(workspaceSwitcher, menu);
+    };
+
+    syncWorkspaceSwitcherPlacement();
+    mobileViewport.addEventListener("change", syncWorkspaceSwitcherPlacement);
     controls.dataset.accountMenuEnhanced = "true";
 
     menu.addEventListener("toggle", () => {
