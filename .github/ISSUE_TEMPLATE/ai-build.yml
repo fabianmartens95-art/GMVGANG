@@ -1,0 +1,83 @@
+name: AI Build Task
+description: Create a bounded task for the GMVGANG parallel build queue.
+title: "[BUILD] "
+body:
+  - type: dropdown
+    id: lane
+    attributes:
+      label: Lane
+      options:
+        - foundation
+        - creator
+        - brand
+        - commerce
+        - web
+        - devops
+        - integration
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - P0
+        - P1
+        - P2
+    validations:
+      required: true
+  - type: dropdown
+    id: auto_merge
+    attributes:
+      label: Auto merge
+      description: Keep "no" unless the work is isolated, reversible, CI-gated and has no production/founder gate.
+      options:
+        - "no"
+        - "yes"
+      default: 0
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: One concrete outcome.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: PRs, issues, migrations, external services, or "none".
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: Files/modules this task may change.
+    validations:
+      required: true
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Do not touch
+      description: Shared modules or adjacent lanes that must remain unchanged.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Testable completion conditions.
+    validations:
+      required: true
+  - type: checkboxes
+    id: gates
+    attributes:
+      label: Gates
+      options:
+        - label: Requires production gate before merge/deploy
+        - label: Requires founder decision
+        - label: Includes database/schema changes
+        - label: Includes security/authorization changes
