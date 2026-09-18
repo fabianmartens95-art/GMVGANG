@@ -1,3 +1,4 @@
+// Website controls destination only; authentication and safe-next validation stay inside the Portal.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
