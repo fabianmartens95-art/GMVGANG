@@ -246,10 +246,48 @@ main { width: min(1500px, calc(100% - 40px)); margin: 0 auto; }
   align-items: center;
   gap: 20px;
 }
-.gmv-tiktok--connected { border-left-color: var(--yellow); }
+.gmv-tiktok--connected,
+.gmv-tiktok[data-tiktok-state="connected"] { border-left-color: var(--yellow); }
+.gmv-tiktok[data-tiktok-state="syncing"] { border-left-color: var(--cyan); }
+.gmv-tiktok[data-tiktok-state="sync_failed"] { border-left-color: var(--negative); }
+.gmv-tiktok[data-tiktok-state="disconnected"] { border-left-color: var(--purple); }
 .gmv-tiktok h3 { margin: 6px 0; font-size: clamp(20px, 3vw, 28px); }
 .gmv-tiktok .gmv-actions { justify-content: flex-end; }
-.gmv-tiktok [data-tiktok-result] { grid-column: 1 / -1; }
+.gmv-tiktok__state {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: var(--gray);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.gmv-tiktok[data-tiktok-state="connected"] .gmv-tiktok__state { color: var(--yellow); border-color: color-mix(in srgb, var(--yellow) 45%, var(--border)); }
+.gmv-tiktok[data-tiktok-state="syncing"] .gmv-tiktok__state { color: var(--cyan); border-color: color-mix(in srgb, var(--cyan) 45%, var(--border)); }
+.gmv-tiktok[data-tiktok-state="sync_failed"] .gmv-tiktok__state { color: var(--negative); border-color: color-mix(in srgb, var(--negative) 45%, var(--border)); }
+.gmv-tiktok [data-tiktok-result] {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 5px;
+  line-height: 1.5;
+}
+.gmv-tiktok [data-tiktok-result]:empty { display: none; }
+.gmv-tiktok [data-tiktok-result] strong { color: var(--white); }
+.gmv-tiktok [data-tiktok-result] span { color: var(--gray); }
+.gmv-tiktok [data-tiktok-result][data-tone="error"] strong { color: var(--negative); }
+.gmv-tiktok .gmv-button--danger {
+  border-color: color-mix(in srgb, var(--negative) 55%, var(--border));
+  color: var(--negative);
+  background: transparent;
+}
+.gmv-tiktok .gmv-button--danger:hover {
+  border-color: var(--negative);
+  background: color-mix(in srgb, var(--negative) 10%, transparent);
+}
 .gmv-verified-source { color: var(--yellow); font-size: 11px; letter-spacing: .04em; }
 
 
