@@ -108,7 +108,12 @@ export function parseControlBlockText(text, marker) {
 }
 
 function serializeControl(marker, control) {
-  return `${marker}\n${JSON.stringify(control, null, 2)}`;
+  const completed =
+    Array.isArray(control.completedWaves) && control.completedWaves.length
+      ? control.completedWaves.join(",")
+      : "none";
+  const last = control.lastTransitionKey || "none";
+  return `Wave Control Marker: ${marker} | active=${control.activeWave} | next=${control.nextWave || "none"} | blocked=true | last=${last} | completed=${completed}`;
 }
 
 function richText(block) {
@@ -145,17 +150,28 @@ async function findControlBlock(notion, pageId, marker) {
   return matches[0];
 }
 
-async function updateControlBlock(notion, blockId, marker, control) {
+async function updateControlBlock(notion, block, marker, control) {
+  const supportedTypes = new Set([
+    "paragraph",
+    "bulleted_list_item",
+    "numbered_list_item",
+    "quote",
+    "callout",
+    "toggle"
+  ]);
+  if (!supportedTypes.has(block.type)) {
+    throw new Error(`Unsupported control block type: ${block.type}`);
+  }
+
   await notion.blocks.update({
-    block_id: blockId,
-    code: {
+    block_id: block.id,
+    [block.type]: {
       rich_text: [
         {
           type: "text",
           text: { content: serializeControl(marker, control) }
         }
-      ],
-      language: "json"
+      ]
     }
   });
 }
@@ -232,7 +248,7 @@ async function transition() {
     followingWave
   });
 
-  await updateControlBlock(notion, block.id, config.notion.controlMarker, next);
+  await updateControlBlock(notion, block, config.notion.controlMarker, next);
 
   writeOutputs({
     transitioned: true,
@@ -257,7 +273,7 @@ async function finalizeActivation() {
     throw new Error(`activationPending mismatch: expected ${wave}`);
   }
 
-  await updateControlBlock(notion, block.id, config.notion.controlMarker, {
+  await updateControlBlock(notion, block, config.notion.controlMarker, {
     ...control,
     activationPending: null,
     lastActivationIssue: issueNumber
