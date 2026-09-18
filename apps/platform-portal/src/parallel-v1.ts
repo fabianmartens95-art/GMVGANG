@@ -34,6 +34,42 @@ type TikTokConnection = {
   last_synced_at: string | null;
 };
 
+export type CreatorTikTokSyncPresentation = {
+  state: "syncing" | "sync_failed" | "disconnected";
+  title: string;
+  detail: string;
+  recovery: "none" | "retry" | "reconnect";
+};
+
+export function creatorTikTokSyncingPresentation(): CreatorTikTokSyncPresentation {
+  return {
+    state: "syncing",
+    title: "Synchronisierung läuft",
+    detail: "Wir aktualisieren deine TikTok-Daten. Deine bestehende Verbindung bleibt dabei erhalten.",
+    recovery: "none",
+  };
+}
+
+export function creatorTikTokSyncFailurePresentation(
+  error: unknown,
+): CreatorTikTokSyncPresentation {
+  if (error === "tiktok_reauthorization_required") {
+    return {
+      state: "disconnected",
+      title: "TikTok-Verbindung erneuern",
+      detail: "Deine Verbindung ist abgelaufen oder muss erneut bestätigt werden. Verbinde dein Konto neu, um wieder zu synchronisieren.",
+      recovery: "reconnect",
+    };
+  }
+
+  return {
+    state: "sync_failed",
+    title: "Synchronisierung fehlgeschlagen",
+    detail: "Deine TikTok-Verbindung besteht weiter. Die zuletzt erfolgreich synchronisierten Daten bleiben erhalten.",
+    recovery: "retry",
+  };
+}
+
 type BrandProfile = {
   id: string;
   legal_name: string | null;
@@ -212,29 +248,34 @@ export function renderCreatorOnboarding(snapshot: ParallelV1Snapshot | null): st
     const metrics = [
       typeof connection.follower_count === "number" ? `${connection.follower_count.toLocaleString("de-DE")} Follower` : null,
       typeof connection.video_count === "number" ? `${connection.video_count.toLocaleString("de-DE")} Videos` : null,
-      connection.last_synced_at ? `Sync ${dateTime(connection.last_synced_at)}` : null,
+      connection.last_synced_at ? `Letzter erfolgreicher Sync: ${dateTime(connection.last_synced_at)}` : null,
     ].filter(Boolean).join(" · ");
     tiktokBlock = `
-      <aside class="gmv-tiktok gmv-tiktok--connected">
+      <aside class="gmv-tiktok gmv-tiktok--connected" data-tiktok-state="connected">
         <div>
-          <span class="gmv-kicker">TIKTOK VERBUNDEN</span>
+          <span class="gmv-kicker">TIKTOK ACCOUNT</span>
+          <span class="gmv-tiktok__state" data-tiktok-state-label>Verbunden</span>
           <h3>${accountLabel}${connection.is_verified ? " · ✓ verifiziert" : ""}</h3>
           <p class="gmv-help">${escapeHtml(metrics || "Account erfolgreich verbunden.")}</p>
         </div>
         <div class="gmv-actions">
           <button class="gmv-button gmv-button--secondary" type="button" data-tiktok-action="sync">Jetzt synchronisieren</button>
-          <button class="gmv-button gmv-button--secondary" type="button" data-tiktok-action="disconnect">Verbindung trennen</button>
+          <a class="gmv-button" href="/api/integrations/tiktok/connect" data-tiktok-reconnect hidden>TikTok neu verbinden</a>
+          <button class="gmv-button gmv-button--danger" type="button" data-tiktok-action="disconnect">Verbindung trennen</button>
         </div>
-        <div class="gmv-result" data-tiktok-result aria-live="polite"></div>
+        <div class="gmv-result gmv-tiktok__feedback" data-tiktok-result aria-live="polite" aria-atomic="true"></div>
       </aside>`;
   } else if (tiktok.available) {
-    const reconnect = connection?.status === "reauthorization_required" || connection?.status === "revoked";
+    const reconnect = Boolean(connection);
     tiktokBlock = `
-      <aside class="gmv-tiktok">
+      <aside class="gmv-tiktok gmv-tiktok--disconnected" data-tiktok-state="disconnected">
         <div>
           <span class="gmv-kicker">TIKTOK ACCOUNT</span>
-          <h3>${reconnect ? "TikTok erneut verbinden" : "TikTok-Konto verbinden"}</h3>
-          <p class="gmv-help">Verbinde deinen Account, damit Profil- und Followerwerte direkt über TikTok synchronisiert und als verifiziert markiert werden können.</p>
+          <span class="gmv-tiktok__state" data-tiktok-state-label>${reconnect ? "Neu verbinden" : "Nicht verbunden"}</span>
+          <h3>${reconnect ? "TikTok-Verbindung erneuern" : "TikTok-Konto verbinden"}</h3>
+          <p class="gmv-help">${reconnect
+            ? "Die bestehende Verbindung kann nicht mehr für neue Synchronisierungen genutzt werden. Verbinde dein TikTok-Konto erneut."
+            : "Verbinde deinen Account, damit Profil- und Followerwerte direkt über TikTok synchronisiert und als verifiziert markiert werden können."}</p>
         </div>
         <a class="gmv-button" href="/api/integrations/tiktok/connect">${reconnect ? "Erneut verbinden" : "TikTok verbinden"}</a>
       </aside>`;
@@ -514,6 +555,37 @@ function payloadFor(action: string, data: FormData): Record<string, unknown> {
   return {};
 }
 
+function applyTikTokSyncPresentation(
+  container: HTMLElement,
+  result: HTMLElement | null,
+  presentation: CreatorTikTokSyncPresentation,
+): void {
+  container.dataset.tiktokState = presentation.state;
+  const stateLabel = container.querySelector<HTMLElement>("[data-tiktok-state-label]");
+  if (stateLabel) {
+    stateLabel.textContent = presentation.state === "syncing"
+      ? "Synchronisiert …"
+      : presentation.state === "sync_failed"
+        ? "Sync fehlgeschlagen"
+        : "Neu verbinden";
+  }
+
+  const syncButton = container.querySelector<HTMLButtonElement>('button[data-tiktok-action="sync"]');
+  const reconnect = container.querySelector<HTMLAnchorElement>("[data-tiktok-reconnect]");
+  if (syncButton) {
+    syncButton.hidden = presentation.recovery === "reconnect";
+    syncButton.textContent = presentation.recovery === "retry"
+      ? "Erneut synchronisieren"
+      : "Jetzt synchronisieren";
+  }
+  if (reconnect) reconnect.hidden = presentation.recovery !== "reconnect";
+
+  if (result) {
+    result.dataset.tone = presentation.state === "syncing" ? "" : "error";
+    result.innerHTML = `<strong>${escapeHtml(presentation.title)}</strong><span>${escapeHtml(presentation.detail)}</span>`;
+  }
+}
+
 export function wireParallelV1(organizationId?: string): void {
   document.querySelectorAll<HTMLFormElement>("form[data-parallel-action]").forEach((form) => {
     form.addEventListener("submit", async (event) => {
@@ -551,11 +623,18 @@ export function wireParallelV1(organizationId?: string): void {
       const action = button.dataset.tiktokAction;
       if (action !== "sync" && action !== "disconnect") return;
       const container = button.closest<HTMLElement>(".gmv-tiktok");
-      const result = container?.querySelector<HTMLElement>("[data-tiktok-result]");
-      button.disabled = true;
-      if (result) {
+      if (!container) return;
+      const result = container.querySelector<HTMLElement>("[data-tiktok-result]");
+      const actionButtons = [...container.querySelectorAll<HTMLButtonElement>("button[data-tiktok-action]")];
+      actionButtons.forEach((item) => { item.disabled = true; });
+
+      if (action === "sync") {
+        applyTikTokSyncPresentation(container, result, creatorTikTokSyncingPresentation());
+        container.setAttribute("aria-busy", "true");
+      } else if (result) {
+        container.dataset.tiktokState = "connected";
         result.dataset.tone = "";
-        result.textContent = action === "sync" ? "TikTok wird synchronisiert …" : "Verbindung wird getrennt …";
+        result.innerHTML = "<strong>Verbindung wird getrennt …</strong><span>Dein TikTok-Konto bleibt verbunden, bis der Vorgang erfolgreich abgeschlossen ist.</span>";
       }
 
       try {
@@ -566,20 +645,36 @@ export function wireParallelV1(organizationId?: string): void {
         });
         const payload = await response.json().catch(() => null) as { error?: unknown } | null;
         if (!response.ok) {
-          if (result) {
+          if (action === "sync") {
+            applyTikTokSyncPresentation(
+              container,
+              result,
+              creatorTikTokSyncFailurePresentation(payload?.error),
+            );
+          } else if (result) {
+            container.dataset.tiktokState = "connected";
             result.dataset.tone = "error";
-            result.textContent = typeof payload?.error === "string" ? `Fehler: ${payload.error}` : "TikTok-Aktion fehlgeschlagen.";
+            result.innerHTML = "<strong>Verbindung konnte nicht getrennt werden.</strong><span>Deine TikTok-Verbindung bleibt bestehen. Versuche es erneut.</span>";
           }
-          button.disabled = false;
+          actionButtons.forEach((item) => { item.disabled = false; });
+          container.removeAttribute("aria-busy");
           return;
         }
         window.location.reload();
       } catch {
-        if (result) {
+        if (action === "sync") {
+          applyTikTokSyncPresentation(
+            container,
+            result,
+            creatorTikTokSyncFailurePresentation("network_unavailable"),
+          );
+        } else if (result) {
+          container.dataset.tiktokState = "connected";
           result.dataset.tone = "error";
-          result.textContent = "TikTok-Aktion aktuell nicht erreichbar.";
+          result.innerHTML = "<strong>Verbindung konnte nicht getrennt werden.</strong><span>Deine TikTok-Verbindung bleibt bestehen. Versuche es erneut.</span>";
         }
-        button.disabled = false;
+        actionButtons.forEach((item) => { item.disabled = false; });
+        container.removeAttribute("aria-busy");
       }
     });
   });
