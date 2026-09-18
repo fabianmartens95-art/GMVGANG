@@ -1,0 +1,70 @@
+name: Portal Release Readiness
+
+on:
+  workflow_dispatch:
+    inputs:
+      require_ready:
+        description: "Fail unless every required launch scenario is verified with evidence"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portal-release-readiness
+  cancel-in-progress: false
+
+jobs:
+  validate-release-readiness:
+    name: Validate Portal release-readiness contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout tested revision
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Record tested revision
+        run: |
+          mkdir -p portal-release-evidence
+          printf '%s\n' "${GITHUB_SHA}" > portal-release-evidence/tested-revision.txt
+
+      - name: Validate manifest and produce evidence summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.require_ready }}" = "true" ]; then
+            node scripts/ci/validate-portal-release-readiness.mjs \
+              .gmvgang/portal-release-readiness.json \
+              --require-ready \
+              --output portal-release-evidence/readiness-summary.json
+          else
+            node scripts/ci/validate-portal-release-readiness.mjs \
+              .gmvgang/portal-release-readiness.json \
+              --output portal-release-evidence/readiness-summary.json
+          fi
+
+      - name: Upload readiness evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portal-release-readiness-${{ github.sha }}
+          path: portal-release-evidence/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Preserve manual production gate
+        if: success()
+        run: |
+          {
+            echo ""
+            echo "### Production boundary"
+            echo "- This workflow does not deploy or promote Production."
+            echo "- Production promotion remains a separate manual gate."
+          } >> "$GITHUB_STEP_SUMMARY"
