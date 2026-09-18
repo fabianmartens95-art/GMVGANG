@@ -66,12 +66,13 @@ Referral attribution cannot be overwritten after creation. Self-referral is reje
 
 ## TikTok connections
 
-Two providers are modeled separately:
+Three TikTok connection purposes are modeled separately:
 
+- `tiktok_creator`: Login Kit / TikTok API account link owned by a Creator profile; used for creator identity/profile/stat synchronization.
 - `tiktok_shop_seller`: owned by a Brand organization.
-- `tiktok_shop_creator`: owned by a Creator profile.
+- `tiktok_shop_creator`: TikTok Shop Creator/Affiliate authorization owned by a Creator profile.
 
-Access/refresh tokens must never be returned to browsers or committed to GitHub. The domain model stores secret references only. Availability of Creator/Affiliate APIs remains market- and TikTok-approval-dependent and should be controlled by feature flags at the application layer.
+Access/refresh tokens must never be returned to browsers or committed to GitHub. The domain model stores secret references only. Provider account identifiers that are only needed for stable linkage are persisted as keyed digests rather than raw IDs. Availability of Creator/Affiliate APIs remains market- and TikTok-approval-dependent and should be controlled by feature flags at the application layer.
 
 ## Production infrastructure gate
 
