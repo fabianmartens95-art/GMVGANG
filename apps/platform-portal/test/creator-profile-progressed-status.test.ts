@@ -24,6 +24,7 @@ describe("progressed creator profile states", () => {
   });
 
   it("keeps identity fields protected after network progression", () => {
+    // Controlled taxonomy uses readonly for TikTok identity and disabled controls for governed taxonomy fields.
     const html = renderCreatorProfile(parseCreatorProfileResult(base));
     expect(html).toContain("Qualifiziert");
     expect(html.match(/readonly aria-readonly=\"true\"/g)).toHaveLength(1);
