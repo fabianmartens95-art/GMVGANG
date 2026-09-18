@@ -1,5 +1,4 @@
 import "./account-menu.css";
-import "./workspace-switcher.css";
 
 function closeOtherMenus(active: HTMLDetailsElement): void {
   document.querySelectorAll<HTMLDetailsElement>("details.account-menu[open]").forEach((menu) => {
