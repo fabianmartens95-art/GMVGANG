@@ -68,6 +68,8 @@ export function buildBrandCampaignPerformance(input: {
 
   const currency = validateCurrency(input.currency);
   const assignmentKeys = new Set<string>();
+  const creatorIds = new Set<string>();
+  const postedCreatorIds = new Set<string>();
   const campaigns = new Map<string, {
     campaignId: string;
     campaignName: string;
@@ -100,6 +102,8 @@ export function buildBrandCampaignPerformance(input: {
       throw new Error("BRAND_PERFORMANCE_DUPLICATE_ASSIGNMENT");
     }
     assignmentKeys.add(assignmentKey);
+    creatorIds.add(creatorProfileId);
+    if (entry.contentStatus === "posted") postedCreatorIds.add(creatorProfileId);
 
     if (entry.performanceUpdatedAt) {
       const parsed = Date.parse(entry.performanceUpdatedAt);
@@ -152,8 +156,8 @@ export function buildBrandCampaignPerformance(input: {
       gmvCents: campaignRows.reduce((sum,row)=>sum+row.gmvCents,0),
       orders: campaignRows.reduce((sum,row)=>sum+row.orders,0),
       recordedCommissionCents: campaignRows.reduce((sum,row)=>sum+row.recordedCommissionCents,0),
-      assignedCreators: assignmentKeys.size,
-      postedCreators: input.entries.filter((entry)=>entry.contentStatus==="posted").length,
+      assignedCreators: creatorIds.size,
+      postedCreators: postedCreatorIds.size,
     },
     campaigns: campaignRows,
     economicsNotice:
