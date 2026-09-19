@@ -24,7 +24,8 @@ describe("Brand Product capability enforcement", () => {
     expect(hasBrandProductManageAccess([membership("brand_member", ORG_B)], ORG_A)).toBe(false);
   });
 
-  it("fails closed for inactive or unknown roles", () => {
+  it("fails closed for missing, inactive or unknown memberships", () => {
+    expect(hasBrandProductManageAccess([], ORG_A)).toBe(false);
     expect(hasBrandProductManageAccess([membership("brand_member", ORG_A, "revoked")], ORG_A)).toBe(false);
     expect(hasBrandProductManageAccess([membership("unexpected_role")], ORG_A)).toBe(false);
   });
