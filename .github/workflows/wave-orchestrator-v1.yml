@@ -1,10 +1,17 @@
-# Documentation Gate V3 reverified for PR #287.
+# Documentation Gate V3 reverified for PR #289.
 name: Wave Orchestrator V1
 
 on:
   workflow_run:
     workflows:
       - W3 Production Security Gate
+      - W4 Campaign Core Gate
+      - W5 Performance & Money Loop Gate
+      - W6 Intelligence Layer Gate
+      - W7 Beta Monetization Gate
+      - W8 Relationship, Trust & Rights Gate
+      - W9 Commerce Optimization & Activation Gate
+      - W10 Measurement, Simulation & Learning Gate
     types:
       - completed
   workflow_dispatch:
@@ -27,13 +34,12 @@ on:
         description: Verified GitHub Actions run URL
         required: true
       mode:
-        description: dry-run or apply
+        description: Manual runs are dry-run only
         required: true
         default: dry-run
         type: choice
         options:
           - dry-run
-          - apply
 
 permissions:
   contents: read
@@ -54,8 +60,9 @@ jobs:
     env:
       WAVE_CONFIG_PATH: .gmvgang/waves.json
       NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
-      EVENT_WAVE: ${{ github.event_name == 'workflow_dispatch' && inputs.wave || 'W3' }}
-      EVENT_GATE: ${{ github.event_name == 'workflow_dispatch' && inputs.gate || 'production-security' }}
+      EVENT_WAVE: ${{ github.event_name == 'workflow_dispatch' && inputs.wave || '' }}
+      EVENT_GATE: ${{ github.event_name == 'workflow_dispatch' && inputs.gate || '' }}
+      EVENT_WORKFLOW_NAME: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.name || '' }}
       EVENT_STATUS: passed
       EVENT_REVISION: ${{ github.event_name == 'workflow_dispatch' && inputs.revision || github.event.workflow_run.head_sha }}
       EVENT_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.source_run_id || github.event.workflow_run.id }}

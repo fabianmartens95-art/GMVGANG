@@ -2,13 +2,15 @@ import { readFile } from "node:fs/promises";
 
 const configPath = process.env.WAVE_CONFIG_PATH || ".gmvgang/waves.json";
 const notionToken = process.env.NOTION_TOKEN?.trim();
-const eventWave = process.env.EVENT_WAVE?.trim();
-const eventGate = process.env.EVENT_GATE?.trim();
+let eventWave = process.env.EVENT_WAVE?.trim();
+let eventGate = process.env.EVENT_GATE?.trim();
+const eventWorkflowName = process.env.EVENT_WORKFLOW_NAME?.trim();
 const eventStatus = process.env.EVENT_STATUS?.trim();
 const eventRevision = process.env.EVENT_REVISION?.trim();
 const eventRunId = process.env.EVENT_RUN_ID?.trim();
 const eventRunUrl = process.env.EVENT_RUN_URL?.trim();
 const mode = (process.env.ORCHESTRATOR_MODE || "apply").trim();
+const githubEventName = process.env.GITHUB_EVENT_NAME?.trim();
 
 function stop(reason, detail = {}) {
   console.log(JSON.stringify({ scope: "gmvgang.wave-orchestrator", outcome: "blocked", reason, ...detail }, null, 2));
@@ -86,6 +88,15 @@ async function patchRichTextBlock(block, text, extra = {}) {
 }
 
 const config = JSON.parse(await readFile(configPath, "utf8"));
+
+if (!eventWave && eventWorkflowName) {
+  eventWave = Object.entries(config.waves).find(([, candidate]) => candidate.gateWorkflow === eventWorkflowName)?.[0];
+}
+if (!eventGate && eventWave) eventGate = config.waves[eventWave]?.requiredGate;
+
+if (githubEventName === "workflow_dispatch" && mode !== "dry-run") {
+  stop("manual_apply_forbidden");
+}
 const wave = config.waves[eventWave];
 
 if (!eventWave || !wave) stop("unknown_or_missing_wave", { eventWave });
