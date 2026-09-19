@@ -162,6 +162,108 @@ const AUTH_CONFIG = {
   publicOrigin: "https://app.gmvgang.de",
 } as PlatformServerConfig;
 
+
+function passwordUpdateRequest(password = "new-password-123"): Request {
+  return new Request("https://app.gmvgang.de/api/auth/password", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: "https://app.gmvgang.de",
+    },
+    body: JSON.stringify({ password }),
+  });
+}
+
+describe("password update session revocation", () => {
+  it("revokes all sessions after a successful password update and blocks reuse of the same session", async () => {
+    const audit = collectingAudit();
+    const calls: string[] = [];
+    let authenticated = true;
+    const client = {
+      auth: {
+        async getUser() {
+          calls.push("getUser");
+          return authenticated
+            ? { data: { user: { id: "user-1" } }, error: null }
+            : { data: { user: null }, error: { message: "signed_out" } };
+        },
+        async updateUser(input: { password: string }) {
+          calls.push(`updateUser:${input.password}`);
+          return { data: { user: { id: "user-1" } }, error: null };
+        },
+        async signOut(options?: { scope?: string }) {
+          calls.push(`signOut:${options?.scope ?? "default"}`);
+          authenticated = false;
+          return { error: null };
+        },
+      },
+    } as unknown as SupabaseClient;
+    const limiter = createFixedWindowRateLimiter({ limit: 5, windowMs: 15 * 60 * 1000 });
+
+    const first = await authResponse(
+      passwordUpdateRequest("first-password"),
+      client,
+      AUTH_CONFIG,
+      limiter,
+      audit.audit,
+      "req_password_first",
+    );
+    const second = await authResponse(
+      passwordUpdateRequest("second-password"),
+      client,
+      AUTH_CONFIG,
+      limiter,
+      audit.audit,
+      "req_password_second",
+    );
+
+    expect(first?.status).toBe(200);
+    await expect(first?.json()).resolves.toEqual({ ok: true, reauthenticate: true });
+    expect(second?.status).toBe(401);
+    expect(calls).toEqual([
+      "getUser",
+      "updateUser:first-password",
+      "signOut:global",
+      "getUser",
+    ]);
+    expect(audit.events.map((event) => event.event)).toEqual(["auth.password.updated"]);
+  });
+
+  it("falls back to local sign-out if global revocation fails", async () => {
+    const audit = collectingAudit();
+    const calls: string[] = [];
+    const client = {
+      auth: {
+        async getUser() {
+          return { data: { user: { id: "user-1" } }, error: null };
+        },
+        async updateUser() {
+          return { data: { user: { id: "user-1" } }, error: null };
+        },
+        async signOut(options?: { scope?: string }) {
+          calls.push(`signOut:${options?.scope ?? "default"}`);
+          return options?.scope === "global"
+            ? { error: { message: "global_failed" } }
+            : { error: null };
+        },
+      },
+    } as unknown as SupabaseClient;
+
+    const response = await authResponse(
+      passwordUpdateRequest(),
+      client,
+      AUTH_CONFIG,
+      createFixedWindowRateLimiter({ limit: 5, windowMs: 15 * 60 * 1000 }),
+      audit.audit,
+      "req_password_fallback",
+    );
+
+    expect(response?.status).toBe(200);
+    expect(calls).toEqual(["signOut:global", "signOut:local"]);
+    expect(audit.events.map((event) => event.event)).toEqual(["auth.password.updated"]);
+  });
+});
+
 describe("password recovery route security", () => {
   it("rejects cross-origin requests before contacting the provider", async () => {
     const provider = passwordRecoveryClient();
