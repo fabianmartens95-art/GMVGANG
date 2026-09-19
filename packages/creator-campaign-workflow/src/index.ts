@@ -185,3 +185,64 @@ export function deriveCreatorCampaignNextAction(input: {
   if (input.contentStatus === "cancelled") return "campaign_complete";
   return "none";
 }
+
+export type SampleLifecyclePlan =
+  | {
+      ok: true;
+      currentStatus: SampleStatus;
+      targetStatus: SampleStatus;
+      fulfillmentReference: string | null;
+    }
+  | {
+      ok: false;
+      error:
+        | "SAMPLE_OUTREACH_NOT_ACCEPTED"
+        | "SAMPLE_TRANSITION_DENIED"
+        | "SAMPLE_FULFILLMENT_REFERENCE_REQUIRED"
+        | "SAMPLE_FULFILLMENT_REFERENCE_INVALID";
+    };
+
+const SAMPLE_FULFILLMENT_REFERENCE_MAX = 256;
+const SAMPLE_TRACKED_FULFILLMENT_STATES = new Set<SampleStatus>([
+  "ordered",
+  "shipped",
+  "delivered",
+]);
+
+export function planSampleLifecycleTransition(input: {
+  outreachStatus: OutreachStatus;
+  currentStatus: SampleStatus;
+  targetStatus: SampleStatus;
+  fulfillmentReference?: string | null;
+}): SampleLifecyclePlan {
+  if (input.outreachStatus !== "accepted") {
+    return { ok: false, error: "SAMPLE_OUTREACH_NOT_ACCEPTED" };
+  }
+
+  const transition = authorizeSampleTransition(input.currentStatus, input.targetStatus);
+  if (!transition.ok) {
+    return { ok: false, error: "SAMPLE_TRANSITION_DENIED" };
+  }
+
+  const fulfillmentReference = input.fulfillmentReference?.trim() || null;
+  if (
+    fulfillmentReference &&
+    fulfillmentReference.length > SAMPLE_FULFILLMENT_REFERENCE_MAX
+  ) {
+    return { ok: false, error: "SAMPLE_FULFILLMENT_REFERENCE_INVALID" };
+  }
+
+  if (
+    SAMPLE_TRACKED_FULFILLMENT_STATES.has(input.targetStatus) &&
+    !fulfillmentReference
+  ) {
+    return { ok: false, error: "SAMPLE_FULFILLMENT_REFERENCE_REQUIRED" };
+  }
+
+  return {
+    ok: true,
+    currentStatus: input.currentStatus,
+    targetStatus: input.targetStatus,
+    fulfillmentReference,
+  };
+}
