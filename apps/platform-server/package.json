@@ -12,6 +12,7 @@
   "dependencies": {
     "@gmvgang/affiliate-performance": "workspace:*",
     "@gmvgang/platform-api": "workspace:*",
+    "@gmvgang/platform-foundation": "workspace:*",
     "@supabase/ssr": "0.12.0",
     "@supabase/supabase-js": "2.116.0",
     "cookie": "^1.0.2",
