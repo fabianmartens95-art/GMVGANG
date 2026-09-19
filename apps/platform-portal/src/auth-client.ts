@@ -151,6 +151,7 @@ export function renderLogin(authenticated: boolean): string {
         <div class="eyebrow">GMVGANG LOGIN</div>
         <h1>Einloggen</h1>
         <p>Logge dich mit E-Mail und Passwort ein. Der bisherige sichere Login-Link bleibt als Alternative bestehen.</p>
+        ${params.get("password_updated") === "1" ? '<div class="join-result"><strong>Passwort gespeichert.</strong> Bitte melde dich mit deinem neuen Passwort an.</div>' : ""}
         ${authError ? '<div class="auth-error">Der Login-Link konnte nicht bestätigt werden. Bitte fordere einen neuen Link an.</div>' : ""}
         <form id="auth-login-form" class="auth-form">
           <label>
@@ -347,8 +348,8 @@ export function wirePasswordSettings(): void {
       return;
     }
 
-    result.innerHTML = `<strong>Passwort gespeichert.</strong> Du kannst dich ab jetzt mit E-Mail und Passwort einloggen. <a href="${escapeHtml(next)}">Weiter zum Portal</a>`;
+    result.innerHTML = "<strong>Passwort gespeichert.</strong> Deine Sitzungen wurden aus Sicherheitsgründen beendet. Du wirst zum Login weitergeleitet.";
     form.querySelectorAll<HTMLInputElement>('input[type="password"]').forEach((input) => { input.value = ""; });
-    if (button) button.disabled = false;
+    window.location.assign("/login?password_updated=1");
   });
 }
