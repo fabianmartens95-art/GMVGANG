@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { authorizeBrandProductTransition, evaluateBrandProductReadiness } from "./index.js";
+import { authorizeBrandProductTransition, authorizeProductForCampaignSetup, evaluateBrandProductReadiness } from "./index.js";
 
 const readyInput = {
   name: "Creator Bundle",
@@ -142,5 +142,79 @@ describe("Brand Product lifecycle", () => {
       .toEqual({ ok: false, error: "PRODUCT_TRANSITION_DENIED" });
     expect(authorizeBrandProductTransition({ currentStatus: "archived", targetStatus: "draft", readiness }))
       .toEqual({ ok: true, status: "draft" });
+  });
+});
+
+describe("Brand Product → Campaign setup", () => {
+  const readiness = evaluateBrandProductReadiness(readyInput);
+
+  it("authorizes only an active, ready product in the same organization", () => {
+    expect(authorizeProductForCampaignSetup({
+      productId: "product-1",
+      productOrganizationId: "org-1",
+      campaignOrganizationId: "org-1",
+      productStatus: "active",
+      readiness,
+    })).toEqual({
+      ok: true,
+      productId: "product-1",
+      organizationId: "org-1",
+      warnings: [],
+    });
+  });
+
+  it("fails closed on cross-organization campaign setup", () => {
+    expect(authorizeProductForCampaignSetup({
+      productId: "product-1",
+      productOrganizationId: "org-a",
+      campaignOrganizationId: "org-b",
+      productStatus: "active",
+      readiness,
+    })).toEqual({
+      ok: false,
+      error: "PRODUCT_CAMPAIGN_ORGANIZATION_MISMATCH",
+    });
+  });
+
+  it("requires canonical Product activation and readiness", () => {
+    expect(authorizeProductForCampaignSetup({
+      productId: "product-1",
+      productOrganizationId: "org-1",
+      campaignOrganizationId: "org-1",
+      productStatus: "draft",
+      readiness,
+    })).toEqual({
+      ok: false,
+      error: "PRODUCT_CAMPAIGN_REQUIRES_ACTIVE_PRODUCT",
+    });
+
+    expect(authorizeProductForCampaignSetup({
+      productId: "product-1",
+      productOrganizationId: "org-1",
+      campaignOrganizationId: "org-1",
+      productStatus: "active",
+      readiness: evaluateBrandProductReadiness({ ...readyInput, salePriceCents: 0 }),
+    })).toEqual({
+      ok: false,
+      error: "PRODUCT_CAMPAIGN_REQUIRES_READY_PRODUCT",
+    });
+  });
+
+  it("rejects missing identity or tenant context", () => {
+    expect(authorizeProductForCampaignSetup({
+      productId: " ",
+      productOrganizationId: "org-1",
+      campaignOrganizationId: "org-1",
+      productStatus: "active",
+      readiness,
+    })).toEqual({ ok: false, error: "PRODUCT_ID_REQUIRED" });
+
+    expect(authorizeProductForCampaignSetup({
+      productId: "product-1",
+      productOrganizationId: " ",
+      campaignOrganizationId: "org-1",
+      productStatus: "active",
+      readiness,
+    })).toEqual({ ok: false, error: "PRODUCT_ORGANIZATION_REQUIRED" });
   });
 });
