@@ -265,7 +265,7 @@ describe("password update session revocation", () => {
     expect(response?.status).toBe(200);
     expect(calls).toEqual(["signOut:global", "signOut:local"]);
     expect(audit.events.map((event) => event.event)).toEqual(["auth.password.updated"]);
-
+  });
 
   it("falls back to local sign-out if global revocation throws", async () => {
     const audit = collectingAudit();
@@ -343,7 +343,6 @@ describe("password update session revocation", () => {
       "auth.password.updated",
       "auth.password.session_revocation_failed",
     ]);
-  });
   });
 });
 
