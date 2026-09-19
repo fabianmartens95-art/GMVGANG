@@ -1,3 +1,4 @@
+// Governance-only W4 exit gate; Production release remains a separate control path.
 import { readFile } from "node:fs/promises";
 
 const token = process.env.GITHUB_TOKEN?.trim();
