@@ -33,6 +33,9 @@ jobs:
         with:
           node-version: 22
 
+      - name: Validate Dependabot automation policy
+        run: node --test scripts/ci/dependabot-policy.test.mjs
+
       - name: Validate build lane boundaries
         if: github.event_name == 'pull_request'
         env:
