@@ -128,6 +128,9 @@ function navigation(): string {
   const accountContext = session.status === "authenticated"
     ? `${currentWorkspace ? escapeHtml(currentWorkspace.name) : "Kein Workspace"} · ${session.roles.join(", ") || "Keine Rolle"}`
     : "Portal";
+  const accountInitial = session.status === "authenticated"
+    ? escapeHtml((session.email ?? "G").trim().charAt(0).toUpperCase() || "G")
+    : "G";
 
   return `
     <header class="topbar">
@@ -149,6 +152,7 @@ function navigation(): string {
         ${workspaceSelector()}
         <div class="session-chip">
           <span class="session-dot ${session.status === "authenticated" ? "is-authenticated" : ""}"></span>
+          ${session.status === "authenticated" ? `<span class="session-avatar" aria-hidden="true">${accountInitial}</span>` : ""}
           <span class="session-chip__copy">
             <strong>${accountLabel}</strong>
             <small>${accountContext}</small>

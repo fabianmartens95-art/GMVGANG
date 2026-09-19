@@ -30,11 +30,23 @@
 }
 
 * { box-sizing: border-box; }
-html { background: var(--black); }
+html {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-x: clip;
+  background: var(--black);
+}
 body {
+  width: 100%;
+  max-width: 100%;
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-x: clip;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   background:
     radial-gradient(circle at 78% 12%, rgba(123, 97, 255, 0.12), transparent 28%),
     radial-gradient(circle at 18% 42%, rgba(64, 217, 255, 0.045), transparent 22%),
@@ -52,7 +64,24 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   box-shadow: var(--gmv-shadow-focus);
 }
 
-#app { min-height: 100vh; }
+#app {
+  width: 100%;
+  max-width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+img,
+svg,
+video,
+canvas,
+input,
+select,
+textarea {
+  max-width: 100%;
+}
 
 .topbar {
   width: min(1500px, calc(100% - 40px));
@@ -217,10 +246,48 @@ main { width: min(1500px, calc(100% - 40px)); margin: 0 auto; }
   align-items: center;
   gap: 20px;
 }
-.gmv-tiktok--connected { border-left-color: var(--yellow); }
+.gmv-tiktok--connected,
+.gmv-tiktok[data-tiktok-state="connected"] { border-left-color: var(--yellow); }
+.gmv-tiktok[data-tiktok-state="syncing"] { border-left-color: var(--cyan); }
+.gmv-tiktok[data-tiktok-state="sync_failed"] { border-left-color: var(--negative); }
+.gmv-tiktok[data-tiktok-state="disconnected"] { border-left-color: var(--purple); }
 .gmv-tiktok h3 { margin: 6px 0; font-size: clamp(20px, 3vw, 28px); }
 .gmv-tiktok .gmv-actions { justify-content: flex-end; }
-.gmv-tiktok [data-tiktok-result] { grid-column: 1 / -1; }
+.gmv-tiktok__state {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: var(--gray);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.gmv-tiktok[data-tiktok-state="connected"] .gmv-tiktok__state { color: var(--yellow); border-color: color-mix(in srgb, var(--yellow) 45%, var(--border)); }
+.gmv-tiktok[data-tiktok-state="syncing"] .gmv-tiktok__state { color: var(--cyan); border-color: color-mix(in srgb, var(--cyan) 45%, var(--border)); }
+.gmv-tiktok[data-tiktok-state="sync_failed"] .gmv-tiktok__state { color: var(--negative); border-color: color-mix(in srgb, var(--negative) 45%, var(--border)); }
+.gmv-tiktok [data-tiktok-result] {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 5px;
+  line-height: 1.5;
+}
+.gmv-tiktok [data-tiktok-result]:empty { display: none; }
+.gmv-tiktok [data-tiktok-result] strong { color: var(--white); }
+.gmv-tiktok [data-tiktok-result] span { color: var(--gray); }
+.gmv-tiktok [data-tiktok-result][data-tone="error"] strong { color: var(--negative); }
+.gmv-tiktok .gmv-button--danger {
+  border-color: color-mix(in srgb, var(--negative) 55%, var(--border));
+  color: var(--negative);
+  background: transparent;
+}
+.gmv-tiktok .gmv-button--danger:hover {
+  border-color: var(--negative);
+  background: color-mix(in srgb, var(--negative) 10%, transparent);
+}
 .gmv-verified-source { color: var(--yellow); font-size: 11px; letter-spacing: .04em; }
 
 
@@ -283,22 +350,107 @@ footer span:first-child { color: var(--yellow); font-weight: 900; }
 }
 
 @media (max-width: 700px) {
-  .topbar, main, footer { width: min(100% - 24px, 1500px); }
-  .session-controls { gap: 8px; }
+  .topbar,
+  main,
+  footer {
+    width: min(calc(100% - 24px), 1500px);
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .topbar {
+    min-height: auto;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    gap: 10px 12px;
+    padding-top: max(12px, env(safe-area-inset-top, 0px));
+  }
+
+  .brand {
+    min-width: 0;
+  }
+
+  .brand small {
+    display: none;
+  }
+
   .session-chip { display: flex; }
   .session-action { min-height: 42px; padding: 10px 12px; }
-  .nav { overflow-x: auto; flex-wrap: nowrap; }
+
+  .nav {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+    padding-bottom: 12px;
+  }
+
+  .nav::-webkit-scrollbar {
+    display: none;
+  }
+
   .nav__link { white-space: nowrap; }
-  .hero { padding-top: 56px; min-height: unset; }
-  .hero h1 { font-size: clamp(48px, 17vw, 78px); }
-  .portal-grid, .module-grid, .foundation-strip { grid-template-columns: 1fr; }
-  .foundation-strip > div { border-right: 0; border-bottom: 1px solid var(--border); }
-  .workspace__intro { align-items: flex-start; flex-direction: column; }
+
+  .hero { padding-top: 42px; min-height: unset; }
+  .hero h1 { font-size: clamp(46px, 15vw, 72px); }
+
+  .portal-grid,
+  .module-grid,
+  .foundation-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .foundation-strip > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .workspace {
+    padding: 40px 0 max(64px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .workspace__intro {
+    min-width: 0;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 16px;
+    padding-bottom: 24px;
+  }
+
+  .workspace__intro > div {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .workspace__intro h1 {
+    max-width: 100%;
+    font-size: clamp(40px, 13vw, 62px);
+    line-height: .92;
+    overflow-wrap: anywhere;
+  }
+
+  .workspace__intro p {
+    margin: 16px 0 0;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
   .gmv-tiktok { grid-template-columns: 1fr; align-items: stretch; }
   .gmv-tiktok .gmv-actions { justify-content: flex-start; flex-wrap: wrap; }
   .locked-view__box { padding: 34px 24px; }
   .lock-icon { display: none; }
-  footer { align-items: flex-start; flex-direction: column; justify-content: center; padding: 20px 0; }
+
+  footer {
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+    padding: 20px 0 max(20px, env(safe-area-inset-bottom, 0px));
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

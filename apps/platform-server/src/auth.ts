@@ -14,6 +14,12 @@ export type SupabaseCookieAuthOptions = {
   production: boolean;
 };
 
+export function passwordRecoveryRedirect(publicOrigin: string): string {
+  const redirectUrl = new URL("/auth/callback", publicOrigin);
+  redirectUrl.searchParams.set("next", "/account/password?recovery=1");
+  return redirectUrl.toString();
+}
+
 function requestCookies(request: Request): Array<{ name: string; value: string }> {
   const parsed = parseCookie(request.headers.get("cookie") ?? "");
   return Object.entries(parsed).flatMap(([name, value]) =>

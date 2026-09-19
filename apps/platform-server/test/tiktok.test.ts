@@ -4,6 +4,8 @@ import {
   buildTikTokAuthorizeUrl,
   decryptTikTokToken,
   encryptTikTokToken,
+  existingTikTokConnectionTokenFields,
+  freshTikTokConnectionTokenFields,
   tiktokIdentityDigest,
   tiktokUserFieldsForScopes,
 } from "../src/tiktok.js";
@@ -27,6 +29,56 @@ describe("TikTok Creator integration helpers", () => {
     expect(unionId).toMatch(/^[a-f0-9]{64}$/);
     expect(openId).not.toBe(unionId);
     expect(openId).not.toContain("provider-user-id");
+  });
+
+
+  it("preserves stored token references and expiries when a connected profile is re-synced", () => {
+    expect(existingTikTokConnectionTokenFields({
+      access_token_secret_ref: "access-secret-ref",
+      refresh_token_secret_ref: "refresh-secret-ref",
+      access_token_expires_at: "2026-09-19T00:00:00.000Z",
+      refresh_token_expires_at: "2027-09-18T00:00:00.000Z",
+    })).toEqual({
+      access_token_secret_ref: "access-secret-ref",
+      refresh_token_secret_ref: "refresh-secret-ref",
+      access_token_expires_at: "2026-09-19T00:00:00.000Z",
+      refresh_token_expires_at: "2027-09-18T00:00:00.000Z",
+    });
+
+    expect(existingTikTokConnectionTokenFields(null)).toEqual({});
+    expect(existingTikTokConnectionTokenFields({
+      access_token_secret_ref: null,
+      refresh_token_secret_ref: null,
+      access_token_expires_at: null,
+      refresh_token_expires_at: null,
+    })).toEqual({
+      access_token_secret_ref: null,
+      refresh_token_secret_ref: null,
+      access_token_expires_at: null,
+      refresh_token_expires_at: null,
+    });
+  });
+
+  it("replaces stored token metadata when a fresh OAuth or refresh token response is written", () => {
+    const existing = existingTikTokConnectionTokenFields({
+      access_token_secret_ref: "access-secret-ref",
+      refresh_token_secret_ref: "refresh-secret-ref",
+      access_token_expires_at: "2026-09-19T00:00:00.000Z",
+      refresh_token_expires_at: "2027-09-18T00:00:00.000Z",
+    });
+    const fresh = freshTikTokConnectionTokenFields(
+      "new-access-ref",
+      "new-refresh-ref",
+      "2026-09-18T18:00:00.000Z",
+      { expires_in: 3600, refresh_expires_in: 7200 },
+    );
+
+    expect({ ...existing, ...fresh }).toEqual({
+      access_token_secret_ref: "new-access-ref",
+      refresh_token_secret_ref: "new-refresh-ref",
+      access_token_expires_at: "2026-09-18T19:00:00.000Z",
+      refresh_token_expires_at: "2026-09-18T20:00:00.000Z",
+    });
   });
 
   it("only requests profile and stats fields when the corresponding scopes were granted", () => {

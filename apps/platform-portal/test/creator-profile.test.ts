@@ -120,11 +120,54 @@ describe("renderCreatorProfile", () => {
 
   it("locks verified identity and matching fields while keeping the display name editable", () => {
     const html = renderCreatorProfile(parseCreatorProfileResult(PROFILE_PAYLOAD));
-    expect(html.match(/readonly aria-readonly="true"/g)).toHaveLength(4);
+    expect(html.match(/readonly aria-readonly="true"/g)).toHaveLength(1);
+    expect(html).toContain('<select name="market" required autocomplete="country" disabled aria-disabled="true">');
+    expect(html).toContain('<select name="language" required disabled aria-disabled="true">');
+    expect(html).toContain('type="hidden" name="market" value="DE"');
+    expect(html).toContain('type="hidden" name="language" value="de"');
+    expect(html).toContain('type="checkbox" name="niche" value="beauty" checked disabled aria-disabled="true"');
     expect(html).toContain('name="displayName" value="Creator One" required minlength="2" autocomplete="name" />');
     expect(html).toContain("Anzeigename speichern");
     expect(html).toContain("Verifizierte Profildaten sind geschützt.");
     expect(html).toContain("Änderung nur über GMVGANG Review");
+  });
+
+  it("renders controlled market, language and niche choices before profile verification", () => {
+    const html = renderCreatorProfile(parseCreatorProfileResult({
+      ...PROFILE_PAYLOAD,
+      creatorProfile: {
+        ...PROFILE_PAYLOAD.creatorProfile,
+        networkStatus: "registered",
+        profileCompletionPercent: 40,
+      },
+    }));
+
+    expect(html).toContain('<select name="market" required autocomplete="country">');
+    expect(html).toContain('<option value="DE" selected>Deutschland</option>');
+    expect(html).toContain('<select name="language" required>');
+    expect(html).toContain('<option value="de" selected>Deutsch</option>');
+    expect(html).toContain('type="checkbox" name="niche" value="beauty" checked');
+    expect(html).toContain("Wähle alle Schlagwörter aus, die zu deinem Content passen.");
+    expect(html).not.toContain('name="market" value="DE"');
+  });
+
+  it("keeps unknown legacy taxonomy values visible without duplicating legacy niches", () => {
+    const html = renderCreatorProfile(parseCreatorProfileResult({
+      ...PROFILE_PAYLOAD,
+      creatorProfile: {
+        ...PROFILE_PAYLOAD.creatorProfile,
+        market: "XX",
+        language: "custom-lang",
+        niche: ["urban-art", "Urban-Art"],
+        networkStatus: "registered",
+        profileCompletionPercent: 40,
+      },
+    }));
+
+    expect(html).toContain('<option value="XX" selected>XX (bestehend)</option>');
+    expect(html).toContain('<option value="custom-lang" selected>custom-lang (bestehend)</option>');
+    expect(html.match(/name="niche" value="urban-art" checked/g)).toHaveLength(1);
+    expect(html).toContain("urban-art (bestehend)");
   });
 
   it("shows a join path when no profile exists", () => {

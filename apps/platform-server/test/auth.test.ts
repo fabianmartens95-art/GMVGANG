@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { createCookieAccessTokenPort, ensureInitializedSignOut } from "../src/auth.js";
+import type { PlatformAuditEventInput, PlatformAuditLogger } from "../src/audit.js";
+import type { PlatformServerConfig } from "../src/env.js";
+import { createFixedWindowRateLimiter } from "../src/rate-limit.js";
+import { authResponse } from "../src/server.js";
+
+import {
+  createCookieAccessTokenPort,
+  ensureInitializedSignOut,
+  passwordRecoveryRedirect,
+} from "../src/auth.js";
 
 function fakeClient(options?: { token?: string | null; error?: boolean }) {
   let sessionReads = 0;
@@ -101,4 +110,273 @@ describe("SSR sign-out", () => {
 
     expect(calls).toEqual(["getSession", "signOut:local"]);
   });
+});
+
+
+describe("password recovery redirect", () => {
+  it("returns to the authenticated password page after the provider callback", () => {
+    const redirect = new URL(passwordRecoveryRedirect("https://app.gmvgang.de"));
+    expect(redirect.origin).toBe("https://app.gmvgang.de");
+    expect(redirect.pathname).toBe("/auth/callback");
+    expect(redirect.searchParams.get("next")).toBe("/account/password?recovery=1");
+  });
+});
+
+
+function passwordRecoveryRequest(email = "creator@example.com", origin = "https://app.gmvgang.de"): Request {
+  return new Request("https://app.gmvgang.de/api/auth/password-recovery", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: origin,
+    },
+    body: JSON.stringify({ email }),
+  });
+}
+
+function passwordRecoveryClient(providerError: unknown = null) {
+  const calls: Array<{ email: string; redirectTo: string | undefined }> = [];
+  const client = {
+    auth: {
+      async resetPasswordForEmail(email: string, options?: { redirectTo?: string }) {
+        calls.push({ email, redirectTo: options?.redirectTo });
+        return { data: {}, error: providerError };
+      },
+    },
+  } as unknown as SupabaseClient;
+
+  return { client, calls };
+}
+
+function collectingAudit() {
+  const events: PlatformAuditEventInput[] = [];
+  const audit: PlatformAuditLogger = {
+    async record(input) {
+      events.push(input);
+    },
+  };
+  return { audit, events };
+}
+
+const AUTH_CONFIG = {
+  publicOrigin: "https://app.gmvgang.de",
+} as PlatformServerConfig;
+
+describe("password recovery route security", () => {
+  it("rejects cross-origin requests before contacting the provider", async () => {
+    const provider = passwordRecoveryClient();
+    const audit = collectingAudit();
+    const response = await authResponse(
+      passwordRecoveryRequest("creator@example.com", "https://evil.example"),
+      provider.client,
+      AUTH_CONFIG,
+      createFixedWindowRateLimiter({ limit: 5, windowMs: 15 * 60 * 1000 }),
+      audit.audit,
+      "req_recovery_origin",
+    );
+
+    expect(response?.status).toBe(403);
+    expect(provider.calls).toEqual([]);
+    expect(audit.events).toEqual([]);
+  });
+
+  it("keeps valid recovery responses non-enumerating when the provider reports an error", async () => {
+    const provider = passwordRecoveryClient({ message: "user_not_found" });
+    const audit = collectingAudit();
+    const response = await authResponse(
+      passwordRecoveryRequest(),
+      provider.client,
+      AUTH_CONFIG,
+      createFixedWindowRateLimiter({ limit: 5, windowMs: 15 * 60 * 1000 }),
+      audit.audit,
+      "req_recovery_non_enum",
+    );
+
+    expect(response?.status).toBe(202);
+    await expect(response?.json()).resolves.toEqual({ ok: true });
+    expect(provider.calls).toEqual([{
+      email: "creator@example.com",
+      redirectTo: "https://app.gmvgang.de/auth/callback?next=%2Faccount%2Fpassword%3Frecovery%3D1",
+    }]);
+    expect(audit.events).toHaveLength(1);
+    expect(audit.events[0]?.event).toBe("auth.password_recovery.request_failed");
+    expect(JSON.stringify(audit.events)).not.toContain("creator@example.com");
+  });
+
+  it("normalizes recovery email casing before applying the rate-limit key", async () => {
+    const provider = passwordRecoveryClient();
+    const audit = collectingAudit();
+    const limiter = createFixedWindowRateLimiter({ limit: 1, windowMs: 15 * 60 * 1000 });
+
+    const first = await authResponse(
+      passwordRecoveryRequest("Creator@Example.com"),
+      provider.client,
+      AUTH_CONFIG,
+      limiter,
+      audit.audit,
+      "req_recovery_case_first",
+    );
+    const second = await authResponse(
+      passwordRecoveryRequest("creator@example.com"),
+      provider.client,
+      AUTH_CONFIG,
+      limiter,
+      audit.audit,
+      "req_recovery_case_second",
+    );
+
+    expect(first?.status).toBe(202);
+    expect(second?.status).toBe(429);
+    expect(provider.calls).toHaveLength(1);
+    expect(provider.calls[0]?.email).toBe("creator@example.com");
+    expect(JSON.stringify(audit.events)).not.toContain("creator@example.com");
+  });
+
+  it("rate-limits repeated recovery requests without writing PII to audit events", async () => {
+    const provider = passwordRecoveryClient();
+    const audit = collectingAudit();
+    const limiter = createFixedWindowRateLimiter({ limit: 1, windowMs: 15 * 60 * 1000 });
+
+    const first = await authResponse(
+      passwordRecoveryRequest("creator@example.com"),
+      provider.client,
+      AUTH_CONFIG,
+      limiter,
+      audit.audit,
+      "req_recovery_first",
+    );
+    const second = await authResponse(
+      passwordRecoveryRequest("creator@example.com"),
+      provider.client,
+      AUTH_CONFIG,
+      limiter,
+      audit.audit,
+      "req_recovery_second",
+    );
+
+    expect(first?.status).toBe(202);
+    expect(second?.status).toBe(429);
+    expect(second?.headers.get("Retry-After")).toBe("900");
+    expect(provider.calls).toHaveLength(1);
+    expect(audit.events.map((event) => event.event)).toEqual([
+      "auth.password_recovery.requested",
+      "auth.password_recovery.rate_limited",
+    ]);
+    expect(JSON.stringify(audit.events)).not.toContain("creator@example.com");
+  });
+
+  it("keeps valid recovery responses non-enumerating when the provider throws", async () => {
+    const audit = collectingAudit();
+    const client = {
+      auth: {
+        async resetPasswordForEmail() {
+          throw new Error("network_error");
+        },
+      },
+    } as unknown as SupabaseClient;
+
+    const response = await authResponse(
+      passwordRecoveryRequest(),
+      client,
+      AUTH_CONFIG,
+      createFixedWindowRateLimiter({ limit: 5, windowMs: 15 * 60 * 1000 }),
+      audit.audit,
+      "req_recovery_throw",
+    );
+
+    expect(response?.status).toBe(202);
+    await expect(response?.json()).resolves.toEqual({ ok: true });
+    expect(audit.events.map((event) => event.event)).toEqual([
+      "auth.password_recovery.request_failed",
+    ]);
+    expect(JSON.stringify(audit.events)).not.toContain("creator@example.com");
+  });
+
+  it("isolates sign-in and recovery rate-limit key namespaces", async () => {
+    const audit = collectingAudit();
+    const recoveryCalls: string[] = [];
+    const client = {
+      auth: {
+        async signInWithPassword() {
+          return { data: { user: { id: "attacker" }, session: null }, error: null };
+        },
+        async resetPasswordForEmail(email: string) {
+          recoveryCalls.push(email);
+          return { data: {}, error: null };
+        },
+      },
+    } as unknown as SupabaseClient;
+    const limiter = createFixedWindowRateLimiter({ limit: 1, windowMs: 15 * 60 * 1000 });
+
+    const craftedSignIn = new Request("https://app.gmvgang.de/api/auth/sign-in", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: "https://app.gmvgang.de",
+      },
+      body: JSON.stringify({
+        email: "password-recovery:victim@example.com",
+        password: "password",
+      }),
+    });
+
+    const signIn = await authResponse(
+      craftedSignIn,
+      client,
+      AUTH_CONFIG,
+      limiter,
+      audit.audit,
+      "req_sign_in_namespace",
+    );
+    const recovery = await authResponse(
+      passwordRecoveryRequest("victim@example.com"),
+      client,
+      AUTH_CONFIG,
+      limiter,
+      audit.audit,
+      "req_recovery_namespace",
+    );
+
+    expect(signIn?.status).toBe(200);
+    expect(recovery?.status).toBe(202);
+    expect(recoveryCalls).toEqual(["victim@example.com"]);
+  });
+
+  it("accepts recovery token hashes without a browser-bound PKCE verifier", async () => {
+    const audit = collectingAudit();
+    const verifyCalls: Array<{ token_hash: string; type: string }> = [];
+    const client = {
+      auth: {
+        async verifyOtp(input: { token_hash: string; type: string }) {
+          verifyCalls.push(input);
+          return { data: { user: { id: "recovery-user" }, session: {} }, error: null };
+        },
+      },
+    } as unknown as SupabaseClient;
+    const confirmation = new URL("/auth/confirm", AUTH_CONFIG.publicOrigin);
+    confirmation.searchParams.set("token_hash", "recovery-token-hash");
+    confirmation.searchParams.set("type", "recovery");
+    confirmation.searchParams.set("next", passwordRecoveryRedirect(AUTH_CONFIG.publicOrigin));
+
+    const response = await authResponse(
+      new Request(confirmation),
+      client,
+      AUTH_CONFIG,
+      createFixedWindowRateLimiter({ limit: 5, windowMs: 15 * 60 * 1000 }),
+      audit.audit,
+      "req_recovery_confirm",
+    );
+
+    expect(response?.status).toBe(303);
+    expect(response?.headers.get("location")).toBe(
+      "https://app.gmvgang.de/account/password?recovery=1",
+    );
+    expect(verifyCalls).toEqual([
+      { token_hash: "recovery-token-hash", type: "recovery" },
+    ]);
+    expect(audit.events.map((event) => event.event)).toEqual([
+      "auth.password_recovery.signed_in",
+    ]);
+  });
+
 });
