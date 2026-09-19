@@ -1,3 +1,4 @@
+import { roleHasCapability, type PlatformUserRole } from "@gmvgang/platform-foundation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type ParallelV1Dependencies = {
@@ -136,6 +137,26 @@ function assertBrandWriteAccess(auth: AuthenticatedIdentity, organizationId: str
     (membership) => membership.organization_id === organizationId && BRAND_WRITE_ROLES.has(membership.role),
   );
   if (!allowed) throw new Error("BRAND_ACCESS_DENIED");
+}
+
+export function hasBrandProductManageAccess(
+  memberships: Array<{ organization_id: string; role: string; status: string }>,
+  organizationId: string,
+): boolean {
+  return memberships.some((membership) => {
+    if (membership.organization_id !== organizationId || membership.status !== "active") return false;
+    try {
+      return roleHasCapability(membership.role as PlatformUserRole, "products.manage");
+    } catch {
+      return false;
+    }
+  });
+}
+
+function assertBrandProductManageAccess(auth: AuthenticatedIdentity, organizationId: string): void {
+  if (!hasBrandProductManageAccess(auth.memberships, organizationId)) {
+    throw new Error("BRAND_ACCESS_DENIED");
+  }
 }
 
 async function assertBrandOrganization(
@@ -543,9 +564,9 @@ async function mutateWorkspace(request: Request, deps: ParallelV1Dependencies): 
       responseBody = { ok: true, assignment: data };
     } else {
       await assertBrandOrganization(deps, auth, organizationId);
-      assertBrandWriteAccess(auth, organizationId);
 
       if (action === "brand_profile_upsert") {
+        assertBrandWriteAccess(auth, organizationId);
         const legalName = cleanText(payload.legalName, 200);
         const websiteUrl = cleanText(payload.websiteUrl, 2048);
         const contactName = cleanText(payload.contactName, 200);
@@ -592,6 +613,7 @@ async function mutateWorkspace(request: Request, deps: ParallelV1Dependencies): 
         });
         responseBody = { ok: true, brandProfile: data };
       } else if (action === "brand_product_upsert") {
+        assertBrandProductManageAccess(auth, organizationId);
         const id = payload.id ? uuid(payload.id) : undefined;
         const name = cleanText(payload.name, 200);
         const sku = cleanText(payload.sku, 128);
@@ -626,6 +648,7 @@ async function mutateWorkspace(request: Request, deps: ParallelV1Dependencies): 
         });
         responseBody = { ok: true, product: data };
       } else if (action === "campaign_create") {
+        assertBrandWriteAccess(auth, organizationId);
         const name = cleanText(payload.name, 200);
         if (!name) throw new Error("INVALID_CAMPAIGN");
         const productId = payload.productId ? uuid(payload.productId) : null;
@@ -657,6 +680,7 @@ async function mutateWorkspace(request: Request, deps: ParallelV1Dependencies): 
         });
         responseBody = { ok: true, campaign: data };
       } else if (action === "campaign_assignment_upsert") {
+        assertBrandWriteAccess(auth, organizationId);
         const campaignId = uuid(payload.campaignId);
         const creatorProfileId = uuid(payload.creatorProfileId);
         const { data: campaign, error: campaignError } = await deps.adminClient
