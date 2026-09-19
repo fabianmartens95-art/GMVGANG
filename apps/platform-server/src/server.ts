@@ -212,7 +212,7 @@ export async function authResponse(
       });
       return json({ ok: false, error: "email_domain_typo", suggestion: suggestedDomain }, 400);
     }
-    if (!signInRateLimit.consume(email)) {
+    if (!signInRateLimit.consume(`sign-in:${email}`)) {
       await recordAuditBestEffort(audit, {
         event: "auth.sign_in.rate_limited",
         occurredAt: auditNow(),
@@ -310,12 +310,18 @@ export async function authResponse(
       return json({ ok: false, error: "rate_limited" }, 429, { "Retry-After": "900" });
     }
 
-    const { error } = await client.auth.resetPasswordForEmail(email, {
-      redirectTo: passwordRecoveryRedirect(config.publicOrigin),
-    });
+    let providerFailed = false;
+    try {
+      const { error } = await client.auth.resetPasswordForEmail(email, {
+        redirectTo: passwordRecoveryRedirect(config.publicOrigin),
+      });
+      providerFailed = Boolean(error);
+    } catch {
+      providerFailed = true;
+    }
 
     await recordAuditBestEffort(audit, {
-      event: error ? "auth.password_recovery.request_failed" : "auth.password_recovery.requested",
+      event: providerFailed ? "auth.password_recovery.request_failed" : "auth.password_recovery.requested",
       occurredAt: auditNow(),
       requestId,
     });
@@ -381,14 +387,15 @@ export async function authResponse(
 
     const tokenHash = url.searchParams.get("token_hash")?.trim();
     const type = url.searchParams.get("type")?.trim();
-    if (!tokenHash || tokenHash.length > 2048 || type !== "email") {
+    if (!tokenHash || tokenHash.length > 2048 || (type !== "email" && type !== "recovery")) {
       return Response.redirect(new URL("/login?error=missing_token", config.publicOrigin), 303);
     }
 
-    const { data, error } = await client.auth.verifyOtp({ token_hash: tokenHash, type: "email" });
+    const { data, error } = await client.auth.verifyOtp({ token_hash: tokenHash, type });
+    const recovery = type === "recovery";
     if (error) {
       await recordAuditBestEffort(audit, {
-        event: "auth.magic_link.sign_in_failed",
+        event: recovery ? "auth.password_recovery.sign_in_failed" : "auth.magic_link.sign_in_failed",
         occurredAt: auditNow(),
         requestId,
       });
@@ -396,11 +403,11 @@ export async function authResponse(
     }
 
     await recordAuditBestEffort(audit, {
-      event: "auth.magic_link.signed_in",
+      event: recovery ? "auth.password_recovery.signed_in" : "auth.magic_link.signed_in",
       userId: data.user?.id ?? null,
       occurredAt: auditNow(),
       requestId,
-      metadata: { authMethod: "magic_link" },
+      metadata: { authMethod: recovery ? "password_recovery" : "magic_link" },
     });
     const next = safeConfirmationNextPath(url.searchParams.get("next"), config.publicOrigin);
     return Response.redirect(new URL(next, config.publicOrigin), 303);
