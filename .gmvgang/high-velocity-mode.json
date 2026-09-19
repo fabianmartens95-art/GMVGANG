@@ -19,6 +19,8 @@
   "safeAutoMerge": {
     "enabled": true,
     "explicitOptInRequired": true,
+    "allowedBaseBranches": ["main"],
+    "sameRepositoryOnly": true,
     "allowedRiskTiers": ["R0", "R1"],
     "requiresContractFirst": true,
     "productionGateAllowed": false,
