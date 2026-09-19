@@ -63,6 +63,12 @@ jobs:
       - name: Validate Integration Wave V2 policy
         run: node --check scripts/ci/integration-wave-v2.mjs
 
+      - name: Validate High Velocity Mode V2 policy
+        run: |
+          node --check scripts/ci/safe-auto-merge.mjs
+          node --check scripts/ci/w4-autonomous-queue.mjs
+          node -e 'JSON.parse(require("node:fs").readFileSync(".gmvgang/high-velocity-mode.json","utf8")); JSON.parse(require("node:fs").readFileSync(".gmvgang/w4-autonomous-execution.json","utf8"));'
+
       - name: Validate Portal release-readiness contract
         run: node scripts/ci/validate-portal-release-readiness.mjs .gmvgang/portal-release-readiness.json
 
