@@ -109,6 +109,10 @@ describe("Insight to Brief contract", () => {
     ).toEqual({ ok: false, error: "INSIGHT_PROVENANCE_INVALID" });
 
     expect(
+      prepareBriefFromInsight({ ...observedInsight, id: " " }),
+    ).toEqual({ ok: false, error: "INSIGHT_ID_INVALID" });
+
+    expect(
       prepareBriefFromInsight({ ...observedInsight, observedAt: "not-a-date" }),
     ).toEqual({ ok: false, error: "INSIGHT_TIMESTAMP_INVALID" });
 
