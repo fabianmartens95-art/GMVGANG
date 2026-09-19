@@ -1,3 +1,4 @@
+# Fail-closed W4 exit gate. This workflow never promotes Production.
 name: W4 Campaign Core Gate
 
 on:
