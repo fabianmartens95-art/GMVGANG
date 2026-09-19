@@ -1,0 +1,46 @@
+name: W4 Autonomous Queue
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+  issues: read
+
+concurrency:
+  group: w4-autonomous-queue
+  cancel-in-progress: false
+
+jobs:
+  queue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted W4 policy
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate queue evaluator syntax
+        run: node --check scripts/ci/w4-autonomous-queue.mjs
+
+      - name: Evaluate W4 autonomous queue
+        id: queue
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          W4_AUTONOMOUS_CONFIG: .gmvgang/w4-autonomous-execution.json
+        run: node scripts/ci/w4-autonomous-queue.mjs
+
+      - name: Dispatch exact-revision W4 gate
+        if: steps.queue.outputs.gate_ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run w4-campaign-core-gate.yml --ref main -f revision="${GITHUB_SHA}"
