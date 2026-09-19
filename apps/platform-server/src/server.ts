@@ -369,20 +369,36 @@ export async function authResponse(
     // A successful password change is a security boundary. Revoke all refresh
     // sessions so a recovery-authenticated browser cannot keep changing the
     // password and any other potentially compromised sessions must re-authenticate.
-    const { error: globalSignOutError } = await client.auth.signOut({ scope: "global" });
-    if (globalSignOutError) {
-      const { error: localSignOutError } = await client.auth.signOut({ scope: "local" });
-      if (localSignOutError) {
-        await recordAuditBestEffort(audit, {
-          event: "auth.password.session_revocation_failed",
-          userId: userData.user.id,
-          occurredAt: auditNow(),
-          requestId,
-        });
+    // Supabase Auth may either return an AuthError or throw on transport/runtime
+    // failures, so both forms must preserve the local fallback.
+    const attemptSignOut = async (scope: "global" | "local"): Promise<boolean> => {
+      try {
+        const { error: signOutError } = await client.auth.signOut({ scope });
+        return !signOutError;
+      } catch {
+        return false;
       }
+    };
+
+    const globalSignOutSucceeded = await attemptSignOut("global");
+    const localFallbackSucceeded = globalSignOutSucceeded
+      ? true
+      : await attemptSignOut("local");
+
+    if (!localFallbackSucceeded) {
+      await recordAuditBestEffort(audit, {
+        event: "auth.password.session_revocation_failed",
+        userId: userData.user.id,
+        occurredAt: auditNow(),
+        requestId,
+      });
     }
 
-    return json({ ok: true, reauthenticate: true });
+    return json({
+      ok: true,
+      reauthenticate: true,
+      sessionRevocation: localFallbackSucceeded ? "confirmed" : "failed",
+    });
   }
 
   if (url.pathname === "/api/auth/sign-out") {
