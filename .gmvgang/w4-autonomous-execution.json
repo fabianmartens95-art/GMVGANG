@@ -16,14 +16,73 @@
     "sharedCoreSerializationRequired": true
   },
   "lanes": [
-    {"key":"campaign-lifecycle","issue":145,"lane":"integration","priority":"P1","productionGate":true},
-    {"key":"creator-workflow","issue":147,"lane":"integration","priority":"P1","productionGate":true},
-    {"key":"content-review","issue":149,"lane":"integration","priority":"P1","productionGate":true},
-    {"key":"product-readiness","issue":151,"lane":"integration","priority":"P1","productionGate":true},
-    {"key":"brand-product-campaign","issue":305,"lane":"brand","priority":"P1","productionGate":true},
-    {"key":"sample-lifecycle","issue":306,"lane":"creator","priority":"P1","productionGate":true},
-    {"key":"insight-brief","issue":307,"lane":"commerce","priority":"P1","productionGate":false},
-    {"key":"w4-e2e-uiux","issue":308,"lane":"integration","priority":"P1","productionGate":false},
-    {"key":"w4-docs-crossproject","issue":309,"lane":"devops","priority":"P1","productionGate":false}
-  ]
+    {
+      "key": "campaign-lifecycle",
+      "issue": 145,
+      "lane": "integration",
+      "priority": "P1",
+      "productionGate": true
+    },
+    {
+      "key": "creator-workflow",
+      "issue": 147,
+      "lane": "integration",
+      "priority": "P1",
+      "productionGate": true
+    },
+    {
+      "key": "content-review",
+      "issue": 149,
+      "lane": "integration",
+      "priority": "P1",
+      "productionGate": true
+    },
+    {
+      "key": "product-readiness",
+      "issue": 151,
+      "lane": "integration",
+      "priority": "P1",
+      "productionGate": true
+    },
+    {
+      "key": "brand-product-campaign",
+      "issue": 305,
+      "lane": "brand",
+      "priority": "P1",
+      "productionGate": true
+    },
+    {
+      "key": "sample-lifecycle",
+      "issue": 306,
+      "lane": "creator",
+      "priority": "P1",
+      "productionGate": true
+    },
+    {
+      "key": "insight-brief",
+      "issue": 307,
+      "lane": "commerce",
+      "priority": "P1",
+      "productionGate": false
+    },
+    {
+      "key": "w4-e2e-uiux",
+      "issue": 308,
+      "lane": "integration",
+      "priority": "P1",
+      "productionGate": false
+    },
+    {
+      "key": "w4-docs-crossproject",
+      "issue": 309,
+      "lane": "devops",
+      "priority": "P1",
+      "productionGate": false
+    }
+  ],
+  "executor": {
+    "mode": "chatgpt_hourly_plus_github_queue",
+    "taskTitle": "GMVGANG 24/7 Build",
+    "cadence": "hourly"
+  }
 }
