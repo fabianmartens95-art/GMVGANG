@@ -27,7 +27,7 @@ jobs:
       W4_AUTONOMOUS_CONFIG: .gmvgang/w4-autonomous-execution.json
     steps:
       - name: Checkout exact revision
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.revision }}
 
