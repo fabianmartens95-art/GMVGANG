@@ -147,3 +147,57 @@ export function authorizeBrandProductTransition(input: {
 
   return { ok: true, status: input.targetStatus };
 }
+
+export type ProductCampaignSetupDecision =
+  | {
+      ok: true;
+      productId: string;
+      organizationId: string;
+      warnings: BrandProductReadiness["warnings"];
+    }
+  | {
+      ok: false;
+      error:
+        | "PRODUCT_ID_REQUIRED"
+        | "PRODUCT_ORGANIZATION_REQUIRED"
+        | "CAMPAIGN_ORGANIZATION_REQUIRED"
+        | "PRODUCT_CAMPAIGN_ORGANIZATION_MISMATCH"
+        | "PRODUCT_CAMPAIGN_REQUIRES_ACTIVE_PRODUCT"
+        | "PRODUCT_CAMPAIGN_REQUIRES_READY_PRODUCT";
+    };
+
+export function authorizeProductForCampaignSetup(input: {
+  productId: string;
+  productOrganizationId: string;
+  campaignOrganizationId: string;
+  productStatus: BrandProductStatus;
+  readiness: BrandProductReadiness;
+}): ProductCampaignSetupDecision {
+  const productId = input.productId.trim();
+  const productOrganizationId = input.productOrganizationId.trim();
+  const campaignOrganizationId = input.campaignOrganizationId.trim();
+
+  if (!productId) return { ok: false, error: "PRODUCT_ID_REQUIRED" };
+  if (!productOrganizationId) {
+    return { ok: false, error: "PRODUCT_ORGANIZATION_REQUIRED" };
+  }
+  if (!campaignOrganizationId) {
+    return { ok: false, error: "CAMPAIGN_ORGANIZATION_REQUIRED" };
+  }
+  if (productOrganizationId !== campaignOrganizationId) {
+    return { ok: false, error: "PRODUCT_CAMPAIGN_ORGANIZATION_MISMATCH" };
+  }
+  if (input.productStatus !== "active") {
+    return { ok: false, error: "PRODUCT_CAMPAIGN_REQUIRES_ACTIVE_PRODUCT" };
+  }
+  if (!input.readiness.canActivate || input.readiness.blockers.length > 0) {
+    return { ok: false, error: "PRODUCT_CAMPAIGN_REQUIRES_READY_PRODUCT" };
+  }
+
+  return {
+    ok: true,
+    productId,
+    organizationId: productOrganizationId,
+    warnings: [...input.readiness.warnings],
+  };
+}
