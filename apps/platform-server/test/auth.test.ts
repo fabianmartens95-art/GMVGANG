@@ -218,7 +218,11 @@ describe("password update session revocation", () => {
     );
 
     expect(first?.status).toBe(200);
-    await expect(first?.json()).resolves.toEqual({ ok: true, reauthenticate: true });
+    await expect(first?.json()).resolves.toEqual({
+      ok: true,
+      reauthenticate: true,
+      sessionRevocation: "confirmed",
+    });
     expect(second?.status).toBe(401);
     expect(calls).toEqual([
       "getUser",
@@ -261,6 +265,85 @@ describe("password update session revocation", () => {
     expect(response?.status).toBe(200);
     expect(calls).toEqual(["signOut:global", "signOut:local"]);
     expect(audit.events.map((event) => event.event)).toEqual(["auth.password.updated"]);
+
+
+  it("falls back to local sign-out if global revocation throws", async () => {
+    const audit = collectingAudit();
+    const calls: string[] = [];
+    const client = {
+      auth: {
+        async getUser() {
+          return { data: { user: { id: "user-1" } }, error: null };
+        },
+        async updateUser() {
+          return { data: { user: { id: "user-1" } }, error: null };
+        },
+        async signOut(options?: { scope?: string }) {
+          calls.push(`signOut:${options?.scope ?? "default"}`);
+          if (options?.scope === "global") throw new Error("network_error");
+          return { error: null };
+        },
+      },
+    } as unknown as SupabaseClient;
+
+    const response = await authResponse(
+      passwordUpdateRequest(),
+      client,
+      AUTH_CONFIG,
+      createFixedWindowRateLimiter({ limit: 5, windowMs: 15 * 60 * 1000 }),
+      audit.audit,
+      "req_password_throw_fallback",
+    );
+
+    expect(response?.status).toBe(200);
+    await expect(response?.json()).resolves.toEqual({
+      ok: true,
+      reauthenticate: true,
+      sessionRevocation: "confirmed",
+    });
+    expect(calls).toEqual(["signOut:global", "signOut:local"]);
+    expect(audit.events.map((event) => event.event)).toEqual(["auth.password.updated"]);
+  });
+
+  it("audits deterministic failure if both global and local sign-out throw", async () => {
+    const audit = collectingAudit();
+    const calls: string[] = [];
+    const client = {
+      auth: {
+        async getUser() {
+          return { data: { user: { id: "user-1" } }, error: null };
+        },
+        async updateUser() {
+          return { data: { user: { id: "user-1" } }, error: null };
+        },
+        async signOut(options?: { scope?: string }) {
+          calls.push(`signOut:${options?.scope ?? "default"}`);
+          throw new Error("network_error");
+        },
+      },
+    } as unknown as SupabaseClient;
+
+    const response = await authResponse(
+      passwordUpdateRequest(),
+      client,
+      AUTH_CONFIG,
+      createFixedWindowRateLimiter({ limit: 5, windowMs: 15 * 60 * 1000 }),
+      audit.audit,
+      "req_password_dual_failure",
+    );
+
+    expect(response?.status).toBe(200);
+    await expect(response?.json()).resolves.toEqual({
+      ok: true,
+      reauthenticate: true,
+      sessionRevocation: "failed",
+    });
+    expect(calls).toEqual(["signOut:global", "signOut:local"]);
+    expect(audit.events.map((event) => event.event)).toEqual([
+      "auth.password.updated",
+      "auth.password.session_revocation_failed",
+    ]);
+  });
   });
 });
 
