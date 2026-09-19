@@ -1,0 +1,52 @@
+name: W4 Autonomous Queue Scheduler
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  group: w4-autonomous-queue
+  cancel-in-progress: true
+
+jobs:
+  evaluate:
+    name: Evaluate W4 autonomous queue
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted main policy
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate queue script syntax
+        run: node --check scripts/ci/w4-autonomous-queue.mjs
+
+      - name: Evaluate active W4 workstreams
+        id: queue
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          W4_AUTONOMOUS_CONFIG: .gmvgang/w4-autonomous-execution.json
+        run: node scripts/ci/w4-autonomous-queue.mjs
+
+      - name: Publish queue heartbeat
+        if: always()
+        run: |
+          {
+            echo "## W4 Autonomous Queue"
+            echo
+            echo "- gate_ready: \`${{ steps.queue.outputs.gate_ready || 'unknown' }}\`"
+            echo "- open_workstreams: \`${{ steps.queue.outputs.open_workstreams || 'unknown' }}\`"
+            echo "- open_issue_numbers: \`${{ steps.queue.outputs.open_issue_numbers || 'unknown' }}\`"
+            echo "- production_promotion: \`disabled\`"
+          } >> "$GITHUB_STEP_SUMMARY"
