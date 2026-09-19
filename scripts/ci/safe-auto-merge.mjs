@@ -77,6 +77,12 @@ if (!policy.enabled || !policy.safeAutoMerge?.enabled) await ineligible("safe_au
 const pr = await github(`/repos/${repository}/pulls/${prNumber}`);
 if (pr.state !== "open" || pr.merged_at) await ineligible("pr_not_open");
 if (pr.draft) await ineligible("draft_pr");
+if (!policy.safeAutoMerge.allowedBaseBranches.includes(pr.base?.ref)) {
+  await ineligible("base_branch_not_allowed", { base: pr.base?.ref ?? null });
+}
+if (policy.safeAutoMerge.sameRepositoryOnly && pr.head?.repo?.full_name !== repository) {
+  await ineligible("cross_repository_pr_not_allowed", { headRepository: pr.head?.repo?.full_name ?? null });
+}
 
 const body = typeof pr.body === "string" ? pr.body : "";
 if (field(body, "Auto merge").toLowerCase() !== "yes") await ineligible("explicit_opt_in_missing");
