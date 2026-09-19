@@ -116,9 +116,26 @@ for (const heading of ["Goal", "Scope", "Do not touch", "Acceptance criteria"]) 
 const autoMerge = /^Auto merge:\s*yes\s*$/im.test(body);
 const productionGate = /^Production gate:\s*yes\s*$/im.test(body);
 const founderDecision = /^Founder decision:\s*yes\s*$/im.test(body);
+const riskTierRaw = field("Risk tier");
+const contractFirstRaw = field("Contract first");
+const riskTier = riskTierRaw.toUpperCase();
+const contractFirst = contractFirstRaw.toLowerCase();
+
+if (riskTierRaw && !/^R[0-3]$/i.test(riskTierRaw)) {
+  errors.push("Risk tier must be R0, R1, R2, or R3 when declared.");
+}
+if (contractFirstRaw && !/^(yes|no)$/i.test(contractFirstRaw)) {
+  errors.push("Contract first must be yes or no when declared.");
+}
 
 if (autoMerge && (productionGate || founderDecision)) {
   errors.push("Auto merge cannot be yes when a Production gate or Founder decision is required.");
+}
+if (autoMerge && !["R0", "R1"].includes(riskTier)) {
+  errors.push("Auto merge: yes requires Risk tier: R0 or R1.");
+}
+if (autoMerge && contractFirst !== "yes") {
+  errors.push("Auto merge: yes requires Contract first: yes.");
 }
 
 if (productionGate) {
@@ -143,7 +160,9 @@ console.log(JSON.stringify({
   autoMerge,
   productionGate,
   founderDecision,
+  riskTier: riskTier || null,
+  contractFirst: contractFirst || null,
   documentationGate: v3Required ? field("Documentation gate") : "v2-grandfathered",
   notionImpact: v3Required ? field("Notion impact") : null,
-  ceoImpact: v3Required ? field("CEO impact") : null,
+  ceoImpact: v3Required ? field("CEO impact") : null
 }, null, 2));
