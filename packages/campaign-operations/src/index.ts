@@ -21,3 +21,4 @@ export {
 } from "./campaign";
 export { getCampaignActionQueue } from "./actions";
 export { summarizeCampaign } from "./summary";
+export { prepareBriefFromInsight } from "./insight-brief";\nexport type { CreativeInsight, InsightBriefDraft, InsightEvidenceClass, InsightMetric, InsightMetricKey, InsightSourceType, PrepareInsightBriefResult } from "./insight-brief";\n
