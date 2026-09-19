@@ -358,13 +358,31 @@ export async function authResponse(
 
     const { error } = await client.auth.updateUser({ password: record.password });
     if (error) return json({ ok: false, error: "password_update_failed" }, 400);
+
     await recordAuditBestEffort(audit, {
       event: "auth.password.updated",
       userId: userData.user.id,
       occurredAt: auditNow(),
       requestId,
     });
-    return json({ ok: true });
+
+    // A successful password change is a security boundary. Revoke all refresh
+    // sessions so a recovery-authenticated browser cannot keep changing the
+    // password and any other potentially compromised sessions must re-authenticate.
+    const { error: globalSignOutError } = await client.auth.signOut({ scope: "global" });
+    if (globalSignOutError) {
+      const { error: localSignOutError } = await client.auth.signOut({ scope: "local" });
+      if (localSignOutError) {
+        await recordAuditBestEffort(audit, {
+          event: "auth.password.session_revocation_failed",
+          userId: userData.user.id,
+          occurredAt: auditNow(),
+          requestId,
+        });
+      }
+    }
+
+    return json({ ok: true, reauthenticate: true });
   }
 
   if (url.pathname === "/api/auth/sign-out") {
