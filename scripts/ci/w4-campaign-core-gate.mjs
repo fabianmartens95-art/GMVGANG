@@ -99,7 +99,21 @@ if (!revision || !/^[0-9a-f]{40}$/i.test(revision)) fail("invalid_revision");
 
 const config = JSON.parse(await readFile(configPath, "utf8"));
 if (!config.enabled || config.wave !== "W4" || config.trackerIssue !== 301) fail("unexpected_config");
-if (config.safety?.productionPromotionAllowed !== false) fail("production_boundary_not_fail_closed");
+const failClosedSafetySwitches = [
+  "productionPromotionAllowed",
+  "paidExternalActivationAllowed",
+  "irreversibleMigrationAllowed",
+  "secretMutationAllowed",
+  "founderGateBypassAllowed",
+];
+for (const key of failClosedSafetySwitches) {
+  if (config.safety?.[key] !== false) {
+    fail("safety_boundary_not_fail_closed", { key, actual: config.safety?.[key] });
+  }
+}
+if (config.safety?.sharedCoreSerializationRequired !== true) {
+  fail("shared_core_serialization_not_required");
+}
 
 const main = await github("/repos/" + repository + "/branches/main");
 if (main.commit?.sha !== revision) fail("revision_not_current_main", { currentMain: main.commit?.sha, revision });
