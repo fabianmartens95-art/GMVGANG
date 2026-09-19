@@ -327,7 +327,6 @@ export function wirePasswordSettings(): void {
     const data = new FormData(form);
     const password = String(data.get("password") ?? "");
     const confirmation = String(data.get("password_confirm") ?? "");
-    const next = safeNextPath(String(data.get("next") ?? "/"));
     if (password !== confirmation) {
       result.textContent = "Die Passwörter stimmen nicht überein.";
       return;
