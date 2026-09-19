@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@gmvgang/affiliate-performance": "workspace:*",
+    "@gmvgang/brand-campaign-lifecycle": "workspace:*",
     "@gmvgang/platform-api": "workspace:*",
     "@gmvgang/platform-foundation": "workspace:*",
     "@supabase/ssr": "0.12.0",
