@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "mode": "high_velocity_v2",
+  "enabled": true,
+  "parallelism": {
+    "minimumActiveWorkstreams": 5,
+    "preferredMaximumActiveWorkstreams": 9,
+    "dynamic": true,
+    "sharedCoreSerialized": true,
+    "replenishOnlyWithRealIndependentWork": true
+  },
+  "slicePolicy": {
+    "contractFirst": true,
+    "oneCapabilityPerPr": true,
+    "splitWhenIndependent": true,
+    "preferredChangedFiles": 12,
+    "preferredChangedLines": 800
+  },
+  "safeAutoMerge": {
+    "enabled": true,
+    "explicitOptInRequired": true,
+    "allowedRiskTiers": ["R0", "R1"],
+    "requiresContractFirst": true,
+    "productionGateAllowed": false,
+    "founderDecisionAllowed": false,
+    "sharedCoreAllowed": false,
+    "maxChangedFiles": 12,
+    "maxChangedLines": 800,
+    "allowedAuthorAssociations": ["OWNER", "MEMBER", "COLLABORATOR"],
+    "requiredWorkflows": ["CI", "Parallel Build Guard"],
+    "blockedPathPrefixes": [
+      ".github/",
+      ".gmvgang/",
+      "scripts/ci/",
+      "apps/platform-server/src/",
+      "packages/platform-foundation/",
+      "supabase/migrations/",
+      "railway",
+      "Dockerfile",
+      "package.json",
+      "pnpm-lock.yaml"
+    ]
+  },
+  "evidence": {
+    "queueSummary": true,
+    "recordExactHead": true,
+    "recordWorkflowState": true,
+    "failClosedOnMissingEvidence": true
+  },
+  "telemetry": {
+    "metrics": [
+      "issue_ready_to_first_pr",
+      "pr_open_to_ci_green",
+      "ci_green_to_merge",
+      "wave_active_to_exit_gate"
+    ],
+    "source": "github",
+    "purpose": "identify wait-state bottlenecks without weakening gates"
+  }
+}
