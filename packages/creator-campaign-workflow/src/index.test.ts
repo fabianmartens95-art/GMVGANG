@@ -5,6 +5,7 @@ import {
   authorizeOutreachTransition,
   authorizeSampleTransition,
   deriveCreatorCampaignNextAction,
+  planSampleLifecycleTransition,
 } from "./index.js";
 
 describe("Creator Campaign workflow transitions", () => {
@@ -175,5 +176,83 @@ describe("Creator Campaign next action", () => {
       contentStatus: "cancelled",
       sampleRequired: true,
     })).toBe("campaign_complete");
+  });
+});
+
+describe("Sample lifecycle integration planning", () => {
+  it("requires accepted outreach before any Sample mutation", () => {
+    expect(planSampleLifecycleTransition({
+      outreachStatus: "sent",
+      currentStatus: "not_requested",
+      targetStatus: "requested",
+    })).toEqual({ ok: false, error: "SAMPLE_OUTREACH_NOT_ACCEPTED" });
+  });
+
+  it("reuses the canonical Sample transition graph", () => {
+    expect(planSampleLifecycleTransition({
+      outreachStatus: "accepted",
+      currentStatus: "requested",
+      targetStatus: "delivered",
+      fulfillmentReference: "ship-1",
+    })).toEqual({ ok: false, error: "SAMPLE_TRANSITION_DENIED" });
+
+    expect(planSampleLifecycleTransition({
+      outreachStatus: "accepted",
+      currentStatus: "requested",
+      targetStatus: "approved",
+    })).toEqual({
+      ok: true,
+      currentStatus: "requested",
+      targetStatus: "approved",
+      fulfillmentReference: null,
+    });
+  });
+
+  it("requires a tracking/fulfillment reference when fulfillment begins", () => {
+    expect(planSampleLifecycleTransition({
+      outreachStatus: "accepted",
+      currentStatus: "approved",
+      targetStatus: "ordered",
+    })).toEqual({
+      ok: false,
+      error: "SAMPLE_FULFILLMENT_REFERENCE_REQUIRED",
+    });
+
+    expect(planSampleLifecycleTransition({
+      outreachStatus: "accepted",
+      currentStatus: "approved",
+      targetStatus: "ordered",
+      fulfillmentReference: " order-123 ",
+    })).toEqual({
+      ok: true,
+      currentStatus: "approved",
+      targetStatus: "ordered",
+      fulfillmentReference: "order-123",
+    });
+  });
+
+  it("fails closed on oversized fulfillment references", () => {
+    expect(planSampleLifecycleTransition({
+      outreachStatus: "accepted",
+      currentStatus: "ordered",
+      targetStatus: "shipped",
+      fulfillmentReference: "x".repeat(257),
+    })).toEqual({
+      ok: false,
+      error: "SAMPLE_FULFILLMENT_REFERENCE_INVALID",
+    });
+  });
+
+  it("allows post-delivery workflow progression without inventing a second tracking reference", () => {
+    expect(planSampleLifecycleTransition({
+      outreachStatus: "accepted",
+      currentStatus: "delivered",
+      targetStatus: "content_due",
+    })).toEqual({
+      ok: true,
+      currentStatus: "delivered",
+      targetStatus: "content_due",
+      fulfillmentReference: null,
+    });
   });
 });
