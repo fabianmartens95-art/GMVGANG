@@ -1,3 +1,4 @@
+import { roleHasCapability, type PlatformUserRole } from "@gmvgang/platform-foundation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type ParallelV1Dependencies = {
@@ -136,6 +137,26 @@ function assertBrandWriteAccess(auth: AuthenticatedIdentity, organizationId: str
     (membership) => membership.organization_id === organizationId && BRAND_WRITE_ROLES.has(membership.role),
   );
   if (!allowed) throw new Error("BRAND_ACCESS_DENIED");
+}
+
+export function hasBrandProductManageAccess(
+  memberships: Array<{ organization_id: string; role: string; status: string }>,
+  organizationId: string,
+): boolean {
+  return memberships.some((membership) => {
+    if (membership.organization_id !== organizationId || membership.status !== "active") return false;
+    try {
+      return roleHasCapability(membership.role as PlatformUserRole, "products.manage");
+    } catch {
+      return false;
+    }
+  });
+}
+
+function assertBrandProductManageAccess(auth: AuthenticatedIdentity, organizationId: string): void {
+  if (!hasBrandProductManageAccess(auth.memberships, organizationId)) {
+    throw new Error("BRAND_ACCESS_DENIED");
+  }
 }
 
 async function assertBrandOrganization(
@@ -592,6 +613,7 @@ async function mutateWorkspace(request: Request, deps: ParallelV1Dependencies): 
         });
         responseBody = { ok: true, brandProfile: data };
       } else if (action === "brand_product_upsert") {
+        assertBrandProductManageAccess(auth, organizationId);
         const id = payload.id ? uuid(payload.id) : undefined;
         const name = cleanText(payload.name, 200);
         const sku = cleanText(payload.sku, 128);
