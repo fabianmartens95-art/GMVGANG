@@ -30,7 +30,7 @@ describe("platform foundation", () => {
     expect(roleHasCapability("brand_member", "platform.manage")).toBe(false);
   });
 
-  it("keeps product management inside the canonical product-owning role boundary", () => {
+  it("grants products.manage only to product-owning roles and fails closed for all other roles", () => {
     for (const role of ["founder", "admin", "brand_manager", "brand_member"] as const) {
       expect(roleHasCapability(role, "products.manage")).toBe(true);
     }
