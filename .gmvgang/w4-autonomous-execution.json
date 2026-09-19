@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "wave": "W4",
   "name": "Campaign Core",
   "enabled": true,
@@ -7,6 +7,7 @@
   "pollMinutes": 15,
   "minimumActiveWorkstreams": 5,
   "maximumActiveWorkstreams": 9,
+  "velocityPolicy": ".gmvgang/high-velocity-mode.json",
   "safety": {
     "productionPromotionAllowed": false,
     "paidExternalActivationAllowed": false,
@@ -81,8 +82,9 @@
     }
   ],
   "executor": {
-    "mode": "chatgpt_hourly_plus_github_queue",
+    "mode": "high_velocity_v2",
     "taskTitle": "GMVGANG 24/7 Build",
-    "cadence": "hourly"
+    "cadence": "hourly",
+    "queueCadenceMinutes": 15
   }
 }
