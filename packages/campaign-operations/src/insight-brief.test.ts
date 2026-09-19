@@ -124,13 +124,22 @@ describe("Insight to Brief contract", () => {
     ).toEqual({ ok: false, error: "INSIGHT_PATTERN_INVALID" });
   });
 
-  it("rejects invalid metric ranges", () => {
+  it("rejects invalid metric ranges and non-finite values", () => {
     expect(
       prepareBriefFromInsight({
         ...observedInsight,
         sourceType: "brand_owned_performance",
         evidenceClass: "verified_internal",
         metrics: [{ key: "conversion_rate", value: 1.2 }],
+      }),
+    ).toEqual({ ok: false, error: "INSIGHT_METRIC_INVALID" });
+
+    expect(
+      prepareBriefFromInsight({
+        ...observedInsight,
+        sourceType: "brand_owned_performance",
+        evidenceClass: "verified_internal",
+        metrics: [{ key: "gmv_cents", value: Number.NaN }],
       }),
     ).toEqual({ ok: false, error: "INSIGHT_METRIC_INVALID" });
   });
