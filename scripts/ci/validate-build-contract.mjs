@@ -1,4 +1,6 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { evaluateDependabotPolicy } from "./dependabot-policy.mjs";
 
 const eventPath = process.env.GITHUB_EVENT_PATH;
 if (!eventPath) {
@@ -17,6 +19,59 @@ const body = typeof pullRequest.body === "string" ? pullRequest.body : "";
 const errors = [];
 const v3CutoverPrNumber = 272;
 const v3Required = Number(pullRequest.number ?? 0) >= v3CutoverPrNumber;
+const explicitLane = /^Lane:\s*(foundation|creator|brand|commerce|web|devops|integration)\s*$/im.exec(body)?.[1] ?? null;
+
+const base = pullRequest.base?.sha;
+const head = pullRequest.head?.sha;
+if (!base || !head) {
+  console.error("build-contract: pull_request base/head SHA are required");
+  process.exit(2);
+}
+
+const changed = execFileSync("git", ["diff", "--name-only", base, head], { encoding: "utf8" })
+  .split("\n")
+  .map((value) => value.trim())
+  .filter(Boolean);
+const dependabotPolicy = evaluateDependabotPolicy(pullRequest, changed);
+
+if (dependabotPolicy.isDependabot && !dependabotPolicy.supportedEcosystem) {
+  errors.push("Dependabot ecosystem is not approved by the dependency governance policy.");
+}
+
+if (dependabotPolicy.isDependabot && !dependabotPolicy.safeFiles) {
+  errors.push(
+    `Dependabot changed files outside the approved dependency surface: ${dependabotPolicy.unsafeFiles.join(", ") || "none"}.`,
+  );
+}
+
+if (!explicitLane && dependabotPolicy.autoContractEligible) {
+  console.log(JSON.stringify({
+    scope: "gmvgang.build-contract",
+    pullRequest: pullRequest.number,
+    branch: pullRequest.head?.ref ?? null,
+    synthetic: true,
+    source: "dependabot-policy",
+    lane: "devops",
+    priority: "P1",
+    dependsOn: "none",
+    autoMerge: false,
+    productionGate: false,
+    founderDecision: false,
+    documentationGate: v3Required ? "v3-synthetic-none" : "v2-grandfathered",
+    notionImpact: "none",
+    ceoImpact: "no",
+    ecosystem: dependabotPolicy.ecosystem,
+    updateClass: dependabotPolicy.updateClass,
+    changedFiles: changed,
+  }, null, 2));
+  process.exit(0);
+}
+
+if (!explicitLane && dependabotPolicy.isDependabot) {
+  errors.push(
+    `Dependabot PR is not eligible for a synthetic Build contract (${dependabotPolicy.reason}); use the normal explicit Build contract for reviewed exceptions.`,
+  );
+}
 
 function required(pattern, message) {
   if (!pattern.test(body)) errors.push(message);
@@ -146,4 +201,10 @@ console.log(JSON.stringify({
   documentationGate: v3Required ? field("Documentation gate") : "v2-grandfathered",
   notionImpact: v3Required ? field("Notion impact") : null,
   ceoImpact: v3Required ? field("CEO impact") : null,
+  dependabot: dependabotPolicy.isDependabot ? {
+    ecosystem: dependabotPolicy.ecosystem,
+    safeFiles: dependabotPolicy.safeFiles,
+    updateClass: dependabotPolicy.updateClass,
+    autoContractEligible: dependabotPolicy.autoContractEligible,
+  } : null,
 }, null, 2));

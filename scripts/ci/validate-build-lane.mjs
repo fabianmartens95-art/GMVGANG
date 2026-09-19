@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { evaluateDependabotPolicy } from "./dependabot-policy.mjs";
 
 const config = JSON.parse(readFileSync(".gmvgang/build-lanes.json", "utf8"));
 const base = process.env.BASE_SHA;
@@ -13,18 +14,41 @@ if (!base || !head || !eventPath) {
 }
 
 const event = JSON.parse(readFileSync(eventPath, "utf8"));
-const body = typeof event.pull_request?.body === "string" ? event.pull_request.body : "";
-const declaredLane = /^Lane:\s*(foundation|creator|brand|commerce|web|devops|integration)\s*$/im.exec(body)?.[1] ?? null;
-
-if (!declaredLane) {
-  console.error("parallel-build-guard: PR must declare a valid Lane before ownership can be checked.");
-  process.exit(1);
-}
+const pullRequest = event.pull_request;
+const body = typeof pullRequest?.body === "string" ? pullRequest.body : "";
 
 const changed = execFileSync("git", ["diff", "--name-only", base, head], { encoding: "utf8" })
   .split("\n")
   .map((value) => value.trim())
   .filter(Boolean);
+
+const explicitLane = /^Lane:\s*(foundation|creator|brand|commerce|web|devops|integration)\s*$/im.exec(body)?.[1] ?? null;
+const dependabotPolicy = evaluateDependabotPolicy(pullRequest, changed);
+
+if (dependabotPolicy.isDependabot && !dependabotPolicy.supportedEcosystem) {
+  console.error("parallel-build-guard: unsupported Dependabot ecosystem; policy update required before merge.");
+  process.exit(1);
+}
+
+if (dependabotPolicy.isDependabot && !dependabotPolicy.safeFiles) {
+  console.error(
+    `parallel-build-guard: Dependabot changed files outside its approved dependency surface: ${dependabotPolicy.unsafeFiles.join(", ") || "none"}.`,
+  );
+  process.exit(1);
+}
+
+const declaredLane = explicitLane ?? (dependabotPolicy.autoContractEligible ? "devops" : null);
+
+if (!declaredLane) {
+  if (dependabotPolicy.isDependabot) {
+    console.error(
+      `parallel-build-guard: Dependabot PR is not eligible for an implicit devops lane (${dependabotPolicy.reason}); declare a normal Build contract for reviewed exceptions.`,
+    );
+  } else {
+    console.error("parallel-build-guard: PR must declare a valid Lane before ownership can be checked.");
+  }
+  process.exit(1);
+}
 
 const integrationBranch = config.integrationBranchPrefixes.some((prefix) => branch.startsWith(prefix));
 const matches = new Set();
@@ -52,12 +76,20 @@ const unownedFiles = changed.filter((file) =>
 console.log(JSON.stringify({
   branch,
   declaredLane,
+  laneSource: explicitLane ? "build-contract" : "dependabot-policy",
   integrationBranch,
   detectedLanes: [...matches].sort(),
   unexpectedLanes: unexpectedLanes.sort(),
   touchesSharedCore,
   changedFiles: changed.length,
   unownedFiles,
+  dependabot: dependabotPolicy.isDependabot ? {
+    ecosystem: dependabotPolicy.ecosystem,
+    safeFiles: dependabotPolicy.safeFiles,
+    updateClass: dependabotPolicy.updateClass,
+    autoContractEligible: dependabotPolicy.autoContractEligible,
+    reason: dependabotPolicy.reason,
+  } : null,
 }, null, 2));
 
 if (integrationBranch && declaredLane !== "integration") {
