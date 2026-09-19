@@ -19,7 +19,7 @@ const response = await fetch("https://api.openai.com/v1/responses", {
   body: JSON.stringify({
     model: "gpt-5.6-luna",
     input: "Reply with exactly: OK",
-    max_output_tokens: 8,
+    max_output_tokens: 32,
   }),
 });
 
